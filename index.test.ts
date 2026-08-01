@@ -217,6 +217,20 @@ describe("D&D CLI Tracker Test Suite", () => {
       handleCommand("test");
       expect(creatures.length).toBe(20);
 
+      handleCommand("remove enemies"); // Remove all enemies
+      expect(creatures.some((c) => c.type === "enemy")).toBeFalse();
+
+      handleCommand("remove pcs"); // Remove all PCs
+      expect(creatures.some((c) => c.type === "pc")).toBeFalse();
+
+      handleCommand("remove neutrals"); // Remove all neutrals
+      expect(creatures.length).toBe(0);
+    });
+
+    test("supports bulk removal using e, p, n shorthands", () => {
+      handleCommand("test");
+      expect(creatures.length).toBe(20);
+
       handleCommand("remove e"); // Remove all enemies
       expect(creatures.some((c) => c.type === "enemy")).toBeFalse();
 

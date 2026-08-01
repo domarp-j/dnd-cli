@@ -462,11 +462,11 @@ function handleCommand(input: string): boolean {
     console.log(`    ${CYAN}${pad("prev / p [count]", 25)}${RESET} Go back 1 or [count] turns\n`);
 
     console.log(`  ${BOLD}${MAGENTA}Creature Management:${RESET}`);
-    console.log(`    ${CYAN}${pad("add enemy n1 n2", 25)}${RESET} Add enemies`);
-    console.log(`    ${CYAN}${pad("add neutral n1 n2", 25)}${RESET} Add neutral creatures`);
-    console.log(`    ${CYAN}${pad("add pc n1 n2", 25)}${RESET} Add PCs`);
+    console.log(`    ${CYAN}${pad("add enemy / e n1 n2", 25)}${RESET} Add enemies (shorthand e)`);
+    console.log(`    ${CYAN}${pad("add neutral / n n1 n2", 25)}${RESET} Add neutral creatures (shorthand n)`);
+    console.log(`    ${CYAN}${pad("add pc / p n1 n2", 25)}${RESET} Add PCs (shorthand p)`);
     console.log(`    ${CYAN}${pad("remove char n1 n2", 25)}${RESET} Remove specific creatures`);
-    console.log(`    ${CYAN}${pad("remove pcs / e / n", 25)}${RESET} Remove all creatures of a type\n`);
+    console.log(`    ${CYAN}${pad("remove pcs / e / n", 25)}${RESET} Remove all pcs / enemies / neutrals\n`);
 
     console.log(`  ${BOLD}${MAGENTA}Stats & Conditions:${RESET}`);
     console.log(`    ${CYAN}${pad("add cond <str> n1 n2", 25)}${RESET} Add condition to targets`);
@@ -739,7 +739,11 @@ function handleCommand(input: string): boolean {
   }
 
   if (cmd === "add") {
-    const subCmd = parts[1]?.toLowerCase() ?? "";
+    let rawSub = parts[1]?.toLowerCase() ?? "";
+    if (rawSub === "p" || rawSub === "pcs") rawSub = "pc";
+    if (rawSub === "e" || rawSub === "enemies") rawSub = "enemy";
+    if (rawSub === "n" || rawSub === "neutrals") rawSub = "neutral";
+    const subCmd = rawSub;
     const addOptions = ["pc", "char", "enemy", "neutral", "dmg", "cond", "condition"];
     const matched = matchPrefix(subCmd, addOptions);
 
@@ -1126,10 +1130,10 @@ function handleCommand(input: string): boolean {
     // --- Bulk & Specific Removal by Creature Type ---
     const normalizeType = (str: string): string => {
       const s = str.toLowerCase();
-      if (s === "enemies") return "enemy";
-      if (s === "pcs") return "pc";
-      if (s === "neutrals") return "neutral";
-      if (s === "creature" || s === "creatures") return "char";
+      if (s === "enemies" || s === "enemy" || s === "e") return "enemy";
+      if (s === "pcs" || s === "pc" || s === "p") return "pc";
+      if (s === "neutrals" || s === "neutral" || s === "n") return "neutral";
+      if (s === "creature" || s === "creatures" || s === "char" || s === "c") return "char";
       return s;
     };
 

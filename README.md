@@ -31,15 +31,16 @@ Once launched, `dnd-cli` presents an interactive terminal interface where you ca
 You can add one or multiple creatures at once:
 
 ```text
-add pc <name1> <name2> ...       # Add Player Character(s)
-add enemy <name1> <name2> ...    # Add Enemy creature(s)
-add neutral <name1> <name2> ...  # Add Neutral creature(s)
+add pc <name1> <name2> ...       # Add Player Character(s) (shorthand: add p)
+add enemy <name1> <name2> ...    # Add Enemy creature(s) (shorthand: add e)
+add neutral <name1> <name2> ...  # Add Neutral creature(s) (shorthand: add n)
 ```
 
 *Example:*
 ```text
-add pc Ajax Kaelor
-add enemy "Goblin Warrior" "Goblin Archer" Bugbear
+add pc Ajax Kaelor               # Or: add p Ajax Kaelor
+add enemy "Goblin Warrior" Bugbear # Or: add e "Goblin Warrior" Bugbear
+remove pcs / enemies / neutrals  # Or: remove p / e / n
 ```
 
 ### Setting Stats
