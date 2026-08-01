@@ -39,6 +39,7 @@ let pendingSaveDeleteSelection: {
   saves: { name: string; count: number; savedAt: string; filepath: string }[];
 } | null = null;
 let pendingSaveNamePrompt: { defaultName: string } | null = null;
+let hasAddedCreature = false;
 
 // --- Persistence Helpers ---
 
@@ -108,6 +109,7 @@ export function loadState(saveName: string = "current"): { ok: true; name: strin
     currentRound = typeof data.currentRound === "number" ? data.currentRound : 1;
     currentTurnIndex = typeof data.currentTurnIndex === "number" ? data.currentTurnIndex : 0;
     pendingConfirmation = null;
+    hasAddedCreature = creatures.length > 0;
 
     return { ok: true, name: cleanName };
   } catch {
@@ -476,7 +478,6 @@ function handleCommand(input: string): boolean {
 
   if (cmd === "new") {
     resetState();
-    saveState("current");
     renderTable();
     console.log(`${GREEN}✓ Started a fresh new game.${RESET}\n`);
     return true;
@@ -800,6 +801,7 @@ function handleCommand(input: string): boolean {
         creatures.push({ name, type, hpMax: null, dmg: 0, ac: null, initiative: null, conditions: [] });
       }
     });
+    hasAddedCreature = true;
     renderTable();
     console.log(`${GREEN}+ Added ${typeLabel(type)}: ${targets.join(", ")}${RESET}\n`);
     return true;
@@ -1211,6 +1213,7 @@ function handleCommand(input: string): boolean {
         { name: "mysterious traveler", type: "neutral", hpMax: 25, dmg: 0, ac: 14, initiative: 16, conditions: [] },
       );
     }
+    hasAddedCreature = true;
     renderTable();
     console.log(`${GREEN}✓ Loaded test data${isSimple ? " (simple)" : ""} (${creatures.length} creatures)${RESET}\n`);
     return true;
@@ -1234,6 +1237,7 @@ export function resetState(): void {
   pendingSaveSelection = null;
   pendingSaveDeleteSelection = null;
   pendingSaveNamePrompt = null;
+  hasAddedCreature = false;
 }
 
 export function getCombatState() {
@@ -1383,7 +1387,7 @@ function handleCommandWithAutoSave(input: string): boolean {
   const res = originalHandleCommand(input);
 
   const nonMutatingCmds = ["help", "saves", "delete", "del", "quit", "exit", "q"];
-  if (cmd && !nonMutatingCmds.includes(cmd)) {
+  if (cmd && !nonMutatingCmds.includes(cmd) && hasAddedCreature) {
     saveState("current");
   }
   return res;

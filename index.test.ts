@@ -308,5 +308,15 @@ describe("D&D CLI Tracker Test Suite", () => {
       processSaveNamePrompt("prompted_custom_slot");
       deleteSave("prompted_custom_slot");
     });
+
+    test("delays auto-saving until the first creature is added", () => {
+      resetState();
+      // Execute command before adding creatures -> should not trigger auto-save error or overwrite
+      expect(handleCommand("combat")).toBeTrue();
+
+      // Now add creature -> triggers hasAddedCreature
+      expect(handleCommand("add pc TestHero")).toBeTrue();
+      expect(creatures.length).toBe(1);
+    });
   });
 });
