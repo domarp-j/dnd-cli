@@ -491,7 +491,6 @@ function handleCommand(input: string): boolean {
   if (cmd === "quit" || cmd === "exit" || cmd === "q") {
     pendingQuitConfirmation = true;
     renderTable();
-    console.log(`${YELLOW}Are you sure you want to quit? (y/n)${RESET}\n`);
     return true;
   }
 
