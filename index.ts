@@ -115,6 +115,27 @@ export function listSaves(): { name: string; count: number; savedAt: string; fil
   return results;
 }
 
+export function deleteSave(saveName: string): { ok: true; name: string; filepath: string } | { ok: false; error: string } {
+  ensureSavesDir();
+  if (!saveName || !saveName.trim()) {
+    return { ok: false, error: "Please specify the save name to delete." };
+  }
+  const cleanName = saveName.trim().replace(/[^a-zA-Z0-9_-]/g, "_");
+  const filename = `${cleanName}.json`;
+  const filepath = path.resolve(SAVES_DIR, filename);
+
+  if (!fs.existsSync(filepath)) {
+    return { ok: false, error: `Save file "${cleanName}" not found.` };
+  }
+
+  try {
+    fs.unlinkSync(filepath);
+    return { ok: true, name: cleanName, filepath };
+  } catch {
+    return { ok: false, error: `Failed to delete save file "${cleanName}".` };
+  }
+}
+
 // --- Sorting & Helpers ---
 
 function compareCreaturesCombat(a: Creature, b: Creature): number {
@@ -413,6 +434,7 @@ function handleCommand(input: string): boolean {
     console.log(`  ${CYAN}${pad("new", 25)}${RESET} Start a fresh new game`);
     console.log(`  ${CYAN}${pad("save [name]", 25)}${RESET} Save current game state`);
     console.log(`  ${CYAN}${pad("load [name]", 25)}${RESET} Load saved game state`);
+    console.log(`  ${CYAN}${pad("delete save <name>", 25)}${RESET} Delete a saved game file`);
     console.log(`  ${CYAN}${pad("saves", 25)}${RESET} List all saved game files`);
     console.log(`  ${CYAN}${pad("test [simple]", 25)}${RESET} Load test data`);
     console.log(`  ${CYAN}${pad("help", 25)}${RESET} Show this help`);
@@ -429,10 +451,49 @@ function handleCommand(input: string): boolean {
   }
 
   if (cmd === "save" || cmd === "savegame") {
+    const subCmd = parts[1]?.toLowerCase();
+    if (subCmd === "delete" || subCmd === "rm" || subCmd === "remove" || subCmd === "del") {
+      const saveName = parts[2];
+      if (!saveName) {
+        renderTable();
+        console.log(`${RED}Usage: save delete <name>${RESET}\n`);
+        return true;
+      }
+      const result = deleteSave(saveName);
+      renderTable();
+      if (result.ok) {
+        console.log(`${GREEN}✓ Deleted saved game "${result.name}".${RESET}\n`);
+      } else {
+        console.log(`${RED}${result.error}${RESET}\n`);
+      }
+      return true;
+    }
+
     const saveName = parts[1] || "current";
     const name = saveState(saveName);
     renderTable();
     console.log(`${GREEN}✓ Saved game state to "${name}".${RESET}\n`);
+    return true;
+  }
+
+  if (cmd === "delete" || cmd === "del") {
+    const subCmd = parts[1]?.toLowerCase() ?? "";
+    const isSave = subCmd === "save" || subCmd === "savegame" || subCmd === "saves";
+    const saveName = isSave ? parts[2] : parts[1];
+
+    if (!saveName) {
+      renderTable();
+      console.log(`${RED}Usage: delete save <name> (e.g., "delete save slot1" or "save delete slot1")${RESET}\n`);
+      return true;
+    }
+
+    const result = deleteSave(saveName);
+    renderTable();
+    if (result.ok) {
+      console.log(`${GREEN}✓ Deleted saved game "${result.name}".${RESET}\n`);
+    } else {
+      console.log(`${RED}${result.error}${RESET}\n`);
+    }
     return true;
   }
 
@@ -1127,7 +1188,7 @@ function handleCommandWithAutoSave(input: string): boolean {
   const cmd = parts[0]?.toLowerCase();
   const res = originalHandleCommand(input);
 
-  const nonMutatingCmds = ["help", "saves", "quit", "exit", "q"];
+  const nonMutatingCmds = ["help", "saves", "delete", "del", "quit", "exit", "q"];
   if (cmd && !nonMutatingCmds.includes(cmd)) {
     saveState("current");
   }

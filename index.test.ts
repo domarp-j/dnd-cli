@@ -245,5 +245,14 @@ describe("D&D CLI Tracker Test Suite", () => {
       handleCommand("load current");
       expect(creatures.some((c) => c.name === "AutoSavedHero")).toBeTrue();
     });
+
+    test("deletes a saved game file", () => {
+      handleCommand("save file_to_delete");
+      expect(handleCommand("load file_to_delete")).toBeTrue();
+
+      handleCommand("delete save file_to_delete");
+      handleCommand("load file_to_delete");
+      expect(creatures.some((c) => c.name === "AutoSavedHero")).toBeFalse();
+    });
   });
 });

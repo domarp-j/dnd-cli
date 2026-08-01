@@ -134,10 +134,11 @@ remove e "Goblin Arch*"                  # Remove specific enemy matching wildca
 The CLI automatically persists your game state locally after **every command execution**, so you never lose progress.
 
 ```text
-new             # Clear current encounter and start a fresh game
-save [name]     # Save named game state snapshot (defaults to "current")
-load [name]     # Load game state snapshot (defaults to "current")
-saves           # List all saved game files
+new                     # Clear current encounter and start a fresh game
+save [name]             # Save named game state snapshot (defaults to "current")
+load [name]             # Load game state snapshot (defaults to "current")
+delete save <name>      # Delete a saved game file
+saves                   # List all saved game files
 ```
 
 *Example:*
@@ -145,7 +146,8 @@ saves           # List all saved game files
 save dungeon_room1       # Save snapshot as "dungeon_room1"
 new                      # Start clean session
 load dungeon_room1       # Restore saved "dungeon_room1" session
-saves                    # View all saved sessions with creature counts
+delete save dungeon_room1 # Delete saved game file "dungeon_room1"
+saves                    # View all saved sessions with creature counts and paths
 ```
 
 ### Testing & Test Suite
