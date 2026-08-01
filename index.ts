@@ -200,7 +200,7 @@ function handleCommand(input: string): boolean {
     console.log(`  ${CYAN}add enemy n1 n2${RESET}           Add enemies`);
     console.log(`  ${CYAN}add neutral n1 n2${RESET}         Add neutral creatures`);
     console.log(`  ${CYAN}add dmg <val> n1 n2${RESET}       Add damage to targets`);
-    console.log(`  ${CYAN}add condition <str> n1 n2${RESET} Add condition to targets`);
+    console.log(`  ${CYAN}add cond <str> n1 n2${RESET}      Add condition to targets`);
     console.log(`  ${CYAN}set hp <val> n1 n2${RESET}        Set HP max for targets`);
     console.log(`  ${CYAN}set ac <val> n1 n2${RESET}        Set AC for targets`);
     console.log(`  ${CYAN}set init <val> n1 n2${RESET}      Set initiative for targets`);
@@ -214,17 +214,17 @@ function handleCommand(input: string): boolean {
 
   if (cmd === "add") {
     const subCmd = parts[1]?.toLowerCase() ?? "";
-    const addOptions = ["pc", "char", "enemy", "neutral", "dmg", "condition"];
+    const addOptions = ["pc", "char", "enemy", "neutral", "dmg", "cond", "condition"];
     const matched = matchPrefix(subCmd, addOptions);
 
-    // --- add condition <str> n1 n2 ---
-    if (matched === "condition") {
+    // --- add cond <str> n1 n2 ---
+    if (matched === "cond" || matched === "condition") {
       const cond = parts[2];
       const targets = parts.slice(3);
 
       if (!cond || targets.length === 0) {
         renderTable();
-        console.log(`${RED}Usage: add condition <str> n1 n2${RESET}\n`);
+        console.log(`${RED}Usage: add cond <str> n1 n2${RESET}\n`);
         return true;
       }
 
