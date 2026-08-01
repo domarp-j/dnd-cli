@@ -1403,7 +1403,7 @@ if (import.meta.main) {
     output: process.stdout,
   });
 
-  loadState("current");
+  resetState();
   renderTable();
 
   function prompt() {
