@@ -1347,8 +1347,25 @@ function handleCommand(input: string): boolean {
       );
     }
     hasAddedCreature = true;
+
+    let createdSaveMsg: string | null = null;
+    if (!currentSessionName) {
+      const generatedName = generateRandomSaveName();
+      currentSessionName = generatedName;
+      const res = saveState(generatedName);
+      if (res.isNew) {
+        createdSaveMsg = `✓ Created new save state "${res.name}".`;
+      }
+    } else {
+      saveState(currentSessionName);
+    }
+
     renderTable();
-    console.log(`${GREEN}✓ Loaded test data${isSimple ? " (simple)" : ""} (${creatures.length} creatures)${RESET}\n`);
+    console.log(`${GREEN}✓ Loaded test data${isSimple ? " (simple)" : ""} (${creatures.length} creatures)${RESET}`);
+    if (createdSaveMsg) {
+      console.log(`${GREEN}${createdSaveMsg}${RESET}`);
+    }
+    console.log();
     return true;
   }
 
