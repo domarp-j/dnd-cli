@@ -328,7 +328,6 @@ function handleCommand(input: string): boolean {
       }
       pendingConfirmation = { type: "end_combat" };
       renderTable();
-      console.log(`${YELLOW}End combat and clear initiative & damage for all creatures? (y/n)${RESET}\n`);
       return true;
     }
 
@@ -356,7 +355,6 @@ function handleCommand(input: string): boolean {
     }
     pendingConfirmation = { type: "end_combat" };
     renderTable();
-    console.log(`${YELLOW}End combat and clear initiative & damage for all creatures? (y/n)${RESET}\n`);
     return true;
   }
 
@@ -836,7 +834,7 @@ renderTable();
 
 function prompt() {
   const promptStr = pendingConfirmation
-    ? `${YELLOW}End combat and clear all init & dmg? (y/n) > ${RESET}`
+    ? `${YELLOW}End combat and clear init & dmg for all creatures? (y/n) > ${RESET}`
     : `${MAGENTA}> ${RESET}`;
 
   rl.question(promptStr, (answer) => {
