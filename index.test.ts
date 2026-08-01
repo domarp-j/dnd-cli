@@ -1,4 +1,4 @@
-import { describe, expect, test, beforeEach } from "bun:test";
+import { describe, expect, test, beforeEach, afterAll } from "bun:test";
 import {
   handleCommand,
   creatures,
@@ -8,11 +8,19 @@ import {
   processConfirmation,
   processSaveSelection,
   processSaveDeleteSelection,
+  deleteSave,
 } from "./index";
 
 describe("D&D CLI Tracker Test Suite", () => {
   beforeEach(() => {
     resetState();
+  });
+
+  afterAll(() => {
+    deleteSave("slot_test");
+    deleteSave("interactive_slot");
+    deleteSave("file_to_delete");
+    deleteSave("slot_to_del_interactively");
   });
 
   describe("Test Data Loading", () => {
