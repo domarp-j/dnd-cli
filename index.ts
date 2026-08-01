@@ -307,8 +307,8 @@ function handleCommand(input: string): boolean {
     console.log(`  ${CYAN}${pad("add cond <str> n1 n2", 25)}${RESET} Add condition to targets`);
     console.log(`  ${CYAN}${pad("set hp <val> n1 n2", 25)}${RESET} Set HP max for targets`);
     console.log(`  ${CYAN}${pad("set ac <val> n1 n2", 25)}${RESET} Set AC for targets`);
-    console.log(`  ${CYAN}${pad("set init <val> n1 n2", 25)}${RESET} Set initiative for targets`);
     console.log(`  ${CYAN}${pad("set ac bulk n1 v1 n2 v2", 25)}${RESET} Bulk set AC pairs`);
+    console.log(`  ${CYAN}${pad("set init <val> n1 n2", 25)}${RESET} Set initiative for targets`);
     console.log(`  ${CYAN}${pad("set init bulk n1 v1 n2 v2", 25)}${RESET} Bulk set initiative pairs`);
     console.log(`  ${CYAN}${pad("clear dmg [n1 / all]", 25)}${RESET} Clear damage for targets (or all)`);
     console.log(`  ${CYAN}${pad("clear init [n1 / all]", 25)}${RESET} Clear initiative for targets (or all)`);
