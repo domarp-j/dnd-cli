@@ -113,16 +113,16 @@ combat end        # Exit Combat Mode
 Remove specific creatures or entire groups of creatures by type:
 
 ```text
-remove char <target1> <target2> ...   # Remove specific creatures
-remove enemies [all]                  # Remove all enemies at once
-remove pcs [all]                      # Remove all PCs at once
-remove neutrals [all]                 # Remove all neutral creatures at once
+remove <pc|enemy|neutral|char> [target1 ...]   # Remove creatures or bulk by type
 ```
 
 *Example:*
 ```text
+remove e                                 # Bulk remove all enemies (shorthand for enemy)
+remove p                                 # Bulk remove all PCs (shorthand for pc)
+remove n                                 # Bulk remove all neutral creatures (shorthand for neutral)
 remove char "Goblin Warrior 1"
-remove enemies                        # Bulk remove all enemies from encounter
+remove e "Goblin Arch*"                  # Remove specific enemy matching wildcard
 ```
 
 ### Testing Data

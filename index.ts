@@ -736,29 +736,49 @@ function handleCommand(input: string): boolean {
       return true;
     }
 
-    // --- Bulk Removal by Creature Type ---
-    const isEnemyCmd = matchPrefix(subCmd, ["enemy", "enemies"]) !== null || (subCmd === "all" && matchPrefix(parts[2]?.toLowerCase() ?? "", ["enemy", "enemies"]) !== null);
-    const isPcCmd = matchPrefix(subCmd, ["pc", "pcs"]) !== null || (subCmd === "all" && matchPrefix(parts[2]?.toLowerCase() ?? "", ["pc", "pcs"]) !== null);
-    const isNeutralCmd = matchPrefix(subCmd, ["neutral", "neutrals"]) !== null || (subCmd === "all" && matchPrefix(parts[2]?.toLowerCase() ?? "", ["neutral", "neutrals"]) !== null);
+    // --- Bulk & Specific Removal by Creature Type ---
+    const normalizeType = (str: string): string => {
+      const s = str.toLowerCase();
+      if (s === "enemies") return "enemy";
+      if (s === "pcs") return "pc";
+      if (s === "neutrals") return "neutral";
+      if (s === "creature" || s === "creatures") return "char";
+      return s;
+    };
 
-    const typeToRemove: CreatureType | null = isEnemyCmd ? "enemy" : isPcCmd ? "pc" : isNeutralCmd ? "neutral" : null;
+    const typeOptions = ["pc", "enemy", "neutral", "char"];
+    const normSub = normalizeType(subCmd);
+    const matchedType = matchPrefix(normSub, typeOptions);
+    const secondArg = parts[2] ? normalizeType(parts[2]) : "";
+    const matchedAllType = subCmd === "all" ? matchPrefix(secondArg, ["pc", "enemy", "neutral"]) : null;
 
-    if (typeToRemove) {
-      const targets = subCmd === "all" ? parts.slice(3) : parts.slice(2);
+    let category: CreatureType | "char" | null = null;
+    let targetArgs: string[] = [];
 
-      // Bulk remove if no specific target names given or explicit all / *
-      if (targets.length === 0 || targets[0] === "all" || targets[0] === "*") {
+    if (subCmd === "all" && matchedAllType) {
+      category = matchedAllType as CreatureType;
+      targetArgs = parts.slice(3);
+    } else if (matchedType) {
+      category = matchedType as CreatureType | "char";
+      targetArgs = parts.slice(2);
+    } else {
+      targetArgs = parts.slice(1);
+    }
+
+    if (category && category !== "char") {
+      // Bulk remove if no targets specified, or targets[0] === "all" / "*"
+      if (targetArgs.length === 0 || targetArgs[0] === "all" || targetArgs[0] === "*") {
         let removedCount = 0;
         withTurnPreservation(() => {
           for (let i = creatures.length - 1; i >= 0; i--) {
-            if (creatures[i].type === typeToRemove) {
+            if (creatures[i].type === category) {
               creatures.splice(i, 1);
               removedCount++;
             }
           }
         });
         renderTable();
-        const label = typeToRemove === "pc" ? "PCs" : typeToRemove === "enemy" ? "enemies" : "neutral creatures";
+        const label = category === "pc" ? "PCs" : category === "enemy" ? "enemies" : "neutral creatures";
         if (removedCount > 0) {
           console.log(`${YELLOW}- Removed all ${label} (${removedCount} creatures).${RESET}\n`);
         } else {
@@ -768,17 +788,13 @@ function handleCommand(input: string): boolean {
       }
     }
 
-    // --- Specific Character Removal ---
-    const isCharSubCmd = matchPrefix(subCmd, ["char", "creature", "pc", "pcs", "enemy", "enemies", "neutral", "neutrals"]) !== null;
-    const targets = isCharSubCmd ? parts.slice(2) : parts.slice(1);
-
-    if (targets.length === 0) {
+    if (targetArgs.length === 0) {
       renderTable();
-      console.log(`${RED}Usage: remove <enemies|pcs|neutrals|char> (e.g. "remove enemies" or "remove char Ajax")${RESET}\n`);
+      console.log(`${RED}Usage: remove <pc|enemy|neutral|char> [target1 target2 ...] (e.g. "remove enemy" or "remove pc Ajax")${RESET}\n`);
       return true;
     }
 
-    const result = findCreatures(targets);
+    const result = findCreatures(targetArgs);
     if (!result.ok) {
       renderTable();
       console.log(`${RED}${result.error}${RESET}\n`);
