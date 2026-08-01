@@ -504,8 +504,8 @@ function handleCommand(input: string): boolean {
   if (cmd === "save" || cmd === "savegame") {
     const subCmd = parts[1]?.toLowerCase();
     if (subCmd === "delete" || subCmd === "rm" || subCmd === "remove" || subCmd === "del") {
-      const saveName = parts[2];
-      if (!saveName) {
+      const saveNames = parts.slice(2);
+      if (saveNames.length === 0) {
         const savesList = listSaves();
         if (savesList.length === 0) {
           renderTable();
@@ -523,13 +523,23 @@ function handleCommand(input: string): boolean {
         console.log();
         return true;
       }
-      const result = deleteSave(saveName);
-      renderTable();
-      if (result.ok) {
-        console.log(`${GREEN}✓ Deleted saved game "${result.name}".${RESET}\n`);
-      } else {
-        console.log(`${RED}${result.error}${RESET}\n`);
+
+      const deleted: string[] = [];
+      const errors: string[] = [];
+      for (const sName of saveNames) {
+        const res = deleteSave(sName);
+        if (res.ok) deleted.push(res.name);
+        else errors.push(res.error);
       }
+
+      renderTable();
+      if (deleted.length > 0) {
+        console.log(`${GREEN}✓ Deleted saved game(s): ${deleted.join(", ")}.${RESET}`);
+      }
+      if (errors.length > 0) {
+        console.log(`${RED}${errors.join(" ")}${RESET}`);
+      }
+      console.log();
       return true;
     }
 
@@ -554,9 +564,9 @@ function handleCommand(input: string): boolean {
   if (cmd === "delete" || cmd === "del") {
     const subCmd = parts[1]?.toLowerCase() ?? "";
     const isSave = subCmd === "save" || subCmd === "savegame" || subCmd === "saves";
-    const saveName = isSave ? parts[2] : parts[1];
+    const saveNames = isSave ? parts.slice(2) : parts.slice(1);
 
-    if (!saveName) {
+    if (saveNames.length === 0) {
       const savesList = listSaves();
       if (savesList.length === 0) {
         renderTable();
@@ -575,13 +585,22 @@ function handleCommand(input: string): boolean {
       return true;
     }
 
-    const result = deleteSave(saveName);
-    renderTable();
-    if (result.ok) {
-      console.log(`${GREEN}✓ Deleted saved game "${result.name}".${RESET}\n`);
-    } else {
-      console.log(`${RED}${result.error}${RESET}\n`);
+    const deleted: string[] = [];
+    const errors: string[] = [];
+    for (const sName of saveNames) {
+      const res = deleteSave(sName);
+      if (res.ok) deleted.push(res.name);
+      else errors.push(res.error);
     }
+
+    renderTable();
+    if (deleted.length > 0) {
+      console.log(`${GREEN}✓ Deleted saved game(s): ${deleted.join(", ")}.${RESET}`);
+    }
+    if (errors.length > 0) {
+      console.log(`${RED}${errors.join(" ")}${RESET}`);
+    }
+    console.log();
     return true;
   }
 
@@ -1366,40 +1385,63 @@ export function processSaveDeleteSelection(answer: string): boolean {
   const saves = pendingSaveDeleteSelection.saves;
   pendingSaveDeleteSelection = null;
 
-  const choice = answer.trim();
-  if (choice.toLowerCase() === "c" || choice.toLowerCase() === "cancel") {
+  const choiceStr = answer.trim();
+  if (choiceStr.toLowerCase() === "c" || choiceStr.toLowerCase() === "cancel") {
     renderTable();
     console.log(`${DIM}Delete save cancelled.${RESET}\n`);
     return false;
   }
 
-  const index = parseInt(choice, 10) - 1;
-  let targetSave: string | null = null;
+  const tokens = choiceStr.split(/[\s,]+/).filter(Boolean);
+  let targetNames: string[] = [];
 
-  if (!isNaN(index) && index >= 0 && index < saves.length) {
-    targetSave = saves[index]!.name;
+  if (tokens.length === 1 && (tokens[0]!.toLowerCase() === "all" || tokens[0]! === "*")) {
+    targetNames = saves.map((s) => s.name);
   } else {
-    const matched = saves.find((s) => s.name.toLowerCase() === choice.toLowerCase());
-    if (matched) {
-      targetSave = matched.name;
+    for (const token of tokens) {
+      const idx = parseInt(token, 10) - 1;
+      if (!isNaN(idx) && idx >= 0 && idx < saves.length) {
+        targetNames.push(saves[idx]!.name);
+      } else {
+        const matched = saves.find((s) => s.name.toLowerCase() === token.toLowerCase());
+        if (matched) {
+          targetNames.push(matched.name);
+        } else {
+          targetNames.push(token);
+        }
+      }
     }
   }
 
-  if (!targetSave) {
+  targetNames = Array.from(new Set(targetNames));
+
+  if (targetNames.length === 0) {
     renderTable();
-    console.log(`${RED}Invalid selection "${choice}". Delete save cancelled.${RESET}\n`);
+    console.log(`${RED}Invalid selection "${choiceStr}". Delete save cancelled.${RESET}\n`);
     return false;
   }
 
-  const result = deleteSave(targetSave);
-  renderTable();
-  if (result.ok) {
-    console.log(`${GREEN}✓ Deleted saved game "${result.name}".${RESET}\n`);
-    return true;
-  } else {
-    console.log(`${RED}${result.error}${RESET}\n`);
-    return false;
+  const deleted: string[] = [];
+  const errors: string[] = [];
+
+  for (const tName of targetNames) {
+    const result = deleteSave(tName);
+    if (result.ok) {
+      deleted.push(result.name);
+    } else {
+      errors.push(result.error);
+    }
   }
+
+  renderTable();
+  if (deleted.length > 0) {
+    console.log(`${GREEN}✓ Deleted saved game(s): ${deleted.join(", ")}.${RESET}`);
+  }
+  if (errors.length > 0) {
+    console.log(`${RED}${errors.join(" ")}${RESET}`);
+  }
+  console.log();
+  return true;
 }
 
 // Wrap handleCommand to ensure auto-saving on every mutating command
@@ -1435,7 +1477,7 @@ if (import.meta.main) {
       : pendingSaveSelection
       ? `${CYAN}Select save to load (1-${pendingSaveSelection.saves.length}) or 'c' to cancel > ${RESET}`
       : pendingSaveDeleteSelection
-      ? `${RED}Select save to DELETE (1-${pendingSaveDeleteSelection.saves.length}) or 'c' to cancel > ${RESET}`
+      ? `${RED}Select save(s) to DELETE (e.g. 1 3 or 1,2 or 'all') or 'c' to cancel > ${RESET}`
       : pendingSaveNamePrompt
       ? `${CYAN}Enter session name [Press Enter for "${pendingSaveNamePrompt.defaultName}"] > ${RESET}`
       : `${MAGENTA}> ${RESET}`;

@@ -139,8 +139,8 @@ save                    # Save session with interactive name prompt (preset rand
 save <name>             # Directly save game state with a specific session name
 load                    # Show interactive list of saved games to pick from to load
 load <name>             # Directly load a specific saved game snapshot
-delete save             # Show interactive list of saved games to pick from to delete
-delete save <name>      # Delete a specific saved game file
+delete save             # Show interactive list to pick save(s) to delete (e.g. "1 3", "1,2", or "all")
+delete save s1 s2 s3    # Delete multiple saved game files at once
 saves                   # List all saved game files
 ```
 
@@ -151,8 +151,8 @@ save dungeon_room1       # Save snapshot as "dungeon_room1" directly
 load                     # Interactive load selection menu (pick 1, 2, 3... or enter name)
 new                      # Start clean session
 load dungeon_room1       # Restore saved "dungeon_room1" session directly
-delete save              # Interactive delete selection menu (pick 1, 2, 3...)
-delete save dungeon_room1 # Delete saved game file "dungeon_room1" directly
+delete save 1 3          # Interactively delete save options 1 and 3
+delete save room1 room2  # Delete save files "room1" and "room2" directly
 saves                    # View all saved sessions with creature counts and paths
 ```
 

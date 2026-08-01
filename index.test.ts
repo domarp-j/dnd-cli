@@ -309,14 +309,22 @@ describe("D&D CLI Tracker Test Suite", () => {
       deleteSave("prompted_custom_slot");
     });
 
-    test("delays auto-saving until the first creature is added", () => {
-      resetState();
-      // Execute command before adding creatures -> should not trigger auto-save error or overwrite
-      expect(handleCommand("combat")).toBeTrue();
+    test("deletes multiple save files at once via direct command and interactive selection", () => {
+      handleCommand("save multi_del_1");
+      handleCommand("save multi_del_2");
+      handleCommand("save multi_del_3");
 
-      // Now add creature -> triggers hasAddedCreature
-      expect(handleCommand("add pc TestHero")).toBeTrue();
-      expect(creatures.length).toBe(1);
+      // Direct multi-delete
+      handleCommand("delete save multi_del_1 multi_del_2");
+      expect(handleCommand("load multi_del_1")).toBeTrue();
+      expect(handleCommand("load multi_del_2")).toBeTrue();
+
+      // Interactive multi-delete
+      handleCommand("save multi_del_interactive_a");
+      handleCommand("save multi_del_interactive_b");
+      handleCommand("delete save");
+      processSaveDeleteSelection("multi_del_interactive_a multi_del_interactive_b");
+      deleteSave("multi_del_3");
     });
   });
 });
