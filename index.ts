@@ -1,4 +1,6 @@
 import * as readline from "readline";
+import * as fs from "fs";
+import * as path from "path";
 
 // --- Types ---
 
@@ -14,6 +16,15 @@ interface Creature {
   conditions: string[];
 }
 
+interface GameStateData {
+  version: 1;
+  savedAt: string;
+  creatures: Creature[];
+  inCombat: boolean;
+  currentRound: number;
+  currentTurnIndex: number;
+}
+
 // --- State ---
 
 const creatures: Creature[] = [];
@@ -21,6 +32,87 @@ let inCombat = false;
 let currentRound = 1;
 let currentTurnIndex = 0;
 let pendingConfirmation: { type: "end_combat" } | null = null;
+
+// --- Persistence Helpers ---
+
+const SAVES_DIR = path.join(process.cwd(), "saves");
+
+function ensureSavesDir(): void {
+  if (!fs.existsSync(SAVES_DIR)) {
+    fs.mkdirSync(SAVES_DIR, { recursive: true });
+  }
+}
+
+export function saveState(saveName: string = "current"): string {
+  ensureSavesDir();
+  const cleanName = saveName.trim().replace(/[^a-zA-Z0-9_-]/g, "_") || "current";
+  const filename = `${cleanName}.json`;
+  const filepath = path.join(SAVES_DIR, filename);
+
+  const data: GameStateData = {
+    version: 1,
+    savedAt: new Date().toISOString(),
+    creatures,
+    inCombat,
+    currentRound,
+    currentTurnIndex,
+  };
+
+  fs.writeFileSync(filepath, JSON.stringify(data, null, 2), "utf-8");
+  return cleanName;
+}
+
+export function loadState(saveName: string = "current"): { ok: true; name: string } | { ok: false; error: string } {
+  ensureSavesDir();
+  const cleanName = saveName.trim().replace(/[^a-zA-Z0-9_-]/g, "_") || "current";
+  const filename = `${cleanName}.json`;
+  const filepath = path.join(SAVES_DIR, filename);
+
+  if (!fs.existsSync(filepath)) {
+    return { ok: false, error: `Save file "${cleanName}" not found.` };
+  }
+
+  try {
+    const raw = fs.readFileSync(filepath, "utf-8");
+    const data = JSON.parse(raw) as GameStateData;
+
+    creatures.length = 0;
+    if (Array.isArray(data.creatures)) {
+      creatures.push(...data.creatures);
+    }
+    inCombat = Boolean(data.inCombat);
+    currentRound = typeof data.currentRound === "number" ? data.currentRound : 1;
+    currentTurnIndex = typeof data.currentTurnIndex === "number" ? data.currentTurnIndex : 0;
+    pendingConfirmation = null;
+
+    return { ok: true, name: cleanName };
+  } catch {
+    return { ok: false, error: `Failed to parse save file "${cleanName}".` };
+  }
+}
+
+export function listSaves(): { name: string; count: number; savedAt: string }[] {
+  ensureSavesDir();
+  const files = fs.readdirSync(SAVES_DIR).filter((f) => f.endsWith(".json"));
+  const results: { name: string; count: number; savedAt: string }[] = [];
+
+  for (const f of files) {
+    const filepath = path.join(SAVES_DIR, f);
+    try {
+      const raw = fs.readFileSync(filepath, "utf-8");
+      const data = JSON.parse(raw) as GameStateData;
+      results.push({
+        name: f.replace(/\.json$/, ""),
+        count: Array.isArray(data.creatures) ? data.creatures.length : 0,
+        savedAt: data.savedAt ?? "Unknown",
+      });
+    } catch {
+      // skip unparseable
+    }
+  }
+
+  return results;
+}
 
 // --- Sorting & Helpers ---
 
@@ -317,9 +409,57 @@ function handleCommand(input: string): boolean {
     console.log(`  ${CYAN}${pad("remove neutrals [all]", 25)}${RESET} Remove all neutral creatures`);
     console.log(`  ${CYAN}${pad("remove cond <str> n1 n2", 25)}${RESET} Remove condition from targets`);
     console.log(`  ${CYAN}${pad("remove char n1 n2", 25)}${RESET} Remove specific creatures`);
+    console.log(`  ${CYAN}${pad("new", 25)}${RESET} Start a fresh new game`);
+    console.log(`  ${CYAN}${pad("save [name]", 25)}${RESET} Save current game state`);
+    console.log(`  ${CYAN}${pad("load [name]", 25)}${RESET} Load saved game state`);
+    console.log(`  ${CYAN}${pad("saves", 25)}${RESET} List all saved game files`);
     console.log(`  ${CYAN}${pad("test [simple]", 25)}${RESET} Load test data`);
     console.log(`  ${CYAN}${pad("help", 25)}${RESET} Show this help`);
     console.log(`  ${CYAN}${pad("quit", 25)}${RESET} Exit\n`);
+    return true;
+  }
+
+  if (cmd === "new") {
+    resetState();
+    saveState("current");
+    renderTable();
+    console.log(`${GREEN}✓ Started a fresh new game.${RESET}\n`);
+    return true;
+  }
+
+  if (cmd === "save" || cmd === "savegame") {
+    const saveName = parts[1] || "current";
+    const name = saveState(saveName);
+    renderTable();
+    console.log(`${GREEN}✓ Saved game state to "${name}".${RESET}\n`);
+    return true;
+  }
+
+  if (cmd === "load" || cmd === "loadgame") {
+    const saveName = parts[1] || "current";
+    const result = loadState(saveName);
+    renderTable();
+    if (result.ok) {
+      console.log(`${GREEN}✓ Loaded game state from "${result.name}" (${creatures.length} creatures).${RESET}\n`);
+    } else {
+      console.log(`${RED}${result.error}${RESET}\n`);
+    }
+    return true;
+  }
+
+  if (cmd === "saves" || (cmd === "list" && parts[1]?.toLowerCase() === "saves")) {
+    const savesList = listSaves();
+    renderTable();
+    if (savesList.length === 0) {
+      console.log(`${YELLOW}No saved games found.${RESET}\n`);
+    } else {
+      console.log(`${BOLD}Saved games:${RESET}`);
+      for (const s of savesList) {
+        const timeStr = s.savedAt !== "Unknown" ? new Date(s.savedAt).toLocaleString() : s.savedAt;
+        console.log(`  ${CYAN}${pad(s.name, 15)}${RESET} ${s.count} creatures · ${DIM}${timeStr}${RESET}`);
+      }
+      console.log();
+    }
     return true;
   }
 
@@ -932,7 +1072,7 @@ function handleCommand(input: string): boolean {
 
 // --- Test Helpers & Exports ---
 
-export { handleCommand, creatures, getSortedCreatures };
+export { creatures, getSortedCreatures };
 
 export function resetState(): void {
   creatures.length = 0;
@@ -964,6 +1104,7 @@ export function processConfirmation(answer: string): boolean {
         c.initiative = null;
         c.dmg = 0;
       }
+      saveState("current");
       renderTable();
       console.log(`${YELLOW}⚔ Combat ended. Initiative and damage cleared for all creatures.${RESET}\n`);
       return true;
@@ -976,6 +1117,22 @@ export function processConfirmation(answer: string): boolean {
   return false;
 }
 
+// Wrap handleCommand to ensure auto-saving on every mutating command
+const originalHandleCommand = handleCommand;
+function handleCommandWithAutoSave(input: string): boolean {
+  const parts = tokenize(input.trim());
+  const cmd = parts[0]?.toLowerCase();
+  const res = originalHandleCommand(input);
+
+  const nonMutatingCmds = ["help", "saves", "quit", "exit", "q"];
+  if (cmd && !nonMutatingCmds.includes(cmd)) {
+    saveState("current");
+  }
+  return res;
+}
+
+export { handleCommandWithAutoSave as handleCommand };
+
 // --- REPL ---
 
 if (import.meta.main) {
@@ -984,6 +1141,7 @@ if (import.meta.main) {
     output: process.stdout,
   });
 
+  loadState("current");
   renderTable();
 
   function prompt() {
@@ -998,7 +1156,7 @@ if (import.meta.main) {
         return;
       }
 
-      const shouldContinue = handleCommand(answer);
+      const shouldContinue = handleCommandWithAutoSave(answer);
       if (shouldContinue) {
         prompt();
       } else {

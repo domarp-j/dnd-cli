@@ -129,6 +129,25 @@ remove char "Goblin Warrior 1"
 remove e "Goblin Arch*"                  # Remove specific enemy matching wildcard
 ```
 
+### Game State Persistence
+
+The CLI automatically persists your game state locally after **every command execution**, so you never lose progress.
+
+```text
+new             # Clear current encounter and start a fresh game
+save [name]     # Save named game state snapshot (defaults to "current")
+load [name]     # Load game state snapshot (defaults to "current")
+saves           # List all saved game files
+```
+
+*Example:*
+```text
+save dungeon_room1       # Save snapshot as "dungeon_room1"
+new                      # Start clean session
+load dungeon_room1       # Restore saved "dungeon_room1" session
+saves                    # View all saved sessions with creature counts
+```
+
 ### Testing & Test Suite
 
 Run the automated Bun test suite:
@@ -150,6 +169,9 @@ test simple   # Load simple test encounter (names only)
 - `combat end` — End combat mode.
 - `next` / `n [count]` — Move forward 1 or `[count]` turns (e.g., `n 3`).
 - `prev` / `p [count]` — Move backward 1 or `[count]` turns (e.g., `p 2`).
+- `new` — Start a new game session.
+- `save [name]` / `load [name]` — Save or load game state snapshots.
+- `saves` — List all local saved game files.
 - `remove enemies` / `pcs` / `neutrals` — Bulk remove creatures by type.
 - `help` — Show command reference menu.
 - `quit` or `exit` — Exit the application.

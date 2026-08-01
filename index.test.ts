@@ -218,4 +218,32 @@ describe("D&D CLI Tracker Test Suite", () => {
       expect(creatures[0]?.name).toBe("HeroB");
     });
   });
+
+  describe("Local Game State Persistence", () => {
+    test("saves and loads game state", () => {
+      handleCommand("add pc Hero1 Hero2");
+      handleCommand("set hp 40 Hero1");
+      handleCommand("save slot_test");
+
+      handleCommand("new");
+      expect(creatures.length).toBe(0);
+
+      handleCommand("load slot_test");
+      expect(creatures.length).toBe(2);
+      expect(creatures.find((c) => c.name === "Hero1")?.hpMax).toBe(40);
+    });
+
+    test("auto-saves on mutating commands", () => {
+      handleCommand("new");
+      handleCommand("add pc AutoSavedHero");
+
+      // Reset in-memory creatures without overwriting current.json
+      resetState();
+      expect(creatures.length).toBe(0);
+
+      // Loading default 'current' save should restore AutoSavedHero
+      handleCommand("load current");
+      expect(creatures.some((c) => c.name === "AutoSavedHero")).toBeTrue();
+    });
+  });
 });
