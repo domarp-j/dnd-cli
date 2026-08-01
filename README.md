@@ -88,7 +88,7 @@ Start interactive turn tracking sorted by initiative:
 
 ```text
 combat [start]    # Activate Combat Mode
-end combat        # Exit Combat Mode
+combat end        # Exit Combat Mode
 ```
 
 - **Initiative Sorting**: In Combat Mode, the table is automatically sorted by initiative score in descending order (highest first). Creatures without initiative are placed at the bottom.
@@ -127,7 +127,7 @@ test simple   # Load simple test encounter (names only)
 ### General Commands
 
 - `combat` — Start combat mode.
-- `end combat` — End combat mode.
+- `combat end` — End combat mode.
 - `next` / `n [count]` — Move forward 1 or `[count]` turns (e.g., `n 3`).
 - `prev` / `p [count]` — Move backward 1 or `[count]` turns (e.g., `p 2`).
 - `help` — Show command reference menu.

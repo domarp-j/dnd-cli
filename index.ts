@@ -185,7 +185,7 @@ function renderTable(): void {
 
   console.log(`${DIM}${"─".repeat(80)}${RESET}`);
   if (inCombat) {
-    console.log(`${DIM}  next (n [count]) · prev (p [count]) · add dmg <val> n1 · set hp <val> n1 · end combat${RESET}\n`);
+    console.log(`${DIM}  next (n [count]) · prev (p [count]) · add dmg <val> n1 · set hp <val> n1 · combat end${RESET}\n`);
   } else {
     console.log(`${DIM}  combat · add pc n1 n2 · set hp <val> n1 n2 · add dmg <val> n1 n2 · help · quit${RESET}\n`);
   }
@@ -296,7 +296,7 @@ function handleCommand(input: string): boolean {
     renderTable();
     console.log(`${BOLD}Available commands:${RESET}`);
     console.log(`  ${CYAN}${pad("combat [start]", 25)}${RESET} Start combat mode (resorts by initiative)`);
-    console.log(`  ${CYAN}${pad("end combat", 25)}${RESET} End combat mode`);
+    console.log(`  ${CYAN}${pad("combat end", 25)}${RESET} End combat mode`);
     console.log(`  ${CYAN}${pad("next / n [count]", 25)}${RESET} Advance 1 or [count] turns`);
     console.log(`  ${CYAN}${pad("prev / p [count]", 25)}${RESET} Go back 1 or [count] turns`);
     console.log(`  ${CYAN}${pad("add pc n1 n2", 25)}${RESET} Add PCs`);
