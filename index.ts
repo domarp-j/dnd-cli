@@ -40,6 +40,7 @@ let pendingSaveDeleteSelection: {
 } | null = null;
 let pendingSaveNamePrompt: { defaultName: string } | null = null;
 let hasAddedCreature = false;
+let currentSessionName: string | null = null;
 
 // --- Persistence Helpers ---
 
@@ -85,6 +86,9 @@ export function saveState(saveName: string = "current"): { name: string; isNew: 
   };
 
   fs.writeFileSync(filepath, JSON.stringify(data, null, 2), "utf-8");
+  if (cleanName !== "current") {
+    currentSessionName = cleanName;
+  }
   return { name: cleanName, isNew };
 }
 
@@ -111,6 +115,9 @@ export function loadState(saveName: string = "current"): { ok: true; name: strin
     currentTurnIndex = typeof data.currentTurnIndex === "number" ? data.currentTurnIndex : 0;
     pendingConfirmation = null;
     hasAddedCreature = creatures.length > 0;
+    if (cleanName !== "current") {
+      currentSessionName = cleanName;
+    }
 
     return { ok: true, name: cleanName };
   } catch {
@@ -274,6 +281,10 @@ function fmt(val: number | null): string {
   return val === null ? "—" : String(val);
 }
 
+function visibleLength(str: string): number {
+  return str.replace(/\u001b\[[0-9;]*m/g, "").length;
+}
+
 function renderTable(): void {
   console.clear();
 
@@ -286,15 +297,21 @@ function renderTable(): void {
     if (currentTurnIndex < 0) {
       currentTurnIndex = 0;
     }
-    const active = sorted[currentTurnIndex];
-    const turnName = active ? active.name : "None";
-    console.log(
-      `${BOLD}${MAGENTA}⚔  D&D Game State Tracker ${RESET} ${BOLD}${YELLOW}[ COMBAT MODE — Round ${currentRound} | Turn: ${turnName} ]${RESET}`
-    );
-  } else {
-    console.log(`${BOLD}${MAGENTA}⚔  D&D Game State Tracker${RESET}`);
   }
 
+  const activeName = (inCombat && sorted.length > 0) ? (sorted[currentTurnIndex]?.name ?? "None") : "";
+  const titleLeft = (inCombat && sorted.length > 0)
+    ? `${BOLD}${MAGENTA}⚔  D&D Game State Tracker ${RESET} ${BOLD}${YELLOW}[ COMBAT — Round ${currentRound} | Turn: ${activeName} ]${RESET}`
+    : `${BOLD}${MAGENTA}⚔  D&D Game State Tracker${RESET}`;
+
+  const sessionLabel = currentSessionName ? `[ Game: ${currentSessionName} ]` : `[ Game: Unsaved ]`;
+  const sessionRight = `${BOLD}${CYAN}${sessionLabel}${RESET}`;
+
+  const leftVisLen = visibleLength(titleLeft);
+  const rightVisLen = visibleLength(sessionRight);
+  const padding = Math.max(2, 80 - leftVisLen - rightVisLen);
+
+  console.log(`${titleLeft}${" ".repeat(padding)}${sessionRight}`);
   console.log(`${DIM}${"─".repeat(80)}${RESET}`);
 
   if (creatures.length === 0) {
@@ -1241,6 +1258,7 @@ export function resetState(): void {
   pendingSaveDeleteSelection = null;
   pendingSaveNamePrompt = null;
   hasAddedCreature = false;
+  currentSessionName = null;
 }
 
 export function getCombatState() {
