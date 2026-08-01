@@ -39,6 +39,7 @@ let pendingSaveDeleteSelection: {
   saves: { name: string; count: number; savedAt: string; filepath: string }[];
 } | null = null;
 let pendingSaveNamePrompt: { defaultName: string } | null = null;
+let pendingQuitConfirmation = false;
 let hasAddedCreature = false;
 let currentSessionName: string | null = null;
 
@@ -443,8 +444,10 @@ function handleCommand(input: string): boolean {
   }
 
   if (cmd === "quit" || cmd === "exit" || cmd === "q") {
-    console.log("Farewell, adventurer!");
-    return false;
+    pendingQuitConfirmation = true;
+    renderTable();
+    console.log(`${YELLOW}Are you sure you want to quit? (y/n)${RESET}\n`);
+    return true;
   }
 
   if (cmd === "help" || cmd === "h") {
@@ -1276,6 +1279,7 @@ export function resetState(): void {
   pendingSaveSelection = null;
   pendingSaveDeleteSelection = null;
   pendingSaveNamePrompt = null;
+  pendingQuitConfirmation = false;
   hasAddedCreature = false;
   currentSessionName = null;
 }
@@ -1286,8 +1290,24 @@ export function getCombatState() {
     currentRound,
     currentTurnIndex,
     pendingConfirmation,
+    pendingQuitConfirmation,
     activeCreature: creatures.length > 0 ? getSortedCreatures()[currentTurnIndex] ?? null : null,
   };
+}
+
+export function processQuitConfirmation(answer: string): boolean {
+  if (!pendingQuitConfirmation) return false;
+
+  pendingQuitConfirmation = false;
+  const choice = answer.trim().toLowerCase();
+  if (choice === "y" || choice === "yes") {
+    console.log("Farewell, adventurer!");
+    return true;
+  } else {
+    renderTable();
+    console.log(`${DIM}Quit cancelled.${RESET}\n`);
+    return false;
+  }
 }
 
 export function processConfirmation(answer: string): boolean {
@@ -1474,6 +1494,8 @@ if (import.meta.main) {
   function prompt() {
     const promptStr = pendingConfirmation
       ? `${YELLOW}End combat and clear init & dmg for all creatures? (y/n) > ${RESET}`
+      : pendingQuitConfirmation
+      ? `${YELLOW}Are you sure you want to quit? (y/n) > ${RESET}`
       : pendingSaveSelection
       ? `${CYAN}Select save to load (1-${pendingSaveSelection.saves.length}) or 'c' to cancel > ${RESET}`
       : pendingSaveDeleteSelection
@@ -1483,6 +1505,16 @@ if (import.meta.main) {
       : `${MAGENTA}> ${RESET}`;
 
     rl.question(promptStr, (answer) => {
+      if (pendingQuitConfirmation) {
+        const confirmedQuit = processQuitConfirmation(answer);
+        if (confirmedQuit) {
+          rl.close();
+        } else {
+          prompt();
+        }
+        return;
+      }
+
       if (pendingConfirmation) {
         processConfirmation(answer);
         prompt();

@@ -9,6 +9,7 @@ import {
   processSaveSelection,
   processSaveDeleteSelection,
   processSaveNamePrompt,
+  processQuitConfirmation,
   deleteSave,
 } from "./index";
 
@@ -22,6 +23,33 @@ describe("D&D CLI Tracker Test Suite", () => {
     deleteSave("interactive_slot");
     deleteSave("file_to_delete");
     deleteSave("slot_to_del_interactively");
+  });
+
+  describe("Basic Initialization & Commands", () => {
+    test("starts empty and loads test encounter", () => {
+      expect(creatures.length).toBe(0);
+      handleCommand("test");
+      expect(creatures.length).toBe(20);
+      const ajax = creatures.find((c) => c.name === "ajax");
+      expect(ajax).toBeDefined();
+      expect(ajax?.hpMax).toBe(45);
+    });
+
+    test("handles help and h commands", () => {
+      expect(handleCommand("help")).toBeTrue();
+      expect(handleCommand("h")).toBeTrue();
+    });
+
+    test("prompts for confirmation before quitting", () => {
+      expect(handleCommand("quit")).toBeTrue();
+      expect(getCombatState().pendingQuitConfirmation).toBeTrue();
+
+      expect(processQuitConfirmation("n")).toBeFalse();
+      expect(getCombatState().pendingQuitConfirmation).toBeFalse();
+
+      expect(handleCommand("q")).toBeTrue();
+      expect(processQuitConfirmation("y")).toBeTrue();
+    });
   });
 
   describe("Test Data Loading", () => {
