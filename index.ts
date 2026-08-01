@@ -568,6 +568,7 @@ function handleCommand(input: string): boolean {
       const presetName = generateRandomSaveName();
       pendingRenamePrompt = { defaultName: presetName };
       renderTable();
+      console.log(`${DIM}Save Directory: ${path.resolve(SAVES_DIR)}${RESET}`);
       console.log(`${BOLD}Renaming game session:${RESET}`);
       console.log(`Default session name: ${CYAN}${presetName}${RESET}\n`);
       return true;
@@ -576,7 +577,8 @@ function handleCommand(input: string): boolean {
     const res = renameSession(newName);
     renderTable();
     if (res.ok) {
-      console.log(`${GREEN}✓ Renamed game session to "${res.newName}".${RESET}\n`);
+      const filepath = path.resolve(SAVES_DIR, `${res.newName}.json`);
+      console.log(`${GREEN}✓ Renamed game session to "${res.newName}" at "${filepath}".${RESET}\n`);
     } else {
       console.log(`${RED}${res.error}${RESET}\n`);
     }
@@ -591,6 +593,7 @@ function handleCommand(input: string): boolean {
         const presetName = generateRandomSaveName();
         pendingRenamePrompt = { defaultName: presetName };
         renderTable();
+        console.log(`${DIM}Save Directory: ${path.resolve(SAVES_DIR)}${RESET}`);
         console.log(`${BOLD}Renaming game session:${RESET}`);
         console.log(`Default session name: ${CYAN}${presetName}${RESET}\n`);
         return true;
@@ -598,7 +601,8 @@ function handleCommand(input: string): boolean {
       const res = renameSession(newName);
       renderTable();
       if (res.ok) {
-        console.log(`${GREEN}✓ Renamed game session to "${res.newName}".${RESET}\n`);
+        const filepath = path.resolve(SAVES_DIR, `${res.newName}.json`);
+        console.log(`${GREEN}✓ Renamed game session to "${res.newName}" at "${filepath}".${RESET}\n`);
       } else {
         console.log(`${RED}${res.error}${RESET}\n`);
       }
@@ -617,6 +621,7 @@ function handleCommand(input: string): boolean {
 
         pendingSaveDeleteSelection = { saves: savesList };
         renderTable();
+        console.log(`${DIM}Save Directory: ${path.resolve(SAVES_DIR)}${RESET}`);
         console.log(`${BOLD}Available saved games to delete:${RESET}`);
         savesList.forEach((s, idx) => {
           const timeStr = s.savedAt !== "Unknown" ? new Date(s.savedAt).toLocaleString() : s.savedAt;
@@ -636,7 +641,7 @@ function handleCommand(input: string): boolean {
 
       renderTable();
       if (deleted.length > 0) {
-        console.log(`${GREEN}✓ Deleted saved game(s): ${deleted.join(", ")}.${RESET}`);
+        console.log(`${GREEN}✓ Deleted saved game(s) from "${path.resolve(SAVES_DIR)}": ${deleted.join(", ")}.${RESET}`);
       }
       if (errors.length > 0) {
         console.log(`${RED}${errors.join(" ")}${RESET}`);
@@ -650,6 +655,7 @@ function handleCommand(input: string): boolean {
       const presetName = generateRandomSaveName();
       pendingSaveNamePrompt = { defaultName: presetName };
       renderTable();
+      console.log(`${DIM}Save Directory: ${path.resolve(SAVES_DIR)}${RESET}`);
       console.log(`${BOLD}Saving game session:${RESET}`);
       console.log(`Default session name: ${CYAN}${presetName}${RESET}\n`);
       return true;
@@ -657,8 +663,11 @@ function handleCommand(input: string): boolean {
 
     const res = saveState(saveName);
     renderTable();
+    const filepath = path.resolve(SAVES_DIR, `${res.name}.json`);
     if (res.isNew) {
-      console.log(`${GREEN}✓ Created new save state "${res.name}".${RESET}\n`);
+      console.log(`${GREEN}✓ Created new save state "${res.name}" at "${filepath}".${RESET}\n`);
+    } else {
+      console.log(`${GREEN}✓ Saved game state to "${res.name}" at "${filepath}".${RESET}\n`);
     }
     return true;
   }
@@ -685,6 +694,7 @@ function handleCommand(input: string): boolean {
 
       pendingSaveDeleteSelection = { saves: savesList };
       renderTable();
+      console.log(`${DIM}Save Directory: ${path.resolve(SAVES_DIR)}${RESET}`);
       console.log(`${BOLD}Available saved games to delete:${RESET}`);
       savesList.forEach((s, idx) => {
         const timeStr = s.savedAt !== "Unknown" ? new Date(s.savedAt).toLocaleString() : s.savedAt;
@@ -704,7 +714,7 @@ function handleCommand(input: string): boolean {
 
     renderTable();
     if (deleted.length > 0) {
-      console.log(`${GREEN}✓ Deleted saved game(s): ${deleted.join(", ")}.${RESET}`);
+      console.log(`${GREEN}✓ Deleted saved game(s) from "${path.resolve(SAVES_DIR)}": ${deleted.join(", ")}.${RESET}`);
     }
     if (errors.length > 0) {
       console.log(`${RED}${errors.join(" ")}${RESET}`);
@@ -736,6 +746,7 @@ function handleCommand(input: string): boolean {
 
       pendingSaveSelection = { saves: savesList };
       renderTable();
+      console.log(`${DIM}Save Directory: ${path.resolve(SAVES_DIR)}${RESET}`);
       console.log(`${BOLD}Available saved games to load:${RESET}`);
       savesList.forEach((s, idx) => {
         const timeStr = s.savedAt !== "Unknown" ? new Date(s.savedAt).toLocaleString() : s.savedAt;
@@ -748,7 +759,8 @@ function handleCommand(input: string): boolean {
     const result = loadState(saveName);
     renderTable();
     if (result.ok) {
-      console.log(`${GREEN}✓ Loaded game state from "${result.name}" (${creatures.length} creatures).${RESET}\n`);
+      const filepath = path.resolve(SAVES_DIR, `${result.name}.json`);
+      console.log(`${GREEN}✓ Loaded game state from "${result.name}" at "${filepath}" (${creatures.length} creatures).${RESET}\n`);
     } else {
       console.log(`${RED}${result.error}${RESET}\n`);
     }
@@ -977,8 +989,9 @@ function handleCommand(input: string): boolean {
       const generatedName = generateRandomSaveName();
       currentSessionName = generatedName;
       const res = saveState(generatedName);
+      const filepath = path.resolve(SAVES_DIR, `${res.name}.json`);
       if (res.isNew) {
-        createdSaveMsg = `✓ Created new save state "${res.name}".`;
+        createdSaveMsg = `✓ Created new save state "${res.name}" at "${filepath}".`;
       }
     }
 
@@ -1531,8 +1544,11 @@ export function processSaveNamePrompt(answer: string): boolean {
   const chosenName = trimmed || defaultName;
   const res = saveState(chosenName);
   renderTable();
+  const filepath = path.resolve(SAVES_DIR, `${res.name}.json`);
   if (res.isNew) {
-    console.log(`${GREEN}✓ Created new save state "${res.name}".${RESET}\n`);
+    console.log(`${GREEN}✓ Created new save state "${res.name}" at "${filepath}".${RESET}\n`);
+  } else {
+    console.log(`${GREEN}✓ Saved game state to "${res.name}" at "${filepath}".${RESET}\n`);
   }
   return true;
 }
@@ -1554,7 +1570,8 @@ export function processRenamePrompt(answer: string): boolean {
   const res = renameSession(chosenName);
   renderTable();
   if (res.ok) {
-    console.log(`${GREEN}✓ Renamed game session to "${res.newName}".${RESET}\n`);
+    const filepath = path.resolve(SAVES_DIR, `${res.newName}.json`);
+    console.log(`${GREEN}✓ Renamed game session to "${res.newName}" at "${filepath}".${RESET}\n`);
     return true;
   } else {
     console.log(`${RED}${res.error}${RESET}\n`);
@@ -1596,7 +1613,8 @@ export function processSaveSelection(answer: string): boolean {
   const result = loadState(targetSave);
   renderTable();
   if (result.ok) {
-    console.log(`${GREEN}✓ Loaded game state from "${result.name}" (${creatures.length} creatures).${RESET}\n`);
+    const filepath = path.resolve(SAVES_DIR, `${result.name}.json`);
+    console.log(`${GREEN}✓ Loaded game state from "${result.name}" at "${filepath}" (${creatures.length} creatures).${RESET}\n`);
     return true;
   } else {
     console.log(`${RED}${result.error}${RESET}\n`);
@@ -1660,7 +1678,7 @@ export function processSaveDeleteSelection(answer: string): boolean {
 
   renderTable();
   if (deleted.length > 0) {
-    console.log(`${GREEN}✓ Deleted saved game(s): ${deleted.join(", ")}.${RESET}`);
+    console.log(`${GREEN}✓ Deleted saved game(s) from "${path.resolve(SAVES_DIR)}": ${deleted.join(", ")}.${RESET}`);
   }
   if (errors.length > 0) {
     console.log(`${RED}${errors.join(" ")}${RESET}`);
