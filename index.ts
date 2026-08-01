@@ -20,6 +20,7 @@ const creatures: Creature[] = [];
 let inCombat = false;
 let currentRound = 1;
 let currentTurnIndex = 0;
+let pendingConfirmation: { type: "end_combat" } | null = null;
 
 // --- Sorting & Helpers ---
 
@@ -320,9 +321,14 @@ function handleCommand(input: string): boolean {
   if (cmd === "combat" || (cmd === "start" && parts[1]?.toLowerCase() === "combat")) {
     const sub = parts[1]?.toLowerCase();
     if (sub === "end" || sub === "stop" || sub === "exit") {
-      inCombat = false;
+      if (!inCombat) {
+        renderTable();
+        console.log(`${RED}Not currently in combat mode.${RESET}\n`);
+        return true;
+      }
+      pendingConfirmation = { type: "end_combat" };
       renderTable();
-      console.log(`${YELLOW}⚔ Combat ended.${RESET}\n`);
+      console.log(`${YELLOW}End combat and clear initiative & damage for all creatures? (y/n)${RESET}\n`);
       return true;
     }
 
@@ -343,9 +349,14 @@ function handleCommand(input: string): boolean {
   }
 
   if (cmd === "end" && parts[1]?.toLowerCase() === "combat") {
-    inCombat = false;
+    if (!inCombat) {
+      renderTable();
+      console.log(`${RED}Not currently in combat mode.${RESET}\n`);
+      return true;
+    }
+    pendingConfirmation = { type: "end_combat" };
     renderTable();
-    console.log(`${YELLOW}⚔ Combat ended.${RESET}\n`);
+    console.log(`${YELLOW}End combat and clear initiative & damage for all creatures? (y/n)${RESET}\n`);
     return true;
   }
 
@@ -824,7 +835,34 @@ const rl = readline.createInterface({
 renderTable();
 
 function prompt() {
-  rl.question(`${MAGENTA}> ${RESET}`, (answer) => {
+  const promptStr = pendingConfirmation
+    ? `${YELLOW}End combat and clear all init & dmg? (y/n) > ${RESET}`
+    : `${MAGENTA}> ${RESET}`;
+
+  rl.question(promptStr, (answer) => {
+    if (pendingConfirmation) {
+      const choice = answer.trim().toLowerCase();
+      if (pendingConfirmation.type === "end_combat") {
+        pendingConfirmation = null;
+        if (choice === "y" || choice === "yes") {
+          inCombat = false;
+          currentRound = 1;
+          currentTurnIndex = 0;
+          for (const c of creatures) {
+            c.initiative = null;
+            c.dmg = 0;
+          }
+          renderTable();
+          console.log(`${YELLOW}⚔ Combat ended. Initiative and damage cleared for all creatures.${RESET}\n`);
+        } else {
+          renderTable();
+          console.log(`${DIM}Combat end cancelled.${RESET}\n`);
+        }
+      }
+      prompt();
+      return;
+    }
+
     const shouldContinue = handleCommand(answer);
     if (shouldContinue) {
       prompt();

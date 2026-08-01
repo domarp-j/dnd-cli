@@ -94,6 +94,7 @@ combat end        # Exit Combat Mode
 - **Initiative Sorting**: In Combat Mode, the table is automatically sorted by initiative score in descending order (highest first). Creatures without initiative are placed at the bottom.
 - **Active Turn Highlighting**: The creature whose turn it currently is highlighted with a `▶` pointer and colored row.
 - **Round Tracking**: Tracks the current combat round, automatically incrementing when advancing past the last creature in initiative order.
+- **Ending Combat**: Running `combat end` prompts for confirmation (`(y/n)`). Upon confirmation (`y`), combat ends, table sorting reverts to alphabetical, and initiative and damage are automatically cleared for all creatures.
 - **Turn Navigation**:
   - `next` or `n` — Move to the next creature's turn (e.g., `next` or `n`).
   - `next <count>` or `n <count>` — Skip ahead `<count>` turns (e.g., `n 3` to skip ahead 3 turns).
