@@ -532,6 +532,7 @@ function handleCommand(input: string): boolean {
     console.log(`    ${CYAN}${pad("set ac <value> <target>...", 44)}${RESET} Set AC for target(s)`);
     console.log(`    ${CYAN}${pad("set ac bulk (<target> <value>)...", 44)}${RESET} Bulk set AC pairs`);
     console.log(`    ${CYAN}${pad("set hp <value> <target>...", 44)}${RESET} Set HP max for target(s)`);
+    console.log(`    ${CYAN}${pad("set hp bulk (<target> <value>)...", 44)}${RESET} Bulk set HP max pairs`);
     console.log(`    ${CYAN}${pad("set init <value> <target>...", 44)}${RESET} Set initiative for target(s)`);
     console.log(`    ${CYAN}${pad("set init bulk (<target> <value>)...", 44)}${RESET} Bulk set initiative pairs\n`);
 
