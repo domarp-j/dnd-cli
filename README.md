@@ -135,7 +135,8 @@ The CLI automatically persists your game state locally after **every command exe
 
 ```text
 new                     # Clear current encounter and start a fresh game
-save [name]             # Save named game state snapshot (defaults to "current")
+save                    # Save session with interactive name prompt (preset random snake_cased default)
+save <name>             # Directly save game state with a specific session name
 load                    # Show interactive list of saved games to pick from to load
 load <name>             # Directly load a specific saved game snapshot
 delete save             # Show interactive list of saved games to pick from to delete
@@ -145,8 +146,9 @@ saves                   # List all saved game files
 
 *Example:*
 ```text
+save                     # Prompts for session name with preset (e.g. "bold_encounter_42", press Enter or edit)
+save dungeon_room1       # Save snapshot as "dungeon_room1" directly
 load                     # Interactive load selection menu (pick 1, 2, 3... or enter name)
-save dungeon_room1       # Save snapshot as "dungeon_room1"
 new                      # Start clean session
 load dungeon_room1       # Restore saved "dungeon_room1" session directly
 delete save              # Interactive delete selection menu (pick 1, 2, 3...)

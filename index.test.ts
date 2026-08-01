@@ -8,6 +8,7 @@ import {
   processConfirmation,
   processSaveSelection,
   processSaveDeleteSelection,
+  processSaveNamePrompt,
   deleteSave,
 } from "./index";
 
@@ -297,6 +298,15 @@ describe("D&D CLI Tracker Test Suite", () => {
 
       // Attempting to load deleted save file should now fail
       expect(handleCommand("load slot_to_del_interactively")).toBeTrue();
+    });
+
+    test("prompts for session name with preset default when saving without argument", () => {
+      handleCommand("add pc PromptHero");
+      handleCommand("save");
+
+      // Respond with custom name
+      processSaveNamePrompt("prompted_custom_slot");
+      deleteSave("prompted_custom_slot");
     });
   });
 });

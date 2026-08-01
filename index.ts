@@ -38,10 +38,28 @@ let pendingSaveSelection: {
 let pendingSaveDeleteSelection: {
   saves: { name: string; count: number; savedAt: string; filepath: string }[];
 } | null = null;
+let pendingSaveNamePrompt: { defaultName: string } | null = null;
 
 // --- Persistence Helpers ---
 
 const SAVES_DIR = path.join(process.cwd(), "saves");
+
+function generateRandomSaveName(): string {
+  const adjectives = [
+    "amber", "bold", "crimson", "dark", "epic", "fierce", "glorious", "hidden",
+    "iron", "jade", "knight", "lunar", "mystic", "noble", "obsidian", "phantom",
+    "radiant", "shadow", "thunder", "valiant", "wild"
+  ];
+  const nouns = [
+    "ambush", "battle", "cavern", "delve", "dungeon", "encounter", "fortress",
+    "grotto", "haven", "keep", "lair", "outpost", "quest", "ruins", "sanctuary",
+    "spire", "temple", "vault", "wilderness", "zone"
+  ];
+  const adj = adjectives[Math.floor(Math.random() * adjectives.length)]!;
+  const noun = nouns[Math.floor(Math.random() * nouns.length)]!;
+  const num = Math.floor(Math.random() * 90) + 10;
+  return `${adj}_${noun}_${num}`;
+}
 
 function ensureSavesDir(): void {
   if (!fs.existsSync(SAVES_DIR)) {
@@ -496,7 +514,16 @@ function handleCommand(input: string): boolean {
       return true;
     }
 
-    const saveName = parts[1] || "current";
+    const saveName = parts[1];
+    if (!saveName) {
+      const presetName = generateRandomSaveName();
+      pendingSaveNamePrompt = { defaultName: presetName };
+      renderTable();
+      console.log(`${BOLD}Saving game session:${RESET}`);
+      console.log(`Default session name: ${CYAN}${presetName}${RESET}\n`);
+      return true;
+    }
+
     const name = saveState(saveName);
     renderTable();
     console.log(`${GREEN}✓ Saved game state to "${name}".${RESET}\n`);
@@ -1206,6 +1233,7 @@ export function resetState(): void {
   pendingConfirmation = null;
   pendingSaveSelection = null;
   pendingSaveDeleteSelection = null;
+  pendingSaveNamePrompt = null;
 }
 
 export function getCombatState() {
@@ -1241,6 +1269,26 @@ export function processConfirmation(answer: string): boolean {
     }
   }
   return false;
+}
+
+export function processSaveNamePrompt(answer: string): boolean {
+  if (!pendingSaveNamePrompt) return false;
+
+  const defaultName = pendingSaveNamePrompt.defaultName;
+  pendingSaveNamePrompt = null;
+
+  const trimmed = answer.trim();
+  if (trimmed.toLowerCase() === "c" || trimmed.toLowerCase() === "cancel") {
+    renderTable();
+    console.log(`${DIM}Save cancelled.${RESET}\n`);
+    return false;
+  }
+
+  const chosenName = trimmed || defaultName;
+  const name = saveState(chosenName);
+  renderTable();
+  console.log(`${GREEN}✓ Saved game state to "${name}".${RESET}\n`);
+  return true;
 }
 
 export function processSaveSelection(answer: string): boolean {
@@ -1361,11 +1409,19 @@ if (import.meta.main) {
       ? `${CYAN}Select save to load (1-${pendingSaveSelection.saves.length}) or 'c' to cancel > ${RESET}`
       : pendingSaveDeleteSelection
       ? `${RED}Select save to DELETE (1-${pendingSaveDeleteSelection.saves.length}) or 'c' to cancel > ${RESET}`
+      : pendingSaveNamePrompt
+      ? `${CYAN}Enter session name [Press Enter for "${pendingSaveNamePrompt.defaultName}"] > ${RESET}`
       : `${MAGENTA}> ${RESET}`;
 
     rl.question(promptStr, (answer) => {
       if (pendingConfirmation) {
         processConfirmation(answer);
+        prompt();
+        return;
+      }
+
+      if (pendingSaveNamePrompt) {
+        processSaveNamePrompt(answer);
         prompt();
         return;
       }
