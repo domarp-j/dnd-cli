@@ -1330,77 +1330,62 @@ function handleCommand(input: string): boolean {
 
   if (cmd === "test") {
     const isSimple = parts[1]?.toLowerCase() === "simple" || parts[1]?.toLowerCase() === "s";
-    creatures.length = 0;
-    if (isSimple) {
-      creatures.push(
-        { name: "ajax grimstone", type: "pc", hpMax: null, dmg: 0, ac: null, initiative: null, conditions: [] },
-        { name: "kaelor stormstride", type: "pc", hpMax: null, dmg: 0, ac: null, initiative: null, conditions: [] },
-        { name: "lyra moonwhisper", type: "pc", hpMax: null, dmg: 0, ac: null, initiative: null, conditions: [] },
-        { name: "thorgan ironbreaker", type: "pc", hpMax: null, dmg: 0, ac: null, initiative: null, conditions: [] },
-        { name: "elaria shadowstep", type: "pc", hpMax: null, dmg: 0, ac: null, initiative: null, conditions: [] },
-        { name: "seraphina sunfire", type: "pc", hpMax: null, dmg: 0, ac: null, initiative: null, conditions: [] },
-        { name: "valerius frostweaver", type: "pc", hpMax: null, dmg: 0, ac: null, initiative: null, conditions: [] },
-        { name: "goblin warrior 1", type: "enemy", hpMax: null, dmg: 0, ac: null, initiative: null, conditions: [] },
-        { name: "goblin warrior 2", type: "enemy", hpMax: null, dmg: 0, ac: null, initiative: null, conditions: [] },
-        { name: "goblin archer", type: "enemy", hpMax: null, dmg: 0, ac: null, initiative: null, conditions: [] },
-        { name: "goblin shaman", type: "enemy", hpMax: null, dmg: 0, ac: null, initiative: null, conditions: [] },
-        { name: "bugbear chieftain", type: "enemy", hpMax: null, dmg: 0, ac: null, initiative: null, conditions: [] },
-        { name: "hobgoblin captain", type: "enemy", hpMax: null, dmg: 0, ac: null, initiative: null, conditions: [] },
-        { name: "skeleton archer", type: "enemy", hpMax: null, dmg: 0, ac: null, initiative: null, conditions: [] },
-        { name: "dark cultist", type: "enemy", hpMax: null, dmg: 0, ac: null, initiative: null, conditions: [] },
-        { name: "young red dragon", type: "enemy", hpMax: null, dmg: 0, ac: null, initiative: null, conditions: [] },
-        { name: "captured merchant", type: "neutral", hpMax: null, dmg: 0, ac: null, initiative: null, conditions: [] },
-        { name: "village elder", type: "neutral", hpMax: null, dmg: 0, ac: null, initiative: null, conditions: [] },
-        { name: "tavern keeper", type: "neutral", hpMax: null, dmg: 0, ac: null, initiative: null, conditions: [] },
-        { name: "mysterious traveler", type: "neutral", hpMax: null, dmg: 0, ac: null, initiative: null, conditions: [] },
-      );
-    } else {
-      creatures.push(
-        { name: "ajax", type: "pc", hpMax: 45, dmg: 0, ac: 18, initiative: 14, conditions: [] },
-        { name: "kaelor stormstride", type: "pc", hpMax: 38, dmg: 12, ac: 15, initiative: 18, conditions: [] },
-        { name: "lyra moonwhisper", type: "pc", hpMax: 32, dmg: 0, ac: 12, initiative: 9, conditions: ["Concentrating"] },
-        { name: "thorgan ironbreaker", type: "pc", hpMax: 58, dmg: 15, ac: 16, initiative: 12, conditions: ["Raging"] },
-        { name: "elaria shadowstep", type: "pc", hpMax: 30, dmg: 4, ac: 14, initiative: 20, conditions: [] },
-        { name: "seraphina sunfire", type: "pc", hpMax: 40, dmg: 0, ac: 17, initiative: 10, conditions: [] },
-        { name: "valerius frostweaver", type: "pc", hpMax: 28, dmg: 8, ac: 13, initiative: 15, conditions: ["Invisible"] },
-        { name: "goblin warrior 1", type: "enemy", hpMax: 12, dmg: 5, ac: 13, initiative: 11, conditions: [] },
-        { name: "goblin warrior 2", type: "enemy", hpMax: 12, dmg: 12, ac: 13, initiative: 8, conditions: ["Dead"] },
-        { name: "goblin archer", type: "enemy", hpMax: 10, dmg: 10, ac: 12, initiative: 16, conditions: [] },
-        { name: "goblin shaman", type: "enemy", hpMax: 18, dmg: 6, ac: 12, initiative: 13, conditions: ["Poisoned"] },
-        { name: "bugbear chieftain", type: "enemy", hpMax: 42, dmg: 14, ac: 15, initiative: 7, conditions: [] },
-        { name: "hobgoblin captain", type: "enemy", hpMax: 39, dmg: 0, ac: 17, initiative: 14, conditions: [] },
-        { name: "skeleton archer", type: "enemy", hpMax: 13, dmg: 0, ac: 11, initiative: 15, conditions: [] },
-        { name: "dark cultist", type: "enemy", hpMax: 22, dmg: 11, ac: 12, initiative: 11, conditions: ["Frightened"] },
-        { name: "young red dragon", type: "enemy", hpMax: 178, dmg: 35, ac: 18, initiative: 10, conditions: [] },
-        { name: "captured merchant", type: "neutral", hpMax: 8, dmg: 3, ac: 10, initiative: null, conditions: ["Restrained"] },
-        { name: "village elder", type: "neutral", hpMax: 6, dmg: 0, ac: 10, initiative: null, conditions: [] },
-        { name: "tavern keeper", type: "neutral", hpMax: 12, dmg: 0, ac: 11, initiative: null, conditions: [] },
-        { name: "mysterious traveler", type: "neutral", hpMax: 25, dmg: 0, ac: 14, initiative: 16, conditions: [] },
-      );
-    }
-    hasAddedCreature = true;
 
-    let createdSaveMsg: string | null = null;
-    if (!currentSessionName) {
-      const generatedName = generateRandomSaveName();
-      currentSessionName = generatedName;
-      const res = saveState(generatedName);
-      if (res.isNew) {
-        createdSaveMsg = `✓ Created new save state "${res.name}".`;
-      }
+    // Clear current state first (preserves session name / log)
+    creatures.length = 0;
+    inCombat = false;
+    currentRound = 1;
+    currentTurnIndex = 0;
+
+    if (isSimple) {
+      // Add creatures via real commands — no stats, just names + types
+      handleCommand("add pc \"ajax grimstone\" \"kaelor stormstride\" \"lyra moonwhisper\" \"thorgan ironbreaker\" \"elaria shadowstep\" \"seraphina sunfire\" \"valerius frostweaver\"");
+      handleCommand("add enemy \"goblin warrior 1\" \"goblin warrior 2\" \"goblin archer\" \"goblin shaman\" \"bugbear chieftain\" \"hobgoblin captain\" \"skeleton archer\" \"dark cultist\" \"young red dragon\"");
+      handleCommand("add neutral \"captured merchant\" \"village elder\" \"tavern keeper\" \"mysterious traveler\"");
     } else {
-      saveState(currentSessionName);
+      // PCs
+      handleCommand("add pc ajax \"kaelor stormstride\" \"lyra moonwhisper\" \"thorgan ironbreaker\" \"elaria shadowstep\" \"seraphina sunfire\" \"valerius frostweaver\"");
+      handleCommand("set hp bulk ajax 45 \"kaelor stormstride\" 38 \"lyra moonwhisper\" 32 \"thorgan ironbreaker\" 58 \"elaria shadowstep\" 30 \"seraphina sunfire\" 40 \"valerius frostweaver\" 28");
+      handleCommand("set ac bulk ajax 18 \"kaelor stormstride\" 15 \"lyra moonwhisper\" 12 \"thorgan ironbreaker\" 16 \"elaria shadowstep\" 14 \"seraphina sunfire\" 17 \"valerius frostweaver\" 13");
+      handleCommand("set init bulk ajax 14 \"kaelor stormstride\" 18 \"lyra moonwhisper\" 9 \"thorgan ironbreaker\" 12 \"elaria shadowstep\" 20 \"seraphina sunfire\" 10 \"valerius frostweaver\" 15");
+      handleCommand("add dmg 12 \"kaelor stormstride\"");
+      handleCommand("add dmg 15 \"thorgan ironbreaker\"");
+      handleCommand("add dmg 4 \"elaria shadowstep\"");
+      handleCommand("add dmg 8 \"valerius frostweaver\"");
+      handleCommand("add cond Concentrating \"lyra moonwhisper\"");
+      handleCommand("add cond Raging \"thorgan ironbreaker\"");
+      handleCommand("add cond Invisible \"valerius frostweaver\"");
+
+      // Enemies
+      handleCommand("add enemy \"goblin warrior 1\" \"goblin warrior 2\" \"goblin archer\" \"goblin shaman\" \"bugbear chieftain\" \"hobgoblin captain\" \"skeleton archer\" \"dark cultist\" \"young red dragon\"");
+      handleCommand("set hp bulk \"goblin warrior 1\" 12 \"goblin warrior 2\" 12 \"goblin archer\" 10 \"goblin shaman\" 18 \"bugbear chieftain\" 42 \"hobgoblin captain\" 39 \"skeleton archer\" 13 \"dark cultist\" 22 \"young red dragon\" 178");
+      handleCommand("set ac bulk \"goblin warrior 1\" 13 \"goblin warrior 2\" 13 \"goblin archer\" 12 \"goblin shaman\" 12 \"bugbear chieftain\" 15 \"hobgoblin captain\" 17 \"skeleton archer\" 11 \"dark cultist\" 12 \"young red dragon\" 18");
+      handleCommand("set init bulk \"goblin warrior 1\" 11 \"goblin warrior 2\" 8 \"goblin archer\" 16 \"goblin shaman\" 13 \"bugbear chieftain\" 7 \"hobgoblin captain\" 14 \"skeleton archer\" 15 \"dark cultist\" 11 \"young red dragon\" 10");
+      handleCommand("add dmg 5 \"goblin warrior 1\"");
+      handleCommand("add dmg 12 \"goblin warrior 2\"");
+      handleCommand("add dmg 10 \"goblin archer\"");
+      handleCommand("add dmg 6 \"goblin shaman\"");
+      handleCommand("add dmg 14 \"bugbear chieftain\"");
+      handleCommand("add dmg 11 \"dark cultist\"");
+      handleCommand("add dmg 35 \"young red dragon\"");
+      handleCommand("add cond Dead \"goblin warrior 2\"");
+      handleCommand("add cond Poisoned \"goblin shaman\"");
+      handleCommand("add cond Frightened \"dark cultist\"");
+
+      // Neutrals
+      handleCommand("add neutral \"captured merchant\" \"village elder\" \"tavern keeper\" \"mysterious traveler\"");
+      handleCommand("set hp bulk \"captured merchant\" 8 \"village elder\" 6 \"tavern keeper\" 12 \"mysterious traveler\" 25");
+      handleCommand("set ac bulk \"captured merchant\" 10 \"village elder\" 10 \"tavern keeper\" 11 \"mysterious traveler\" 14");
+      handleCommand("set init 16 \"mysterious traveler\"");
+      handleCommand("add dmg 3 \"captured merchant\"");
+      handleCommand("add cond Restrained \"captured merchant\"");
     }
 
     renderTable();
-    console.log(`${GREEN}✓ Loaded test data${isSimple ? " (simple)" : ""} (${creatures.length} creatures)${RESET}`);
-    if (createdSaveMsg) {
-      console.log(`${GREEN}${createdSaveMsg}${RESET}`);
-    }
-    console.log();
-    logActivity(`Loaded test data${isSimple ? " (simple)" : ""} (${creatures.length} creatures)`);
+    console.log(`${GREEN}✓ Loaded test data${isSimple ? " (simple)" : ""} (${creatures.length} creatures)${RESET}\n`);
     return true;
   }
+
 
   if (cmd === "show" && parts[1]?.toLowerCase() === "activity") {
     renderTable();
