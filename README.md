@@ -172,15 +172,26 @@ test          # Load full test encounter (with stats & conditions)
 test simple   # Load simple test encounter (names only)
 ```
 
+### POSIX & Docopt Syntax Rules
+
+The help menu follows standard POSIX & `docopt` CLI conventions:
+- `[ ]` — **Optional** element (e.g. `combat [start]`)
+- `< >` — **Variable / Argument** placeholder (e.g. `<name>`, `<value>`)
+- `( )` — **Required** grouping (e.g. `(next | n)`)
+- `|` — **Mutually Exclusive** choice (e.g. `(pc | p)`)
+- `...` — **Repeatable** element (1 or more, e.g. `<name>...`)
+- `[...]` — **Optional & Repeatable** (0 or more, e.g. `[<name>...]`)
+
 ### General Commands
 
-- `combat` — Start combat mode.
+- `combat [start]` — Start combat mode.
 - `combat end` — End combat mode.
-- `next` / `n [count]` — Move forward 1 or `[count]` turns (e.g., `n 3`).
-- `prev` / `p [count]` — Move backward 1 or `[count]` turns (e.g., `p 2`).
+- `(next | n) [<count>]` — Move forward 1 or `<count>` turns (e.g., `n 3`).
+- `(prev | p) [<count>]` — Move backward 1 or `<count>` turns (e.g., `p 2`).
 - `new` — Start a new game session.
-- `save [name]` / `load [name]` — Save or load game state snapshots.
-- `saves` — List all local saved game files.
-- `remove enemies` / `pcs` / `neutrals` — Bulk remove creatures by type.
-- `help` / `h` — Show command reference menu.
-- `quit` or `exit` — Exit the application.
+- `save [<name>]` / `load [<name>]` — Save or load game state snapshots.
+- `delete save [<name>...]` — Delete save file(s) or select interactively.
+- `saves` — List all local saved game files with paths.
+- `remove (pcs | enemies | neutrals | p | e | n)` — Bulk remove creatures by type.
+- `(help | h)` — Show POSIX / docopt command reference menu.
+- `(quit | q | exit)` — Exit the application.
