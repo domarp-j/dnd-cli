@@ -7,6 +7,7 @@ import {
   getCombatState,
   processConfirmation,
   processSaveSelection,
+  processSaveDeleteSelection,
 } from "./index";
 
 describe("D&D CLI Tracker Test Suite", () => {
@@ -269,6 +270,20 @@ describe("D&D CLI Tracker Test Suite", () => {
       // Select option by typing 1 or save name
       processSaveSelection("interactive_slot");
       expect(creatures.some((c) => c.name === "InteractiveHero")).toBeTrue();
+    });
+
+    test("shows interactive options when typing delete save without arguments", () => {
+      handleCommand("save slot_to_del_interactively");
+      expect(handleCommand("load slot_to_del_interactively")).toBeTrue();
+
+      // Trigger 'delete save' without arguments -> presents options
+      handleCommand("delete save");
+
+      // Select option by save name
+      processSaveDeleteSelection("slot_to_del_interactively");
+
+      // Attempting to load deleted save file should now fail
+      expect(handleCommand("load slot_to_del_interactively")).toBeTrue();
     });
   });
 });

@@ -35,6 +35,9 @@ let pendingConfirmation: { type: "end_combat" } | null = null;
 let pendingSaveSelection: {
   saves: { name: string; count: number; savedAt: string; filepath: string }[];
 } | null = null;
+let pendingSaveDeleteSelection: {
+  saves: { name: string; count: number; savedAt: string; filepath: string }[];
+} | null = null;
 
 // --- Persistence Helpers ---
 
@@ -458,8 +461,21 @@ function handleCommand(input: string): boolean {
     if (subCmd === "delete" || subCmd === "rm" || subCmd === "remove" || subCmd === "del") {
       const saveName = parts[2];
       if (!saveName) {
+        const savesList = listSaves();
+        if (savesList.length === 0) {
+          renderTable();
+          console.log(`${YELLOW}No saved games found to delete.${RESET}\n`);
+          return true;
+        }
+
+        pendingSaveDeleteSelection = { saves: savesList };
         renderTable();
-        console.log(`${RED}Usage: save delete <name>${RESET}\n`);
+        console.log(`${BOLD}Available saved games to delete:${RESET}`);
+        savesList.forEach((s, idx) => {
+          const timeStr = s.savedAt !== "Unknown" ? new Date(s.savedAt).toLocaleString() : s.savedAt;
+          console.log(`  ${CYAN}${idx + 1})${RESET} ${pad(s.name, 15)} ${s.count} creatures · ${DIM}${timeStr}${RESET}`);
+        });
+        console.log();
         return true;
       }
       const result = deleteSave(saveName);
@@ -485,8 +501,21 @@ function handleCommand(input: string): boolean {
     const saveName = isSave ? parts[2] : parts[1];
 
     if (!saveName) {
+      const savesList = listSaves();
+      if (savesList.length === 0) {
+        renderTable();
+        console.log(`${YELLOW}No saved games found to delete.${RESET}\n`);
+        return true;
+      }
+
+      pendingSaveDeleteSelection = { saves: savesList };
       renderTable();
-      console.log(`${RED}Usage: delete save <name> (e.g., "delete save slot1" or "save delete slot1")${RESET}\n`);
+      console.log(`${BOLD}Available saved games to delete:${RESET}`);
+      savesList.forEach((s, idx) => {
+        const timeStr = s.savedAt !== "Unknown" ? new Date(s.savedAt).toLocaleString() : s.savedAt;
+        console.log(`  ${CYAN}${idx + 1})${RESET} ${pad(s.name, 15)} ${s.count} creatures · ${DIM}${timeStr}${RESET}`);
+      });
+      console.log();
       return true;
     }
 
@@ -1167,6 +1196,8 @@ export function resetState(): void {
   currentRound = 1;
   currentTurnIndex = 0;
   pendingConfirmation = null;
+  pendingSaveSelection = null;
+  pendingSaveDeleteSelection = null;
 }
 
 export function getCombatState() {
@@ -1246,6 +1277,48 @@ export function processSaveSelection(answer: string): boolean {
   }
 }
 
+export function processSaveDeleteSelection(answer: string): boolean {
+  if (!pendingSaveDeleteSelection) return false;
+
+  const saves = pendingSaveDeleteSelection.saves;
+  pendingSaveDeleteSelection = null;
+
+  const choice = answer.trim();
+  if (choice.toLowerCase() === "c" || choice.toLowerCase() === "cancel") {
+    renderTable();
+    console.log(`${DIM}Delete save cancelled.${RESET}\n`);
+    return false;
+  }
+
+  const index = parseInt(choice, 10) - 1;
+  let targetSave: string | null = null;
+
+  if (!isNaN(index) && index >= 0 && index < saves.length) {
+    targetSave = saves[index]!.name;
+  } else {
+    const matched = saves.find((s) => s.name.toLowerCase() === choice.toLowerCase());
+    if (matched) {
+      targetSave = matched.name;
+    }
+  }
+
+  if (!targetSave) {
+    renderTable();
+    console.log(`${RED}Invalid selection "${choice}". Delete save cancelled.${RESET}\n`);
+    return false;
+  }
+
+  const result = deleteSave(targetSave);
+  renderTable();
+  if (result.ok) {
+    console.log(`${GREEN}✓ Deleted saved game "${result.name}".${RESET}\n`);
+    return true;
+  } else {
+    console.log(`${RED}${result.error}${RESET}\n`);
+    return false;
+  }
+}
+
 // Wrap handleCommand to ensure auto-saving on every mutating command
 const originalHandleCommand = handleCommand;
 function handleCommandWithAutoSave(input: string): boolean {
@@ -1278,6 +1351,8 @@ if (import.meta.main) {
       ? `${YELLOW}End combat and clear init & dmg for all creatures? (y/n) > ${RESET}`
       : pendingSaveSelection
       ? `${CYAN}Select save to load (1-${pendingSaveSelection.saves.length}) or 'c' to cancel > ${RESET}`
+      : pendingSaveDeleteSelection
+      ? `${RED}Select save to DELETE (1-${pendingSaveDeleteSelection.saves.length}) or 'c' to cancel > ${RESET}`
       : `${MAGENTA}> ${RESET}`;
 
     rl.question(promptStr, (answer) => {
@@ -1289,6 +1364,12 @@ if (import.meta.main) {
 
       if (pendingSaveSelection) {
         processSaveSelection(answer);
+        prompt();
+        return;
+      }
+
+      if (pendingSaveDeleteSelection) {
+        processSaveDeleteSelection(answer);
         prompt();
         return;
       }
