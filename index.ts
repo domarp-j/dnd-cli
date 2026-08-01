@@ -499,18 +499,18 @@ function handleCommand(input: string): boolean {
     renderTable();
     console.log(`${BOLD}Available commands (POSIX / docopt syntax):${RESET}\n`);
 
-    console.log(`  ${BOLD}${MAGENTA}Combat & Turn Control:${RESET}`);
-    console.log(`    ${CYAN}${pad("combat [start]", 36)}${RESET} Start combat mode (resorts by initiative)`);
-    console.log(`    ${CYAN}${pad("combat end", 36)}${RESET} End combat mode (clears init & dmg)`);
-    console.log(`    ${CYAN}${pad("(next | n) [<count>]", 36)}${RESET} Advance 1 or <count> turns`);
-    console.log(`    ${CYAN}${pad("(prev | p) [<count>]", 36)}${RESET} Go back 1 or <count> turns\n`);
-
     console.log(`  ${BOLD}${MAGENTA}Creature Management:${RESET}`);
     console.log(`    ${CYAN}${pad("add (enemy | e) <name>...", 36)}${RESET} Add enemy creature(s)`);
     console.log(`    ${CYAN}${pad("add (neutral | n) <name>...", 36)}${RESET} Add neutral creature(s)`);
     console.log(`    ${CYAN}${pad("add (pc | p) <name>...", 36)}${RESET} Add player character(s)`);
     console.log(`    ${CYAN}${pad("remove char <name>...", 36)}${RESET} Remove specific creature(s) by name`);
     console.log(`    ${CYAN}${pad("remove (pcs | enemies | neutrals)", 36)}${RESET} Bulk remove creatures by type (or p | e | n)\n`);
+
+    console.log(`  ${BOLD}${MAGENTA}Combat & Turn Control:${RESET}`);
+    console.log(`    ${CYAN}${pad("combat [start]", 36)}${RESET} Start combat mode (resorts by initiative)`);
+    console.log(`    ${CYAN}${pad("combat end", 36)}${RESET} End combat mode (clears init & dmg)`);
+    console.log(`    ${CYAN}${pad("(next | n) [<count>]", 36)}${RESET} Advance 1 or <count> turns`);
+    console.log(`    ${CYAN}${pad("(prev | p) [<count>]", 36)}${RESET} Go back 1 or <count> turns\n`);
 
     console.log(`  ${BOLD}${MAGENTA}Stats & Conditions:${RESET}`);
     console.log(`    ${CYAN}${pad("add cond <condition> <target>...", 36)}${RESET} Add status condition to target(s)`);
