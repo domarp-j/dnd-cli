@@ -192,6 +192,6 @@ The help menu follows standard POSIX & `docopt` CLI conventions:
 - `save [<name>]` / `load [<name>]` — Save or load game state snapshots.
 - `delete save [<name>...]` — Delete save file(s) or select interactively.
 - `saves` — List all local saved game files with paths.
-- `remove (pcs | enemies | neutrals | p | e | n)` — Bulk remove creatures by type.
+- `remove (pcs | enemies | neutrals)` — Bulk remove creatures by type (or `p` | `e` | `n`).
 - `(help | h)` — Show POSIX / docopt command reference menu.
 - `(quit | q | exit)` — Exit the application.
