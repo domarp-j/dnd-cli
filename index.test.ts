@@ -10,6 +10,8 @@ import {
   processSaveDeleteSelection,
   processSaveNamePrompt,
   processQuitConfirmation,
+  processRenamePrompt,
+  renameSession,
   deleteSave,
 } from "./index";
 
@@ -23,6 +25,7 @@ describe("D&D CLI Tracker Test Suite", () => {
     deleteSave("interactive_slot");
     deleteSave("file_to_delete");
     deleteSave("slot_to_del_interactively");
+    deleteSave("renamed_session_test");
   });
 
   describe("Basic Initialization & Commands", () => {
@@ -294,14 +297,19 @@ describe("D&D CLI Tracker Test Suite", () => {
     test("auto-saves on mutating commands", () => {
       handleCommand("new");
       handleCommand("add pc AutoSavedHero");
+      const activeSession = getCombatState();
 
-      // Reset in-memory creatures without overwriting current.json
+      // Reset in-memory creatures
       resetState();
       expect(creatures.length).toBe(0);
 
-      // Loading default 'current' save should restore AutoSavedHero
-      handleCommand("load current");
-      expect(creatures.some((c) => c.name === "AutoSavedHero")).toBeTrue();
+      // Loading the active session save file should restore AutoSavedHero
+      const sessionName = activeSession.currentSessionName;
+      if (sessionName) {
+        handleCommand(`load ${sessionName}`);
+        expect(creatures.some((c) => c.name === "AutoSavedHero")).toBeTrue();
+        deleteSave(sessionName);
+      }
     });
 
     test("deletes a saved game file", () => {
@@ -367,6 +375,41 @@ describe("D&D CLI Tracker Test Suite", () => {
       handleCommand("delete save");
       processSaveDeleteSelection("multi_del_interactive_a multi_del_interactive_b");
       deleteSave("multi_del_3");
+    });
+
+    test("auto-saves with random name when adding first PC in a blank session", () => {
+      resetState();
+      expect(creatures.length).toBe(0);
+
+      // Add first PC -> generates random save name and auto-saves
+      handleCommand("add pc FirstHero");
+      expect(creatures.length).toBe(1);
+
+      // Verify a valid session name was assigned and file saved
+      const sessionName = handleCommand("saves");
+      expect(sessionName).toBeTrue();
+    });
+
+    test("renames current game session via rename command", () => {
+      resetState();
+      handleCommand("add pc HeroToRename");
+      expect(handleCommand("rename renamed_session_test")).toBeTrue();
+
+      // Reset state and load renamed session file
+      resetState();
+      expect(handleCommand("load renamed_session_test")).toBeTrue();
+      expect(creatures.some((c) => c.name === "HeroToRename")).toBeTrue();
+    });
+
+    test("prompts with preset default when typing rename without arguments", () => {
+      resetState();
+      handleCommand("add pc PresetHero");
+      handleCommand("rename"); // triggers pendingRenamePrompt
+
+      processRenamePrompt("prompted_rename_slot");
+      resetState();
+      expect(handleCommand("load prompted_rename_slot")).toBeTrue();
+      deleteSave("prompted_rename_slot");
     });
   });
 });

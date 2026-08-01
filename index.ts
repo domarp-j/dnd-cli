@@ -39,6 +39,7 @@ let pendingSaveDeleteSelection: {
   saves: { name: string; count: number; savedAt: string; filepath: string }[];
 } | null = null;
 let pendingSaveNamePrompt: { defaultName: string } | null = null;
+let pendingRenamePrompt: { defaultName: string } | null = null;
 let pendingQuitConfirmation = false;
 let hasAddedCreature = false;
 let currentSessionName: string | null = null;
@@ -169,6 +170,34 @@ export function deleteSave(saveName: string): { ok: true; name: string; filepath
   } catch {
     return { ok: false, error: `Failed to delete save file "${cleanName}".` };
   }
+}
+
+export function renameSession(newName: string): { ok: true; oldName: string | null; newName: string } | { ok: false; error: string } {
+  if (!newName || !newName.trim()) {
+    return { ok: false, error: "Please specify a new session name." };
+  }
+
+  const cleanNewName = newName.trim().replace(/[^a-zA-Z0-9_-]/g, "_");
+  const oldName = currentSessionName;
+
+  ensureSavesDir();
+
+  if (oldName && oldName !== "Unsaved") {
+    const oldPath = path.resolve(SAVES_DIR, `${oldName}.json`);
+    const newPath = path.resolve(SAVES_DIR, `${cleanNewName}.json`);
+
+    if (fs.existsSync(oldPath) && oldPath !== newPath) {
+      try {
+        fs.renameSync(oldPath, newPath);
+      } catch {
+        // ignore error if file missing or rename fails
+      }
+    }
+  }
+
+  currentSessionName = cleanNewName;
+  saveState(cleanNewName);
+  return { ok: true, oldName, newName: cleanNewName };
 }
 
 // --- Sorting & Helpers ---
@@ -483,6 +512,7 @@ function handleCommand(input: string): boolean {
     console.log(`    ${CYAN}${pad("delete save [<name>...]", 36)}${RESET} Delete save file(s) (or list options)`);
     console.log(`    ${CYAN}${pad("load [<name>]", 36)}${RESET} Load saved game state (or list options)`);
     console.log(`    ${CYAN}${pad("new", 36)}${RESET} Start a fresh new game session`);
+    console.log(`    ${CYAN}${pad("rename [<new_name>]", 36)}${RESET} Rename current game session`);
     console.log(`    ${CYAN}${pad("save [<name>]", 36)}${RESET} Save game session snapshot (or prompt)`);
     console.log(`    ${CYAN}${pad("saves", 36)}${RESET} List all saved game files with paths\n`);
 
@@ -500,8 +530,52 @@ function handleCommand(input: string): boolean {
     return true;
   }
 
+  if (cmd === "rename") {
+    const subCmd = parts[1]?.toLowerCase();
+    const isSave = subCmd === "save" || subCmd === "session" || subCmd === "game";
+    const newName = isSave ? parts[2] : parts[1];
+
+    if (!newName) {
+      const presetName = generateRandomSaveName();
+      pendingRenamePrompt = { defaultName: presetName };
+      renderTable();
+      console.log(`${BOLD}Renaming game session:${RESET}`);
+      console.log(`Default session name: ${CYAN}${presetName}${RESET}\n`);
+      return true;
+    }
+
+    const res = renameSession(newName);
+    renderTable();
+    if (res.ok) {
+      console.log(`${GREEN}✓ Renamed game session to "${res.newName}".${RESET}\n`);
+    } else {
+      console.log(`${RED}${res.error}${RESET}\n`);
+    }
+    return true;
+  }
+
   if (cmd === "save" || cmd === "savegame") {
     const subCmd = parts[1]?.toLowerCase();
+    if (subCmd === "rename") {
+      const newName = parts[2];
+      if (!newName) {
+        const presetName = generateRandomSaveName();
+        pendingRenamePrompt = { defaultName: presetName };
+        renderTable();
+        console.log(`${BOLD}Renaming game session:${RESET}`);
+        console.log(`Default session name: ${CYAN}${presetName}${RESET}\n`);
+        return true;
+      }
+      const res = renameSession(newName);
+      renderTable();
+      if (res.ok) {
+        console.log(`${GREEN}✓ Renamed game session to "${res.newName}".${RESET}\n`);
+      } else {
+        console.log(`${RED}${res.error}${RESET}\n`);
+      }
+      return true;
+    }
+
     if (subCmd === "delete" || subCmd === "rm" || subCmd === "remove" || subCmd === "del") {
       const saveNames = parts.slice(2);
       if (saveNames.length === 0) {
@@ -838,14 +912,31 @@ function handleCommand(input: string): boolean {
         return true;
     }
 
+    const isFirstPcInBlankSession = type === "pc" && !currentSessionName;
+
     withTurnPreservation(() => {
       for (const name of targets) {
         creatures.push({ name, type, hpMax: null, dmg: 0, ac: null, initiative: null, conditions: [] });
       }
     });
     hasAddedCreature = true;
+
+    let createdSaveMsg: string | null = null;
+    if (isFirstPcInBlankSession) {
+      const generatedName = generateRandomSaveName();
+      currentSessionName = generatedName;
+      const res = saveState(generatedName);
+      if (res.isNew) {
+        createdSaveMsg = `✓ Created new save state "${res.name}".`;
+      }
+    }
+
     renderTable();
-    console.log(`${GREEN}+ Added ${typeLabel(type)}: ${targets.join(", ")}${RESET}\n`);
+    console.log(`${GREEN}+ Added ${typeLabel(type)}: ${targets.join(", ")}${RESET}`);
+    if (createdSaveMsg) {
+      console.log(`${GREEN}${createdSaveMsg}${RESET}`);
+    }
+    console.log();
     return true;
   }
 
@@ -1279,6 +1370,7 @@ export function resetState(): void {
   pendingSaveSelection = null;
   pendingSaveDeleteSelection = null;
   pendingSaveNamePrompt = null;
+  pendingRenamePrompt = null;
   pendingQuitConfirmation = false;
   hasAddedCreature = false;
   currentSessionName = null;
@@ -1291,6 +1383,8 @@ export function getCombatState() {
     currentTurnIndex,
     pendingConfirmation,
     pendingQuitConfirmation,
+    pendingRenamePrompt,
+    currentSessionName,
     activeCreature: creatures.length > 0 ? getSortedCreatures()[currentTurnIndex] ?? null : null,
   };
 }
@@ -1355,6 +1449,31 @@ export function processSaveNamePrompt(answer: string): boolean {
     console.log(`${GREEN}✓ Created new save state "${res.name}".${RESET}\n`);
   }
   return true;
+}
+
+export function processRenamePrompt(answer: string): boolean {
+  if (!pendingRenamePrompt) return false;
+
+  const defaultName = pendingRenamePrompt.defaultName;
+  pendingRenamePrompt = null;
+
+  const trimmed = answer.trim();
+  if (trimmed.toLowerCase() === "c" || trimmed.toLowerCase() === "cancel") {
+    renderTable();
+    console.log(`${DIM}Rename cancelled.${RESET}\n`);
+    return false;
+  }
+
+  const chosenName = trimmed || defaultName;
+  const res = renameSession(chosenName);
+  renderTable();
+  if (res.ok) {
+    console.log(`${GREEN}✓ Renamed game session to "${res.newName}".${RESET}\n`);
+    return true;
+  } else {
+    console.log(`${RED}${res.error}${RESET}\n`);
+    return false;
+  }
 }
 
 export function processSaveSelection(answer: string): boolean {
@@ -1471,9 +1590,9 @@ function handleCommandWithAutoSave(input: string): boolean {
   const cmd = parts[0]?.toLowerCase();
   const res = originalHandleCommand(input);
 
-  const nonMutatingCmds = ["help", "saves", "delete", "del", "quit", "exit", "q"];
-  if (cmd && !nonMutatingCmds.includes(cmd) && hasAddedCreature) {
-    saveState("current");
+  const nonMutatingCmds = ["help", "saves", "delete", "del", "quit", "exit", "q", "rename"];
+  if (cmd && !nonMutatingCmds.includes(cmd) && hasAddedCreature && currentSessionName) {
+    saveState(currentSessionName);
   }
   return res;
 }
@@ -1502,6 +1621,8 @@ if (import.meta.main) {
       ? `${RED}Select save(s) to DELETE (e.g. 1 3 or 1,2 or 'all') or 'c' to cancel > ${RESET}`
       : pendingSaveNamePrompt
       ? `${CYAN}Enter session name [Press Enter for "${pendingSaveNamePrompt.defaultName}"] > ${RESET}`
+      : pendingRenamePrompt
+      ? `${CYAN}Enter new session name [Press Enter for "${pendingRenamePrompt.defaultName}"] > ${RESET}`
       : `${MAGENTA}> ${RESET}`;
 
     rl.question(promptStr, (answer) => {
@@ -1523,6 +1644,12 @@ if (import.meta.main) {
 
       if (pendingSaveNamePrompt) {
         processSaveNamePrompt(answer);
+        prompt();
+        return;
+      }
+
+      if (pendingRenamePrompt) {
+        processRenamePrompt(answer);
         prompt();
         return;
       }

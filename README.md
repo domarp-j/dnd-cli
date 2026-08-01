@@ -137,23 +137,25 @@ The CLI automatically persists your game state locally after **every command exe
 ```text
 new                     # Clear current encounter and start a fresh game
 save                    # Save session with interactive name prompt (preset random snake_cased default)
-save <name>             # Directly save game state with a specific session name
-load                    # Show interactive list of saved games to pick from to load
+save [<name>]            # Save game session snapshot (or prompt)
+rename [<new_name>]      # Rename current game session snapshot (e.g. "rename dungeon_room1")
+load                     # Show interactive list of saved games to pick from to load
 load <name>             # Directly load a specific saved game snapshot
-delete save             # Show interactive list to pick save(s) to delete (e.g. "1 3", "1,2", or "all")
+delete save              # Show interactive list to pick save(s) to delete (e.g. "1 3", "1,2", or "all")
 delete save s1 s2 s3    # Delete multiple saved game files at once
-saves                   # List all saved game files
+saves                    # List all saved game files
 ```
+
+*Note: In a blank session, adding your first PC automatically generates a snake_cased random save name (e.g. `radiant_spire_22`) and creates a new save state.*
 
 *Example:*
 ```text
-save                     # Prompts for session name with preset (e.g. "bold_encounter_42", press Enter or edit)
-save dungeon_room1       # Save snapshot as "dungeon_room1" directly
+add pc Hero1             # Automatically creates save file (e.g. "radiant_spire_22")
+rename my_epic_campaign  # Renames current session and file to "my_epic_campaign"
+save                     # Prompts to save session snapshot with preset default
 load                     # Interactive load selection menu (pick 1, 2, 3... or enter name)
 new                      # Start clean session
-load dungeon_room1       # Restore saved "dungeon_room1" session directly
 delete save 1 3          # Interactively delete save options 1 and 3
-delete save room1 room2  # Delete save files "room1" and "room2" directly
 saves                    # View all saved sessions with creature counts and paths
 ```
 
