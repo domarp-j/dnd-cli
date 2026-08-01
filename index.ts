@@ -68,11 +68,12 @@ function ensureSavesDir(): void {
   }
 }
 
-export function saveState(saveName: string = "current"): string {
+export function saveState(saveName: string = "current"): { name: string; isNew: boolean } {
   ensureSavesDir();
   const cleanName = saveName.trim().replace(/[^a-zA-Z0-9_-]/g, "_") || "current";
   const filename = `${cleanName}.json`;
   const filepath = path.join(SAVES_DIR, filename);
+  const isNew = !fs.existsSync(filepath);
 
   const data: GameStateData = {
     version: 1,
@@ -84,7 +85,7 @@ export function saveState(saveName: string = "current"): string {
   };
 
   fs.writeFileSync(filepath, JSON.stringify(data, null, 2), "utf-8");
-  return cleanName;
+  return { name: cleanName, isNew };
 }
 
 export function loadState(saveName: string = "current"): { ok: true; name: string } | { ok: false; error: string } {
@@ -525,9 +526,11 @@ function handleCommand(input: string): boolean {
       return true;
     }
 
-    const name = saveState(saveName);
+    const res = saveState(saveName);
     renderTable();
-    console.log(`${GREEN}✓ Saved game state to "${name}".${RESET}\n`);
+    if (res.isNew) {
+      console.log(`${GREEN}✓ Created new save state "${res.name}".${RESET}\n`);
+    }
     return true;
   }
 
@@ -1289,9 +1292,11 @@ export function processSaveNamePrompt(answer: string): boolean {
   }
 
   const chosenName = trimmed || defaultName;
-  const name = saveState(chosenName);
+  const res = saveState(chosenName);
   renderTable();
-  console.log(`${GREEN}✓ Saved game state to "${name}".${RESET}\n`);
+  if (res.isNew) {
+    console.log(`${GREEN}✓ Created new save state "${res.name}".${RESET}\n`);
+  }
   return true;
 }
 
