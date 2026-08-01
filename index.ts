@@ -16,6 +16,11 @@ interface Creature {
   conditions: string[];
 }
 
+interface ActivityEntry {
+  timestamp: string;
+  message: string;
+}
+
 interface GameStateData {
   version: 1;
   savedAt: string;
@@ -23,6 +28,7 @@ interface GameStateData {
   inCombat: boolean;
   currentRound: number;
   currentTurnIndex: number;
+  activityLog?: ActivityEntry[];
 }
 
 // --- State ---
@@ -43,6 +49,11 @@ let pendingRenamePrompt: { defaultName: string } | null = null;
 let pendingQuitConfirmation = false;
 let hasAddedCreature = false;
 let currentSessionName: string | null = null;
+const activityLog: ActivityEntry[] = [];
+
+function logActivity(message: string): void {
+  activityLog.push({ timestamp: new Date().toISOString(), message });
+}
 
 // --- Persistence Helpers ---
 
@@ -85,6 +96,7 @@ export function saveState(saveName: string = "current"): { name: string; isNew: 
     inCombat,
     currentRound,
     currentTurnIndex,
+    activityLog: [...activityLog],
   };
 
   fs.writeFileSync(filepath, JSON.stringify(data, null, 2), "utf-8");
@@ -117,6 +129,10 @@ export function loadState(saveName: string = "current"): { ok: true; name: strin
     currentTurnIndex = typeof data.currentTurnIndex === "number" ? data.currentTurnIndex : 0;
     pendingConfirmation = null;
     hasAddedCreature = creatures.length > 0;
+    activityLog.length = 0;
+    if (Array.isArray(data.activityLog)) {
+      activityLog.push(...data.activityLog);
+    }
     if (cleanName !== "current") {
       currentSessionName = cleanName;
     }
@@ -519,6 +535,7 @@ function handleCommand(input: string): boolean {
     console.log(`  ${BOLD}${MAGENTA}Utilities:${RESET}`);
     console.log(`    ${CYAN}${pad("(help | h)", 36)}${RESET} Show this POSIX / docopt help menu`);
     console.log(`    ${CYAN}${pad("(quit | q | exit)", 36)}${RESET} Exit the application`);
+    console.log(`    ${CYAN}${pad("show activity", 36)}${RESET} Show all actions logged in this session`);
     console.log(`    ${CYAN}${pad("test [simple]", 36)}${RESET} Load test data encounter\n`);
     return true;
   }
@@ -753,6 +770,7 @@ function handleCommand(input: string): boolean {
     const sorted = getSortedCreatures();
     const active = sorted[currentTurnIndex];
     console.log(`${GREEN}⚔ Combat started! Round 1 — ${BOLD}${active ? active.name : ""}'s turn${RESET}\n`);
+    logActivity(`⚔ Combat started (Round 1 — ${active ? active.name : ""}'s turn)`);
     return true;
   }
 
@@ -786,6 +804,7 @@ function handleCommand(input: string): boolean {
     const active = sorted[currentTurnIndex];
     const stepMsg = count > 1 ? ` (+${count} turns)` : "";
     console.log(`${GREEN}► Round ${currentRound} — Turn: ${BOLD}${active ? active.name : ""}${RESET}${DIM}${stepMsg}${RESET}\n`);
+    logActivity(`► Round ${currentRound} — Turn: ${active ? active.name : ""}${stepMsg}`);
     return true;
   }
 
@@ -808,6 +827,7 @@ function handleCommand(input: string): boolean {
     const active = sorted[currentTurnIndex];
     const stepMsg = count > 1 ? ` (-${count} turns)` : "";
     console.log(`${YELLOW}◄ Round ${currentRound} — Turn: ${BOLD}${active ? active.name : ""}${RESET}${DIM}${stepMsg}${RESET}\n`);
+    logActivity(`◄ Round ${currentRound} — Turn: ${active ? active.name : ""}${stepMsg}`);
     return true;
   }
 
@@ -847,6 +867,7 @@ function handleCommand(input: string): boolean {
       renderTable();
       const names = result.creatures.map((c) => c.name).join(", ");
       console.log(`${GREEN}✓ ${names}: +condition "${cond}"${RESET}\n`);
+      logActivity(`Added condition "${cond}" to ${names}`);
       return true;
     }
 
@@ -882,6 +903,7 @@ function handleCommand(input: string): boolean {
       renderTable();
       const names = result.creatures.map((c) => c.name).join(", ");
       console.log(`${GREEN}✓ ${names}: dmg +${val}${RESET}\n`);
+      logActivity(`Dealt ${val} damage to ${names}`);
       return true;
     }
 
@@ -937,6 +959,7 @@ function handleCommand(input: string): boolean {
       console.log(`${GREEN}${createdSaveMsg}${RESET}`);
     }
     console.log();
+    logActivity(`Added ${typeLabel(type)}: ${targets.join(", ")}`);
     return true;
   }
 
@@ -962,6 +985,7 @@ function handleCommand(input: string): boolean {
         });
         renderTable();
         console.log(`${GREEN}✓ Cleared initiative for all creatures.${RESET}\n`);
+        logActivity("Cleared initiative for all creatures");
         return true;
       }
 
@@ -981,6 +1005,7 @@ function handleCommand(input: string): boolean {
       renderTable();
       const names = result.creatures.map((c) => c.name).join(", ");
       console.log(`${GREEN}✓ Cleared initiative for ${names}.${RESET}\n`);
+      logActivity(`Cleared initiative for ${names}`);
       return true;
     }
 
@@ -1001,6 +1026,7 @@ function handleCommand(input: string): boolean {
         });
         renderTable();
         console.log(`${GREEN}✓ Cleared damage for all creatures.${RESET}\n`);
+        logActivity("Cleared damage for all creatures");
         return true;
       }
 
@@ -1020,6 +1046,7 @@ function handleCommand(input: string): boolean {
       renderTable();
       const names = result.creatures.map((c) => c.name).join(", ");
       console.log(`${GREEN}✓ Cleared damage for ${names}.${RESET}\n`);
+      logActivity(`Cleared damage for ${names}`);
       return true;
     }
 
@@ -1082,6 +1109,7 @@ function handleCommand(input: string): boolean {
 
       renderTable();
       console.log(`${GREEN}✓ Bulk set ${field}: ${summaryItems.join("; ")}${RESET}\n`);
+      logActivity(`Bulk set ${field}: ${summaryItems.join("; ")}`);
       return true;
     }
 
@@ -1133,6 +1161,7 @@ function handleCommand(input: string): boolean {
     renderTable();
     const names = result.creatures.map((c) => c.name).join(", ");
     console.log(`${GREEN}✓ ${names}: ${field} → ${val === null ? "cleared" : val}${RESET}\n`);
+    logActivity(`Set ${field} for ${names} → ${val === null ? "cleared" : val}`);
     return true;
   }
 
@@ -1211,6 +1240,7 @@ function handleCommand(input: string): boolean {
       const names = result.creatures.map((c) => c.name).join(", ");
       if (matchedAny) {
         console.log(`${GREEN}✓ Removed condition matching "${condPattern}" from ${names}${RESET}\n`);
+        logActivity(`Removed condition "${condPattern}" from ${names}`);
       } else {
         console.log(`${YELLOW}No condition matching "${condPattern}" found on ${names}.${RESET}\n`);
       }
@@ -1262,6 +1292,7 @@ function handleCommand(input: string): boolean {
         const label = category === "pc" ? "PCs" : category === "enemy" ? "enemies" : "neutral creatures";
         if (removedCount > 0) {
           console.log(`${YELLOW}- Removed all ${label} (${removedCount} creatures).${RESET}\n`);
+          logActivity(`Removed all ${label} (${removedCount} creatures)`);
         } else {
           console.log(`${YELLOW}No ${label} found to remove.${RESET}\n`);
         }
@@ -1293,6 +1324,7 @@ function handleCommand(input: string): boolean {
     renderTable();
     const names = result.creatures.map((c) => c.name).join(", ");
     console.log(`${YELLOW}- Removed: ${names}${RESET}\n`);
+    logActivity(`Removed: ${names}`);
     return true;
   }
 
@@ -1366,6 +1398,22 @@ function handleCommand(input: string): boolean {
       console.log(`${GREEN}${createdSaveMsg}${RESET}`);
     }
     console.log();
+    logActivity(`Loaded test data${isSimple ? " (simple)" : ""} (${creatures.length} creatures)`);
+    return true;
+  }
+
+  if (cmd === "show" && parts[1]?.toLowerCase() === "activity") {
+    renderTable();
+    if (activityLog.length === 0) {
+      console.log(`${YELLOW}No activity recorded yet for this session.${RESET}\n`);
+      return true;
+    }
+    console.log(`${BOLD}${CYAN}Activity log for "${currentSessionName ?? "Unsaved"}":${RESET}\n`);
+    for (const entry of activityLog) {
+      const timeStr = new Date(entry.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+      console.log(`  ${DIM}[${timeStr}]${RESET}  ${entry.message}`);
+    }
+    console.log();
     return true;
   }
 
@@ -1391,6 +1439,11 @@ export function resetState(): void {
   pendingQuitConfirmation = false;
   hasAddedCreature = false;
   currentSessionName = null;
+  activityLog.length = 0;
+}
+
+export function getActivityLog(): ActivityEntry[] {
+  return [...activityLog];
 }
 
 export function getCombatState() {
@@ -1433,9 +1486,11 @@ export function processConfirmation(answer: string): boolean {
         c.initiative = null;
         c.dmg = 0;
       }
-      saveState("current");
+      if (currentSessionName) saveState(currentSessionName);
+      else saveState("current");
       renderTable();
       console.log(`${YELLOW}⚔ Combat ended. Initiative and damage cleared for all creatures.${RESET}\n`);
+      logActivity("⚔ Combat ended — initiative and damage cleared");
       return true;
     } else {
       renderTable();

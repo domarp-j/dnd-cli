@@ -5,6 +5,7 @@ import {
   getSortedCreatures,
   resetState,
   getCombatState,
+  getActivityLog,
   processConfirmation,
   processSaveSelection,
   processSaveDeleteSelection,
@@ -443,6 +444,45 @@ describe("D&D CLI Tracker Test Suite", () => {
       processRenamePrompt("prompted_rename_slot");
       resetState();
       expect(handleCommand("load prompted_rename_slot")).toBeTrue();
+    });
+  });
+
+  describe("Activity Log", () => {
+    test("records actions and show activity returns true", () => {
+      handleCommand("add pc LogHero");
+      handleCommand("add enemy Goblin");
+      handleCommand("set hp 20 LogHero");
+      handleCommand("add dmg 5 Goblin");
+
+      const log = getActivityLog();
+      expect(log.length).toBeGreaterThan(0);
+      expect(log.some((e) => e.message.includes("LogHero"))).toBeTrue();
+      expect(log.some((e) => e.message.includes("Goblin"))).toBeTrue();
+
+      expect(handleCommand("show activity")).toBeTrue();
+    });
+
+    test("activity log is empty after resetState", () => {
+      handleCommand("add pc LogHero");
+      resetState();
+      expect(getActivityLog().length).toBe(0);
+    });
+
+    test("activity log persists across save and load", () => {
+      handleCommand("add pc PersistHero");
+      handleCommand("add dmg 10 PersistHero");
+      const sessionName = getCombatState().currentSessionName;
+      if (sessionName) {
+        createdSaves.add(sessionName);
+        resetState();
+        handleCommand(`load ${sessionName}`);
+        const log = getActivityLog();
+        expect(log.some((e) => e.message.includes("PersistHero"))).toBeTrue();
+      }
+    });
+
+    test("show activity returns true when log is empty", () => {
+      expect(handleCommand("show activity")).toBeTrue();
     });
   });
 });
