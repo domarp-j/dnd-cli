@@ -508,46 +508,46 @@ function handleCommand(input: string): boolean {
 
   if (cmd === "help" || cmd === "h") {
     renderTable();
-    console.log(`${BOLD}Available commands (POSIX / docopt syntax):${RESET}\n`);
+    console.log(`${BOLD}Available commands:${RESET}\n`);
 
     console.log(`  ${BOLD}${MAGENTA}Creature Management:${RESET}`);
-    console.log(`    ${CYAN}${pad("add (enemy | e) <name>...", 36)}${RESET} Add enemy creature(s)`);
-    console.log(`    ${CYAN}${pad("add (neutral | n) <name>...", 36)}${RESET} Add neutral creature(s)`);
-    console.log(`    ${CYAN}${pad("add (pc | p) <name>...", 36)}${RESET} Add player character(s)`);
-    console.log(`    ${CYAN}${pad("remove char <name>...", 36)}${RESET} Remove specific creature(s) by name`);
-    console.log(`    ${CYAN}${pad("remove (pcs | enemies | neutrals)", 36)}${RESET} Bulk remove creatures by type (or p | e | n)\n`);
+    console.log(`    ${CYAN}${pad("add (enemy | e) <name>...", 44)}${RESET} Add enemy creature(s)`);
+    console.log(`    ${CYAN}${pad("add (neutral | n) <name>...", 44)}${RESET} Add neutral creature(s)`);
+    console.log(`    ${CYAN}${pad("add (pc | p) <name>...", 44)}${RESET} Add player character(s)`);
+    console.log(`    ${CYAN}${pad("remove char <name>...", 44)}${RESET} Remove specific creature(s) by name`);
+    console.log(`    ${CYAN}${pad("remove (pcs | enemies | neutrals)", 44)}${RESET} Bulk remove creatures by type (or p | e | n)\n`);
 
     console.log(`  ${BOLD}${MAGENTA}Combat & Turn Control:${RESET}`);
-    console.log(`    ${CYAN}${pad("combat [start]", 36)}${RESET} Start combat mode (resorts by initiative)`);
-    console.log(`    ${CYAN}${pad("combat end", 36)}${RESET} End combat mode (clears init & dmg)`);
-    console.log(`    ${CYAN}${pad("(next | n) [<count>]", 36)}${RESET} Advance 1 or <count> turns`);
-    console.log(`    ${CYAN}${pad("(prev | p) [<count>]", 36)}${RESET} Go back 1 or <count> turns\n`);
+    console.log(`    ${CYAN}${pad("combat [start]", 44)}${RESET} Start combat mode (resorts by initiative)`);
+    console.log(`    ${CYAN}${pad("combat end", 44)}${RESET} End combat mode (clears init & dmg)`);
+    console.log(`    ${CYAN}${pad("(next | n) [<count>]", 44)}${RESET} Advance 1 or <count> turns`);
+    console.log(`    ${CYAN}${pad("(prev | p) [<count>]", 44)}${RESET} Go back 1 or <count> turns\n`);
 
     console.log(`  ${BOLD}${MAGENTA}Stats & Status Effects:${RESET}`);
-    console.log(`    ${CYAN}${pad("add (eff | cond) <effect> <target>...", 36)}${RESET} Add status effect to target(s)`);
-    console.log(`    ${CYAN}${pad("add dmg <value> <target>...", 36)}${RESET} Add damage taken to target(s)`);
-    console.log(`    ${CYAN}${pad("clear dmg (<all> | <target>...)", 36)}${RESET} Clear damage for target(s) or all`);
-    console.log(`    ${CYAN}${pad("clear init (<all> | <target>...)", 36)}${RESET} Clear initiative for target(s) or all`);
-    console.log(`    ${CYAN}${pad("remove (eff | cond) <effect> <target>...", 36)}${RESET} Remove status effect from target(s)`);
-    console.log(`    ${CYAN}${pad("set ac <value> <target>...", 36)}${RESET} Set AC for target(s)`);
-    console.log(`    ${CYAN}${pad("set ac bulk (<target> <value>)...", 36)}${RESET} Bulk set AC pairs`);
-    console.log(`    ${CYAN}${pad("set hp <value> <target>...", 36)}${RESET} Set HP max for target(s)`);
-    console.log(`    ${CYAN}${pad("set init <value> <target>...", 36)}${RESET} Set initiative for target(s)`);
-    console.log(`    ${CYAN}${pad("set init bulk (<target> <value>)...", 36)}${RESET} Bulk set initiative pairs\n`);
+    console.log(`    ${CYAN}${pad("add (eff | cond) <effect> <target>...", 44)}${RESET} Add status effect to target(s)`);
+    console.log(`    ${CYAN}${pad("add dmg <value> <target>...", 44)}${RESET} Add damage taken to target(s)`);
+    console.log(`    ${CYAN}${pad("clear dmg (<all> | <target>...)", 44)}${RESET} Clear damage for target(s) or all`);
+    console.log(`    ${CYAN}${pad("clear init (<all> | <target>...)", 44)}${RESET} Clear initiative for target(s) or all`);
+    console.log(`    ${CYAN}${pad("remove (eff | cond) <effect> <target>...", 44)}${RESET} Remove status effect from target(s)`);
+    console.log(`    ${CYAN}${pad("set ac <value> <target>...", 44)}${RESET} Set AC for target(s)`);
+    console.log(`    ${CYAN}${pad("set ac bulk (<target> <value>)...", 44)}${RESET} Bulk set AC pairs`);
+    console.log(`    ${CYAN}${pad("set hp <value> <target>...", 44)}${RESET} Set HP max for target(s)`);
+    console.log(`    ${CYAN}${pad("set init <value> <target>...", 44)}${RESET} Set initiative for target(s)`);
+    console.log(`    ${CYAN}${pad("set init bulk (<target> <value>)...", 44)}${RESET} Bulk set initiative pairs\n`);
 
     console.log(`  ${BOLD}${MAGENTA}Game State & Storage:${RESET}`);
-    console.log(`    ${CYAN}${pad("delete save [<name>...]", 36)}${RESET} Delete save file(s) (or list options)`);
-    console.log(`    ${CYAN}${pad("load save [<name>]", 36)}${RESET} Load saved game state (or list options)`);
-    console.log(`    ${CYAN}${pad("new game", 36)}${RESET} Start a fresh new game session`);
-    console.log(`    ${CYAN}${pad("rename save [<new_name>]", 36)}${RESET} Rename current game session`);
-    console.log(`    ${CYAN}${pad("save [<name>]", 36)}${RESET} Save game session snapshot (or prompt)`);
-    console.log(`    ${CYAN}${pad("saves", 36)}${RESET} List all saved game files with paths\n`);
+    console.log(`    ${CYAN}${pad("delete save [<name>...]", 44)}${RESET} Delete save file(s) (or list options)`);
+    console.log(`    ${CYAN}${pad("load save [<name>]", 44)}${RESET} Load saved game state (or list options)`);
+    console.log(`    ${CYAN}${pad("new game", 44)}${RESET} Start a fresh new game session`);
+    console.log(`    ${CYAN}${pad("rename save [<new_name>]", 44)}${RESET} Rename current game session`);
+    console.log(`    ${CYAN}${pad("save [<name>]", 44)}${RESET} Save game session snapshot (or prompt)`);
+    console.log(`    ${CYAN}${pad("saves", 44)}${RESET} List all saved game files with paths\n`);
 
     console.log(`  ${BOLD}${MAGENTA}Utilities:${RESET}`);
-    console.log(`    ${CYAN}${pad("(help | h)", 36)}${RESET} Show this POSIX / docopt help menu`);
-    console.log(`    ${CYAN}${pad("(quit | q | exit)", 36)}${RESET} Exit the application`);
-    console.log(`    ${CYAN}${pad("show activity", 36)}${RESET} Show all actions logged in this session`);
-    console.log(`    ${CYAN}${pad("test [simple]", 36)}${RESET} Load test data encounter\n`);
+    console.log(`    ${CYAN}${pad("(help | h)", 44)}${RESET} Show this POSIX / docopt help menu`);
+    console.log(`    ${CYAN}${pad("(quit | q | exit)", 44)}${RESET} Exit the application`);
+    console.log(`    ${CYAN}${pad("show activity", 44)}${RESET} Show all actions logged in this session`);
+    console.log(`    ${CYAN}${pad("test [simple]", 44)}${RESET} Load test data encounter\n`);
     return true;
   }
 
