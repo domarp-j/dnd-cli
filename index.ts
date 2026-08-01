@@ -526,9 +526,9 @@ function handleCommand(input: string): boolean {
 
     console.log(`  ${BOLD}${MAGENTA}Game State & Storage:${RESET}`);
     console.log(`    ${CYAN}${pad("delete save [<name>...]", 36)}${RESET} Delete save file(s) (or list options)`);
-    console.log(`    ${CYAN}${pad("load [<name>]", 36)}${RESET} Load saved game state (or list options)`);
+    console.log(`    ${CYAN}${pad("load save [<name>]", 36)}${RESET} Load saved game state (or list options)`);
     console.log(`    ${CYAN}${pad("new", 36)}${RESET} Start a fresh new game session`);
-    console.log(`    ${CYAN}${pad("rename [<new_name>]", 36)}${RESET} Rename current game session`);
+    console.log(`    ${CYAN}${pad("rename save [<new_name>]", 36)}${RESET} Rename current game session`);
     console.log(`    ${CYAN}${pad("save [<name>]", 36)}${RESET} Save game session snapshot (or prompt)`);
     console.log(`    ${CYAN}${pad("saves", 36)}${RESET} List all saved game files with paths\n`);
 
@@ -550,7 +550,14 @@ function handleCommand(input: string): boolean {
   if (cmd === "rename") {
     const subCmd = parts[1]?.toLowerCase();
     const isSave = subCmd === "save" || subCmd === "session" || subCmd === "game";
-    const newName = isSave ? parts[2] : parts[1];
+
+    if (!isSave) {
+      renderTable();
+      console.log(`${RED}Too ambiguous — perhaps you meant: ${BOLD}rename save [<new_name>]${RESET}\n`);
+      return true;
+    }
+
+    const newName = parts[2];
 
     if (!newName) {
       const presetName = generateRandomSaveName();
@@ -654,7 +661,14 @@ function handleCommand(input: string): boolean {
   if (cmd === "delete" || cmd === "del") {
     const subCmd = parts[1]?.toLowerCase() ?? "";
     const isSave = subCmd === "save" || subCmd === "savegame" || subCmd === "saves";
-    const saveNames = isSave ? parts.slice(2) : parts.slice(1);
+
+    if (!isSave) {
+      renderTable();
+      console.log(`${RED}Too ambiguous — perhaps you meant: ${BOLD}delete save [<name>...]${RESET}\n`);
+      return true;
+    }
+
+    const saveNames = parts.slice(2);
 
     if (saveNames.length === 0) {
       const savesList = listSaves();
@@ -695,7 +709,17 @@ function handleCommand(input: string): boolean {
   }
 
   if (cmd === "load" || cmd === "loadgame") {
-    const saveName = parts[1];
+    const subCmd = parts[1]?.toLowerCase();
+    const isSave = subCmd === "save" || subCmd === "savegame" || subCmd === "saves";
+
+    if (!isSave && !subCmd) {
+      renderTable();
+      console.log(`${RED}Too ambiguous — perhaps you meant: ${BOLD}load save [<name>]${RESET}\n`);
+      return true;
+    }
+
+    // Allow both "load save <name>" and "load <name>" (direct named load)
+    const saveName = isSave ? parts[2] : parts[1];
 
     if (!saveName) {
       const savesList = listSaves();
