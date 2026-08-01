@@ -376,7 +376,7 @@ function renderTable(): void {
     console.log(`${DIM}  No creatures yet. Use "add pc n1 n2" to begin.${RESET}`);
   } else {
     // Header
-    const hdr = `    ${pad("Name", 22)}${pad("Type", 10)}${pad("HP Max", 8)}${pad("Dmg", 6)}${pad("AC", 6)}${pad("Init", 6)}${"Status Effects"}`;
+    const hdr = `  ${pad("Name", 22)}${pad("Type", 10)}${pad("HP Max", 8)}${pad("Dmg", 6)}${pad("AC", 6)}${pad("Init", 6)}${"Status Effects"}`;
     console.log(`${BOLD}${CYAN}${hdr}${RESET}`);
     console.log(`${DIM}  ${"─".repeat(76)}${RESET}`);
 
