@@ -527,7 +527,7 @@ function handleCommand(input: string): boolean {
     console.log(`  ${BOLD}${MAGENTA}Game State & Storage:${RESET}`);
     console.log(`    ${CYAN}${pad("delete save [<name>...]", 36)}${RESET} Delete save file(s) (or list options)`);
     console.log(`    ${CYAN}${pad("load save [<name>]", 36)}${RESET} Load saved game state (or list options)`);
-    console.log(`    ${CYAN}${pad("new", 36)}${RESET} Start a fresh new game session`);
+    console.log(`    ${CYAN}${pad("new game", 36)}${RESET} Start a fresh new game session`);
     console.log(`    ${CYAN}${pad("rename save [<new_name>]", 36)}${RESET} Rename current game session`);
     console.log(`    ${CYAN}${pad("save [<name>]", 36)}${RESET} Save game session snapshot (or prompt)`);
     console.log(`    ${CYAN}${pad("saves", 36)}${RESET} List all saved game files with paths\n`);
@@ -541,6 +541,11 @@ function handleCommand(input: string): boolean {
   }
 
   if (cmd === "new") {
+    if (parts[1]?.toLowerCase() !== "game") {
+      renderTable();
+      console.log(`${RED}Too ambiguous — perhaps you meant: ${BOLD}new game${RESET}\n`);
+      return true;
+    }
     resetState();
     renderTable();
     console.log(`${GREEN}✓ Started a fresh new game.${RESET}\n`);

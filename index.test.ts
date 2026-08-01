@@ -307,7 +307,7 @@ describe("D&D CLI Tracker Test Suite", () => {
       handleCommand("set hp 40 Hero1");
       handleCommand("save test_slot");
 
-      handleCommand("new");
+      handleCommand("new game");
       expect(creatures.length).toBe(0);
 
       handleCommand("load save test_slot");
@@ -316,7 +316,7 @@ describe("D&D CLI Tracker Test Suite", () => {
     });
 
     test("auto-saves on mutating commands", () => {
-      handleCommand("new");
+      handleCommand("new game");
       handleCommand("add pc AutoSavedHero");
       const sessionName = getCombatState().currentSessionName;
 
@@ -355,11 +355,12 @@ describe("D&D CLI Tracker Test Suite", () => {
       expect(creatures.some((c) => c.name === "InteractiveHero")).toBeTrue();
     });
 
-    test("bare load and delete and rename without save qualifier show ambiguous error", () => {
+    test("bare load and delete and rename and new without save/game qualifier show ambiguous error", () => {
       // These should NOT perform any action, just print an error
       expect(handleCommand("load")).toBeTrue();
       expect(handleCommand("delete")).toBeTrue();
       expect(handleCommand("rename")).toBeTrue();
+      expect(handleCommand("new")).toBeTrue();
       // State should be unchanged (no creatures, no pending state)
       expect(creatures.length).toBe(0);
     });
