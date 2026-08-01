@@ -125,9 +125,15 @@ remove char "Goblin Warrior 1"
 remove e "Goblin Arch*"                  # Remove specific enemy matching wildcard
 ```
 
-### Testing Data
+### Testing & Test Suite
 
-Quickly seed the encounter state with test creatures:
+Run the automated Bun test suite:
+
+```bash
+bun test
+```
+
+Quickly seed the encounter state with test creatures during CLI session:
 
 ```text
 test          # Load full test encounter (with stats & conditions)

@@ -875,52 +875,83 @@ function handleCommand(input: string): boolean {
   return true;
 }
 
-// --- REPL ---
+// --- Test Helpers & Exports ---
 
-const rl = readline.createInterface({
-  input: process.stdin,
-  output: process.stdout,
-});
+export { handleCommand, creatures, getSortedCreatures };
 
-renderTable();
-
-function prompt() {
-  const promptStr = pendingConfirmation
-    ? `${YELLOW}End combat and clear init & dmg for all creatures? (y/n) > ${RESET}`
-    : `${MAGENTA}> ${RESET}`;
-
-  rl.question(promptStr, (answer) => {
-    if (pendingConfirmation) {
-      const choice = answer.trim().toLowerCase();
-      if (pendingConfirmation.type === "end_combat") {
-        pendingConfirmation = null;
-        if (choice === "y" || choice === "yes") {
-          inCombat = false;
-          currentRound = 1;
-          currentTurnIndex = 0;
-          for (const c of creatures) {
-            c.initiative = null;
-            c.dmg = 0;
-          }
-          renderTable();
-          console.log(`${YELLOW}⚔ Combat ended. Initiative and damage cleared for all creatures.${RESET}\n`);
-        } else {
-          renderTable();
-          console.log(`${DIM}Combat end cancelled.${RESET}\n`);
-        }
-      }
-      prompt();
-      return;
-    }
-
-    const shouldContinue = handleCommand(answer);
-    if (shouldContinue) {
-      prompt();
-    } else {
-      rl.close();
-    }
-  });
+export function resetState(): void {
+  creatures.length = 0;
+  inCombat = false;
+  currentRound = 1;
+  currentTurnIndex = 0;
+  pendingConfirmation = null;
 }
 
-prompt();
+export function getCombatState() {
+  return {
+    inCombat,
+    currentRound,
+    currentTurnIndex,
+    pendingConfirmation,
+    activeCreature: creatures.length > 0 ? getSortedCreatures()[currentTurnIndex] ?? null : null,
+  };
+}
+
+export function processConfirmation(answer: string): boolean {
+  if (pendingConfirmation?.type === "end_combat") {
+    pendingConfirmation = null;
+    const choice = answer.trim().toLowerCase();
+    if (choice === "y" || choice === "yes") {
+      inCombat = false;
+      currentRound = 1;
+      currentTurnIndex = 0;
+      for (const c of creatures) {
+        c.initiative = null;
+        c.dmg = 0;
+      }
+      renderTable();
+      console.log(`${YELLOW}⚔ Combat ended. Initiative and damage cleared for all creatures.${RESET}\n`);
+      return true;
+    } else {
+      renderTable();
+      console.log(`${DIM}Combat end cancelled.${RESET}\n`);
+      return false;
+    }
+  }
+  return false;
+}
+
+// --- REPL ---
+
+if (import.meta.main) {
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+
+  renderTable();
+
+  function prompt() {
+    const promptStr = pendingConfirmation
+      ? `${YELLOW}End combat and clear init & dmg for all creatures? (y/n) > ${RESET}`
+      : `${MAGENTA}> ${RESET}`;
+
+    rl.question(promptStr, (answer) => {
+      if (pendingConfirmation) {
+        processConfirmation(answer);
+        prompt();
+        return;
+      }
+
+      const shouldContinue = handleCommand(answer);
+      if (shouldContinue) {
+        prompt();
+      } else {
+        rl.close();
+      }
+    });
+  }
+
+  prompt();
+}
 
