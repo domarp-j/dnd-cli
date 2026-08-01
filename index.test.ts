@@ -74,6 +74,21 @@ describe("D&D CLI Tracker Test Suite", () => {
       expect(hero?.dmg).toBe(10);
     });
 
+    test("supports bulk setting of AC and initiative with alternating pairs", () => {
+      handleCommand("add pc HeroA HeroB");
+      handleCommand("set ac bulk HeroA 18 HeroB 15");
+      handleCommand("set init bulk HeroA 14 HeroB 20");
+
+      const heroA = creatures.find((c) => c.name === "HeroA");
+      const heroB = creatures.find((c) => c.name === "HeroB");
+
+      expect(heroA?.ac).toBe(18);
+      expect(heroA?.initiative).toBe(14);
+
+      expect(heroB?.ac).toBe(15);
+      expect(heroB?.initiative).toBe(20);
+    });
+
     test("adds and removes status conditions", () => {
       handleCommand("add pc Hero");
       handleCommand("add cond Poisoned Hero");

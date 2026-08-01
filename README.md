@@ -50,7 +50,9 @@ Set maximum HP, Armor Class (AC), or Initiative values for targets:
 set hp <value> <target1> <target2> ...
 set ac <value> <target1> <target2> ...
 set init <value> <target1> <target2> ...
-clear init <all | target1 target2 ...>    # Clear initiative for targets (or all)
+set ac bulk <target1> <val1> <target2> <val2> ...    # Bulk set AC pairs
+set init bulk <target1> <val1> <target2> <val2> ...  # Bulk set initiative pairs
+clear init <all | target1 target2 ...>              # Clear initiative for targets (or all)
 ```
 
 *Example:*
@@ -58,8 +60,10 @@ clear init <all | target1 target2 ...>    # Clear initiative for targets (or all
 set hp 45 Ajax
 set ac 18 Ajax
 set init 14 Ajax
-clear init Ajax                         # Clear initiative for Ajax
-clear init all                          # Explicitly clear initiative for all creatures
+set ac bulk aj 18 drago 15                          # Bulk set AC for Ajax & Dragon
+set init bulk aj 14 kae 18 drago 10                 # Bulk set initiative for multiple creatures
+clear init Ajax                                     # Clear initiative for Ajax
+clear init all                                      # Explicitly clear initiative for all creatures
 ```
 
 ### Damage & Conditions

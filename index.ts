@@ -308,6 +308,8 @@ function handleCommand(input: string): boolean {
     console.log(`  ${CYAN}${pad("set hp <val> n1 n2", 25)}${RESET} Set HP max for targets`);
     console.log(`  ${CYAN}${pad("set ac <val> n1 n2", 25)}${RESET} Set AC for targets`);
     console.log(`  ${CYAN}${pad("set init <val> n1 n2", 25)}${RESET} Set initiative for targets`);
+    console.log(`  ${CYAN}${pad("set ac bulk n1 v1 n2 v2", 25)}${RESET} Bulk set AC pairs`);
+    console.log(`  ${CYAN}${pad("set init bulk n1 v1 n2 v2", 25)}${RESET} Bulk set initiative pairs`);
     console.log(`  ${CYAN}${pad("clear dmg [n1 / all]", 25)}${RESET} Clear damage for targets (or all)`);
     console.log(`  ${CYAN}${pad("clear init [n1 / all]", 25)}${RESET} Clear initiative for targets (or all)`);
     console.log(`  ${CYAN}${pad("remove enemies [all]", 25)}${RESET} Remove all enemies`);
@@ -604,6 +606,59 @@ function handleCommand(input: string): boolean {
     const fieldInput = parts[1]?.toLowerCase() ?? "";
     const setOptions = ["hp", "ac", "init"];
     const field = matchPrefix(fieldInput, setOptions);
+
+    if (parts[2]?.toLowerCase() === "bulk") {
+      const bulkArgs = parts.slice(3);
+      if (!field || bulkArgs.length === 0 || bulkArgs.length % 2 !== 0) {
+        renderTable();
+        const msg = !field
+          ? `Unknown field "${fieldInput}". Use hp, ac, or init.`
+          : `Usage: set ${fieldInput} bulk <target1> <val1> <target2> <val2> ...`;
+        console.log(`${RED}${msg}${RESET}\n`);
+        return true;
+      }
+
+      const updates: { creatures: Creature[]; val: number | null; rawTarget: string; rawVal: string }[] = [];
+      for (let i = 0; i < bulkArgs.length; i += 2) {
+        const rawTarget = bulkArgs[i]!;
+        const rawVal = bulkArgs[i + 1]!;
+        const lowerVal = rawVal.toLowerCase();
+        const isNullVal = lowerVal === "null" || lowerVal === "none" || lowerVal === "clear" || lowerVal === "-" || lowerVal === "—";
+        const val = isNullVal ? null : parseInt(rawVal, 10);
+        if (!isNullVal && isNaN(val as number)) {
+          renderTable();
+          console.log(`${RED}"${rawVal}" is not a valid number for target "${rawTarget}".${RESET}\n`);
+          return true;
+        }
+
+        const result = findCreatures([rawTarget]);
+        if (!result.ok) {
+          renderTable();
+          console.log(`${RED}${result.error}${RESET}\n`);
+          return true;
+        }
+
+        updates.push({ creatures: result.creatures, val, rawTarget, rawVal });
+      }
+
+      const summaryItems: string[] = [];
+      withTurnPreservation(() => {
+        for (const update of updates) {
+          for (const c of update.creatures) {
+            if (field === "hp") c.hpMax = update.val;
+            else if (field === "ac") c.ac = update.val;
+            else if (field === "init") c.initiative = update.val;
+          }
+          const names = update.creatures.map((c) => c.name).join(", ");
+          summaryItems.push(`${names} → ${update.val === null ? "cleared" : update.val}`);
+        }
+      });
+
+      renderTable();
+      console.log(`${GREEN}✓ Bulk set ${field}: ${summaryItems.join("; ")}${RESET}\n`);
+      return true;
+    }
+
     const rawVal = parts[2];
     const targets = parts.slice(3);
 
