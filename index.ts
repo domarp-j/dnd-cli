@@ -508,7 +508,13 @@ function handleCommand(input: string): boolean {
     if (isInit) {
       const targets = parts.slice(2);
 
-      if (targets.length === 0 || targets[0] === "all" || targets[0] === "*") {
+      if (targets.length === 0) {
+        renderTable();
+        console.log(`${RED}Please specify targets or "all" to clear initiative (e.g., "clear init all" or "clear init Ajax").${RESET}\n`);
+        return true;
+      }
+
+      if (targets[0] === "all" || targets[0] === "*") {
         withTurnPreservation(() => {
           for (const c of creatures) {
             c.initiative = null;
@@ -541,7 +547,13 @@ function handleCommand(input: string): boolean {
     if (isDmg) {
       const targets = parts.slice(2);
 
-      if (targets.length === 0 || targets[0] === "all" || targets[0] === "*") {
+      if (targets.length === 0) {
+        renderTable();
+        console.log(`${RED}Please specify targets or "all" to clear damage (e.g., "clear dmg all" or "clear dmg Ajax").${RESET}\n`);
+        return true;
+      }
+
+      if (targets[0] === "all" || targets[0] === "*") {
         withTurnPreservation(() => {
           for (const c of creatures) {
             c.dmg = 0;
@@ -572,7 +584,7 @@ function handleCommand(input: string): boolean {
     }
 
     renderTable();
-    console.log(`${RED}Usage: clear <init|dmg> [target1 target2 ...] (e.g. "clear dmg all" or "clear init Ajax")${RESET}\n`);
+    console.log(`${RED}Usage: clear <init|dmg> <all | target1 target2 ...> (e.g., "clear init all" or "clear dmg Ajax")${RESET}\n`);
     return true;
   }
 
@@ -639,7 +651,13 @@ function handleCommand(input: string): boolean {
     if (isInit) {
       const targets = parts.slice(2);
 
-      if (targets.length === 0 || targets[0] === "all" || targets[0] === "*") {
+      if (targets.length === 0) {
+        renderTable();
+        console.log(`${RED}Please specify targets or "all" to clear initiative (e.g., "remove init all" or "remove init Ajax").${RESET}\n`);
+        return true;
+      }
+
+      if (targets[0] === "all" || targets[0] === "*") {
         withTurnPreservation(() => {
           for (const c of creatures) {
             c.initiative = null;

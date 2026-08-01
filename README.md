@@ -50,7 +50,7 @@ Set maximum HP, Armor Class (AC), or Initiative values for targets:
 set hp <value> <target1> <target2> ...
 set ac <value> <target1> <target2> ...
 set init <value> <target1> <target2> ...
-clear init [target1 target2 ...]       # Clear initiative for targets (or all)
+clear init <all | target1 target2 ...>    # Clear initiative for targets (or all)
 ```
 
 *Example:*
@@ -59,7 +59,7 @@ set hp 45 Ajax
 set ac 18 Ajax
 set init 14 Ajax
 clear init Ajax                         # Clear initiative for Ajax
-clear init all                          # Clear initiative for all creatures
+clear init all                          # Explicitly clear initiative for all creatures
 ```
 
 ### Damage & Conditions
@@ -68,7 +68,7 @@ Track accumulated damage and ongoing status conditions:
 
 ```text
 add dmg <value> <target1> <target2> ...   # Increase damage taken
-clear dmg [target1 target2 ...]          # Clear damage for targets (or all)
+clear dmg <all | target1 target2 ...>    # Clear damage for targets (or all)
 add cond <condition> <target1> ...       # Apply condition (e.g., Poisoned, Stunned)
 remove cond <condition> <target1> ...    # Remove condition from targets
 ```
