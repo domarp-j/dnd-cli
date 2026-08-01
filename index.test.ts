@@ -1,4 +1,6 @@
 import { describe, expect, test, beforeEach, afterEach, afterAll } from "bun:test";
+import * as fs from "fs";
+import * as path from "path";
 import {
   handleCommand,
   creatures,
@@ -16,44 +18,35 @@ import {
   deleteSave,
 } from "./index";
 
-// Tracks every session name auto-generated or explicitly created during tests
-const createdSaves = new Set<string>();
+const SAVES_DIR = path.join(process.cwd(), "saves");
 
-function captureSession() {
-  const name = getCombatState().currentSessionName;
-  if (name) createdSaves.add(name);
+// Snapshot the saves directory before each test, clean up after
+let savesBefore = new Set<string>();
+
+function snapshotSaves(): Set<string> {
+  if (!fs.existsSync(SAVES_DIR)) return new Set();
+  return new Set(fs.readdirSync(SAVES_DIR).filter((f) => f.endsWith(".json")));
+}
+
+function cleanupNewSaves(before: Set<string>) {
+  if (!fs.existsSync(SAVES_DIR)) return;
+  const after = fs.readdirSync(SAVES_DIR).filter((f) => f.endsWith(".json"));
+  for (const file of after) {
+    if (!before.has(file)) {
+      try { fs.unlinkSync(path.join(SAVES_DIR, file)); } catch { /* ignore */ }
+    }
+  }
 }
 
 describe("D&D CLI Tracker Test Suite", () => {
   beforeEach(() => {
+    savesBefore = snapshotSaves();
     resetState();
   });
 
   afterEach(() => {
-    // Capture whatever session was active at end of each test
-    captureSession();
-  });
-
-  afterAll(() => {
-    // Fixed-name saves created explicitly in persistence tests
-    const fixedNames = [
-      "slot_test",
-      "interactive_slot",
-      "file_to_delete",
-      "slot_to_del_interactively",
-      "renamed_session_test",
-      "prompted_custom_slot",
-      "prompted_rename_slot",
-      "multi_del_1",
-      "multi_del_2",
-      "multi_del_3",
-      "multi_del_interactive_a",
-      "multi_del_interactive_b",
-    ];
-    for (const name of fixedNames) deleteSave(name);
-
-    // Random-name saves auto-generated during tests
-    for (const name of createdSaves) deleteSave(name);
+    resetState(); // ensure no lingering state bleeds between tests
+    cleanupNewSaves(savesBefore);
   });
 
   describe("Basic Initialization & Commands", () => {
@@ -326,7 +319,6 @@ describe("D&D CLI Tracker Test Suite", () => {
       handleCommand("new");
       handleCommand("add pc AutoSavedHero");
       const sessionName = getCombatState().currentSessionName;
-      if (sessionName) createdSaves.add(sessionName);
 
       // Reset in-memory creatures
       resetState();
@@ -421,16 +413,11 @@ describe("D&D CLI Tracker Test Suite", () => {
 
       const sessionName = getCombatState().currentSessionName;
       expect(sessionName).toBeTruthy();
-      if (sessionName) createdSaves.add(sessionName);
     });
 
     test("renames current game session via rename command", () => {
       resetState();
       handleCommand("add pc HeroToRename");
-
-      // Capture the auto-generated name before rename so we don't leak it
-      const beforeRename = getCombatState().currentSessionName;
-      if (beforeRename) createdSaves.add(beforeRename);
 
       expect(handleCommand("rename save renamed_session_test")).toBeTrue();
 
@@ -443,10 +430,6 @@ describe("D&D CLI Tracker Test Suite", () => {
     test("prompts with preset default when typing rename without arguments", () => {
       resetState();
       handleCommand("add pc PresetHero");
-
-      // Capture the auto-generated name before rename so we don't leak it
-      const beforeRename = getCombatState().currentSessionName;
-      if (beforeRename) createdSaves.add(beforeRename);
 
       handleCommand("rename save"); // triggers pendingRenamePrompt
 
@@ -482,9 +465,8 @@ describe("D&D CLI Tracker Test Suite", () => {
       handleCommand("add dmg 10 PersistHero");
       const sessionName = getCombatState().currentSessionName;
       if (sessionName) {
-        createdSaves.add(sessionName);
         resetState();
-        handleCommand(`load ${sessionName}`);
+        handleCommand(`load save ${sessionName}`);
         const log = getActivityLog();
         expect(log.some((e) => e.message.includes("PersistHero"))).toBeTrue();
       }
