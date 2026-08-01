@@ -45,12 +45,13 @@ remove pcs / enemies / neutrals  # Or: remove p / e / n
 
 ### Setting Stats
 
-Set maximum HP, Armor Class (AC), or Initiative values for targets:
+Set maximum HP, Armor Class (AC), or Initiative values for targets. To clear a value, use `null`, `none`, `clear`, `-`, or `—` as the value.
 
 ```text
 set hp <value> <target1> <target2> ...
 set ac <value> <target1> <target2> ...
 set init <value> <target1> <target2> ...
+set hp bulk <target1> <val1> <target2> <val2> ...    # Bulk set maximum HP pairs
 set ac bulk <target1> <val1> <target2> <val2> ...    # Bulk set AC pairs
 set init bulk <target1> <val1> <target2> <val2> ...  # Bulk set initiative pairs
 clear init <all | target1 target2 ...>              # Clear initiative for targets (or all)
@@ -61,30 +62,33 @@ clear init <all | target1 target2 ...>              # Clear initiative for targe
 set hp 45 Ajax
 set ac 18 Ajax
 set init 14 Ajax
+set hp bulk aj 45 drago 120                         # Bulk set HP max for Ajax & Dragon
 set ac bulk aj 18 drago 15                          # Bulk set AC for Ajax & Dragon
 set init bulk aj 14 kae 18 drago 10                 # Bulk set initiative for multiple creatures
+set ac null Ajax                                    # Clear AC for Ajax
 clear init Ajax                                     # Clear initiative for Ajax
 clear init all                                      # Explicitly clear initiative for all creatures
 ```
 
 ### Damage & Conditions
 
-Track accumulated damage and ongoing status conditions:
+Track accumulated damage and ongoing status conditions. Status effects support `eff` / `effect` / `cond` / `condition` aliases. A comprehensive list of standard D&D 5.5e (2024) conditions, statuses, defenses, and modifiers can be found in `statusEffects.ts`.
 
 ```text
-add dmg <value> <target1> <target2> ...   # Increase damage taken
-clear dmg <all | target1 target2 ...>    # Clear damage for targets (or all)
-add cond <condition> <target1> ...       # Apply condition (e.g., Poisoned, Stunned)
-remove cond <condition> <target1> ...    # Remove condition from targets
+add dmg <value> <target1> <target2> ...       # Increase damage taken
+clear dmg <all | target1 target2 ...>        # Clear damage for targets (or all)
+add (eff | cond) <effect> <target1> ...      # Apply status effect/condition
+remove (eff | cond) <effect> <target1> ...   # Remove status effect/condition
 ```
 
 *Example:*
 ```text
 add dmg 5 "Goblin Warrior"
-clear dmg "Goblin Warrior"                # Reset damage for Goblin Warrior to 0
-clear dmg all                             # Reset damage for all creatures to 0
-add cond Poisoned Kaelor
-remove cond Poisoned Kaelor
+clear dmg "Goblin Warrior"                    # Reset damage for Goblin Warrior to 0
+clear dmg all                                 # Reset damage for all creatures to 0
+add eff Poisoned Kaelor                       # Apply "Poisoned" condition to Kaelor
+add cond Raging Ajax                          # Apply "Raging" custom status to Ajax
+remove eff Poisoned Kaelor                    # Remove "Poisoned" from Kaelor
 ```
 
 ### Combat Mode
@@ -135,28 +139,28 @@ remove e "Goblin Arch*"                  # Remove specific enemy matching wildca
 The CLI automatically persists your game state locally after **every command execution**, so you never lose progress.
 
 ```text
-new                     # Clear current encounter and start a fresh game
-save                    # Save session with interactive name prompt (preset random snake_cased default)
-save [<name>]            # Save game session snapshot (or prompt)
-rename [<new_name>]      # Rename current game session snapshot (e.g. "rename dungeon_room1")
-load                     # Show interactive list of saved games to pick from to load
-load <name>             # Directly load a specific saved game snapshot
-delete save              # Show interactive list to pick save(s) to delete (e.g. "1 3", "1,2", or "all")
-delete save s1 s2 s3    # Delete multiple saved game files at once
-saves                    # List all saved game files
+new game                     # Clear current encounter and start a fresh game
+save                         # Save session with interactive name prompt (preset random snake_cased default)
+save [<name>]                # Save game session snapshot (or prompt)
+rename save [<new_name>]     # Rename current game session snapshot/file (e.g. "rename save dungeon_room1")
+load save                    # Show interactive list of saved games to pick from to load
+load save [<name>]           # Load a specific saved game snapshot (alias: load <name>)
+delete save                  # Show interactive list to pick save(s) to delete (e.g. "1 3", "1,2", or "all")
+delete save s1 s2 s3         # Delete multiple saved game files at once
+saves                        # List all saved game files
 ```
 
 *Note: In a blank session, adding your first PC automatically generates a snake_cased random save name (e.g. `radiant_spire_22`) and creates a new save state.*
 
 *Example:*
 ```text
-add pc Hero1             # Automatically creates save file (e.g. "radiant_spire_22")
-rename my_epic_campaign  # Renames current session and file to "my_epic_campaign"
-save                     # Prompts to save session snapshot with preset default
-load                     # Interactive load selection menu (pick 1, 2, 3... or enter name)
-new                      # Start clean session
-delete save 1 3          # Interactively delete save options 1 and 3
-saves                    # View all saved sessions with creature counts and paths
+add pc Hero1                 # Automatically creates save file (e.g. "radiant_spire_22")
+rename save my_epic_campaign # Renames current session and file to "my_epic_campaign"
+save                         # Prompts to save session snapshot with preset default
+load save                    # Interactive load selection menu (pick 1, 2, 3... or enter name)
+new game                     # Start clean session
+delete save 1 3              # Interactively delete save options 1 and 3
+saves                        # View all saved sessions with creature counts and paths
 ```
 
 ### Testing & Test Suite
@@ -190,10 +194,12 @@ The help menu follows standard POSIX & `docopt` CLI conventions:
 - `combat end` — End combat mode.
 - `(next | n) [<count>]` — Move forward 1 or `<count>` turns (e.g., `n 3`).
 - `(prev | p) [<count>]` — Move backward 1 or `<count>` turns (e.g., `p 2`).
-- `new` — Start a new game session.
-- `save [<name>]` / `load [<name>]` — Save or load game state snapshots.
+- `new game` — Start a new game session.
+- `save [<name>]` / `load save [<name>]` — Save or load game state snapshots (alias: `load <name>`).
+- `rename save [<new_name>]` — Rename current game session and file.
 - `delete save [<name>...]` — Delete save file(s) or select interactively.
 - `saves` — List all local saved game files with paths.
 - `remove (pcs | enemies | neutrals)` — Bulk remove creatures by type (or `p` | `e` | `n`).
 - `(help | h)` — Show POSIX / docopt command reference menu.
+- `show activity` — Show all actions logged in this session.
 - `(quit | q | exit)` — Exit the application (prompts for `y/n` confirmation).
