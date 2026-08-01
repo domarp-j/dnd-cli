@@ -310,8 +310,11 @@ function handleCommand(input: string): boolean {
     console.log(`  ${CYAN}${pad("set init <val> n1 n2", 25)}${RESET} Set initiative for targets`);
     console.log(`  ${CYAN}${pad("clear dmg [n1 / all]", 25)}${RESET} Clear damage for targets (or all)`);
     console.log(`  ${CYAN}${pad("clear init [n1 / all]", 25)}${RESET} Clear initiative for targets (or all)`);
+    console.log(`  ${CYAN}${pad("remove enemies [all]", 25)}${RESET} Remove all enemies`);
+    console.log(`  ${CYAN}${pad("remove pcs [all]", 25)}${RESET} Remove all PCs`);
+    console.log(`  ${CYAN}${pad("remove neutrals [all]", 25)}${RESET} Remove all neutral creatures`);
     console.log(`  ${CYAN}${pad("remove cond <str> n1 n2", 25)}${RESET} Remove condition from targets`);
-    console.log(`  ${CYAN}${pad("remove char n1 n2", 25)}${RESET} Remove creatures`);
+    console.log(`  ${CYAN}${pad("remove char n1 n2", 25)}${RESET} Remove specific creatures`);
     console.log(`  ${CYAN}${pad("test [simple]", 25)}${RESET} Load test data`);
     console.log(`  ${CYAN}${pad("help", 25)}${RESET} Show this help`);
     console.log(`  ${CYAN}${pad("quit", 25)}${RESET} Exit\n`);
@@ -733,12 +736,45 @@ function handleCommand(input: string): boolean {
       return true;
     }
 
-    const isCharSubCmd = matchPrefix(subCmd, ["char", "creature", "pc", "enemy", "neutral"]) !== null;
+    // --- Bulk Removal by Creature Type ---
+    const isEnemyCmd = matchPrefix(subCmd, ["enemy", "enemies"]) !== null || (subCmd === "all" && matchPrefix(parts[2]?.toLowerCase() ?? "", ["enemy", "enemies"]) !== null);
+    const isPcCmd = matchPrefix(subCmd, ["pc", "pcs"]) !== null || (subCmd === "all" && matchPrefix(parts[2]?.toLowerCase() ?? "", ["pc", "pcs"]) !== null);
+    const isNeutralCmd = matchPrefix(subCmd, ["neutral", "neutrals"]) !== null || (subCmd === "all" && matchPrefix(parts[2]?.toLowerCase() ?? "", ["neutral", "neutrals"]) !== null);
+
+    const typeToRemove: CreatureType | null = isEnemyCmd ? "enemy" : isPcCmd ? "pc" : isNeutralCmd ? "neutral" : null;
+
+    if (typeToRemove) {
+      const targets = subCmd === "all" ? parts.slice(3) : parts.slice(2);
+
+      // Bulk remove if no specific target names given or explicit all / *
+      if (targets.length === 0 || targets[0] === "all" || targets[0] === "*") {
+        let removedCount = 0;
+        withTurnPreservation(() => {
+          for (let i = creatures.length - 1; i >= 0; i--) {
+            if (creatures[i].type === typeToRemove) {
+              creatures.splice(i, 1);
+              removedCount++;
+            }
+          }
+        });
+        renderTable();
+        const label = typeToRemove === "pc" ? "PCs" : typeToRemove === "enemy" ? "enemies" : "neutral creatures";
+        if (removedCount > 0) {
+          console.log(`${YELLOW}- Removed all ${label} (${removedCount} creatures).${RESET}\n`);
+        } else {
+          console.log(`${YELLOW}No ${label} found to remove.${RESET}\n`);
+        }
+        return true;
+      }
+    }
+
+    // --- Specific Character Removal ---
+    const isCharSubCmd = matchPrefix(subCmd, ["char", "creature", "pc", "pcs", "enemy", "enemies", "neutral", "neutrals"]) !== null;
     const targets = isCharSubCmd ? parts.slice(2) : parts.slice(1);
 
     if (targets.length === 0) {
       renderTable();
-      console.log(`${RED}Usage: remove char n1 n2${RESET}\n`);
+      console.log(`${RED}Usage: remove <enemies|pcs|neutrals|char> (e.g. "remove enemies" or "remove char Ajax")${RESET}\n`);
       return true;
     }
 

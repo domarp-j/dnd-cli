@@ -110,10 +110,19 @@ combat end        # Exit Combat Mode
 
 ### Removing Creatures
 
-Remove creatures from the tracker:
+Remove specific creatures or entire groups of creatures by type:
 
 ```text
-remove char <target1> <target2> ...
+remove char <target1> <target2> ...   # Remove specific creatures
+remove enemies [all]                  # Remove all enemies at once
+remove pcs [all]                      # Remove all PCs at once
+remove neutrals [all]                 # Remove all neutral creatures at once
+```
+
+*Example:*
+```text
+remove char "Goblin Warrior 1"
+remove enemies                        # Bulk remove all enemies from encounter
 ```
 
 ### Testing Data
@@ -131,5 +140,6 @@ test simple   # Load simple test encounter (names only)
 - `combat end` — End combat mode.
 - `next` / `n [count]` — Move forward 1 or `[count]` turns (e.g., `n 3`).
 - `prev` / `p [count]` — Move backward 1 or `[count]` turns (e.g., `p 2`).
+- `remove enemies` / `pcs` / `neutrals` — Bulk remove creatures by type.
 - `help` — Show command reference menu.
 - `quit` or `exit` — Exit the application.
