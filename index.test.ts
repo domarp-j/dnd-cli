@@ -305,12 +305,12 @@ describe("D&D CLI Tracker Test Suite", () => {
     test("saves and loads game state", () => {
       handleCommand("add pc Hero1 Hero2");
       handleCommand("set hp 40 Hero1");
-      handleCommand("save slot_test");
+      handleCommand("save test_slot");
 
       handleCommand("new");
       expect(creatures.length).toBe(0);
 
-      handleCommand("load save slot_test");
+      handleCommand("load save test_slot");
       expect(creatures.length).toBe(2);
       expect(creatures.find((c) => c.name === "Hero1")?.hpMax).toBe(40);
     });
@@ -332,17 +332,17 @@ describe("D&D CLI Tracker Test Suite", () => {
     });
 
     test("deletes a saved game file", () => {
-      handleCommand("save file_to_delete");
-      expect(handleCommand("load save file_to_delete")).toBeTrue();
+      handleCommand("save test_file_to_delete");
+      expect(handleCommand("load save test_file_to_delete")).toBeTrue();
 
-      handleCommand("delete save file_to_delete");
-      handleCommand("load save file_to_delete");
+      handleCommand("delete save test_file_to_delete");
+      handleCommand("load save test_file_to_delete");
       expect(creatures.some((c) => c.name === "AutoSavedHero")).toBeFalse();
     });
 
     test("shows interactive options when typing load save without arguments", () => {
       handleCommand("add pc InteractiveHero");
-      handleCommand("save interactive_slot");
+      handleCommand("save test_interactive_slot");
 
       resetState();
       expect(creatures.length).toBe(0);
@@ -351,7 +351,7 @@ describe("D&D CLI Tracker Test Suite", () => {
       handleCommand("load save");
 
       // Select option by typing 1 or save name
-      processSaveSelection("interactive_slot");
+      processSaveSelection("test_interactive_slot");
       expect(creatures.some((c) => c.name === "InteractiveHero")).toBeTrue();
     });
 
@@ -365,17 +365,17 @@ describe("D&D CLI Tracker Test Suite", () => {
     });
 
     test("shows interactive options when typing delete save without arguments", () => {
-      handleCommand("save slot_to_del_interactively");
-      expect(handleCommand("load save slot_to_del_interactively")).toBeTrue();
+      handleCommand("save test_slot_to_del_interactively");
+      expect(handleCommand("load save test_slot_to_del_interactively")).toBeTrue();
 
       // Trigger 'delete save' without arguments -> presents options
       handleCommand("delete save");
 
       // Select option by save name
-      processSaveDeleteSelection("slot_to_del_interactively");
+      processSaveDeleteSelection("test_slot_to_del_interactively");
 
       // Attempting to load deleted save file should now fail
-      expect(handleCommand("load save slot_to_del_interactively")).toBeTrue();
+      expect(handleCommand("load save test_slot_to_del_interactively")).toBeTrue();
     });
 
     test("prompts for session name with preset default when saving without argument", () => {
@@ -383,24 +383,24 @@ describe("D&D CLI Tracker Test Suite", () => {
       handleCommand("save");
 
       // Respond with custom name
-      processSaveNamePrompt("prompted_custom_slot");
+      processSaveNamePrompt("test_prompted_custom_slot");
     });
 
     test("deletes multiple save files at once via direct command and interactive selection", () => {
-      handleCommand("save multi_del_1");
-      handleCommand("save multi_del_2");
-      handleCommand("save multi_del_3");
+      handleCommand("save test_multi_del_1");
+      handleCommand("save test_multi_del_2");
+      handleCommand("save test_multi_del_3");
 
       // Direct multi-delete
-      handleCommand("delete save multi_del_1 multi_del_2");
-      expect(handleCommand("load save multi_del_1")).toBeTrue();
-      expect(handleCommand("load save multi_del_2")).toBeTrue();
+      handleCommand("delete save test_multi_del_1 test_multi_del_2");
+      expect(handleCommand("load save test_multi_del_1")).toBeTrue();
+      expect(handleCommand("load save test_multi_del_2")).toBeTrue();
 
       // Interactive multi-delete
-      handleCommand("save multi_del_interactive_a");
-      handleCommand("save multi_del_interactive_b");
+      handleCommand("save test_multi_del_interactive_a");
+      handleCommand("save test_multi_del_interactive_b");
       handleCommand("delete save");
-      processSaveDeleteSelection("multi_del_interactive_a multi_del_interactive_b");
+      processSaveDeleteSelection("test_multi_del_interactive_a test_multi_del_interactive_b");
     });
 
     test("auto-saves with random name when adding first PC in a blank session", () => {
@@ -419,11 +419,11 @@ describe("D&D CLI Tracker Test Suite", () => {
       resetState();
       handleCommand("add pc HeroToRename");
 
-      expect(handleCommand("rename save renamed_session_test")).toBeTrue();
+      expect(handleCommand("rename save test_renamed_session")).toBeTrue();
 
       // Reset state and load renamed session file
       resetState();
-      expect(handleCommand("load save renamed_session_test")).toBeTrue();
+      expect(handleCommand("load save test_renamed_session")).toBeTrue();
       expect(creatures.some((c) => c.name === "HeroToRename")).toBeTrue();
     });
 
@@ -433,9 +433,9 @@ describe("D&D CLI Tracker Test Suite", () => {
 
       handleCommand("rename save"); // triggers pendingRenamePrompt
 
-      processRenamePrompt("prompted_rename_slot");
+      processRenamePrompt("test_prompted_rename_slot");
       resetState();
-      expect(handleCommand("load save prompted_rename_slot")).toBeTrue();
+      expect(handleCommand("load save test_prompted_rename_slot")).toBeTrue();
     });
   });
 
