@@ -91,13 +91,13 @@ export function loadState(saveName: string = "current"): { ok: true; name: strin
   }
 }
 
-export function listSaves(): { name: string; count: number; savedAt: string }[] {
+export function listSaves(): { name: string; count: number; savedAt: string; filepath: string }[] {
   ensureSavesDir();
   const files = fs.readdirSync(SAVES_DIR).filter((f) => f.endsWith(".json"));
-  const results: { name: string; count: number; savedAt: string }[] = [];
+  const results: { name: string; count: number; savedAt: string; filepath: string }[] = [];
 
   for (const f of files) {
-    const filepath = path.join(SAVES_DIR, f);
+    const filepath = path.resolve(SAVES_DIR, f);
     try {
       const raw = fs.readFileSync(filepath, "utf-8");
       const data = JSON.parse(raw) as GameStateData;
@@ -105,6 +105,7 @@ export function listSaves(): { name: string; count: number; savedAt: string }[] 
         name: f.replace(/\.json$/, ""),
         count: Array.isArray(data.creatures) ? data.creatures.length : 0,
         savedAt: data.savedAt ?? "Unknown",
+        filepath,
       });
     } catch {
       // skip unparseable
@@ -450,6 +451,7 @@ function handleCommand(input: string): boolean {
   if (cmd === "saves" || (cmd === "list" && parts[1]?.toLowerCase() === "saves")) {
     const savesList = listSaves();
     renderTable();
+    console.log(`${DIM}Save Directory: ${path.resolve(SAVES_DIR)}${RESET}`);
     if (savesList.length === 0) {
       console.log(`${YELLOW}No saved games found.${RESET}\n`);
     } else {
@@ -457,6 +459,7 @@ function handleCommand(input: string): boolean {
       for (const s of savesList) {
         const timeStr = s.savedAt !== "Unknown" ? new Date(s.savedAt).toLocaleString() : s.savedAt;
         console.log(`  ${CYAN}${pad(s.name, 15)}${RESET} ${s.count} creatures · ${DIM}${timeStr}${RESET}`);
+        console.log(`  ${DIM}└─ Path: ${s.filepath}${RESET}`);
       }
       console.log();
     }
