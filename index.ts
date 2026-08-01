@@ -343,11 +343,7 @@ function renderTable(): void {
   }
 
   console.log(`${DIM}${"─".repeat(80)}${RESET}`);
-  if (inCombat) {
-    console.log(`${DIM}  next (n [count]) · prev (p [count]) · add dmg <val> n1 · set hp <val> n1 · combat end${RESET}\n`);
-  } else {
-    console.log(`${DIM}  combat · add pc n1 n2 · set hp <val> n1 n2 · add dmg <val> n1 n2 · help · quit${RESET}\n`);
-  }
+  console.log(`${DIM}  help (h) · quit (q)${RESET}\n`);
 }
 
 // --- Helpers ---
