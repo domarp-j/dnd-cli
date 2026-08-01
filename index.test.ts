@@ -1,4 +1,4 @@
-import { describe, expect, test, beforeEach, afterAll } from "bun:test";
+import { describe, expect, test, beforeEach, afterEach, afterAll } from "bun:test";
 import {
   handleCommand,
   creatures,
@@ -15,17 +15,44 @@ import {
   deleteSave,
 } from "./index";
 
+// Tracks every session name auto-generated or explicitly created during tests
+const createdSaves = new Set<string>();
+
+function captureSession() {
+  const name = getCombatState().currentSessionName;
+  if (name) createdSaves.add(name);
+}
+
 describe("D&D CLI Tracker Test Suite", () => {
   beforeEach(() => {
     resetState();
   });
 
+  afterEach(() => {
+    // Capture whatever session was active at end of each test
+    captureSession();
+  });
+
   afterAll(() => {
-    deleteSave("slot_test");
-    deleteSave("interactive_slot");
-    deleteSave("file_to_delete");
-    deleteSave("slot_to_del_interactively");
-    deleteSave("renamed_session_test");
+    // Fixed-name saves created explicitly in persistence tests
+    const fixedNames = [
+      "slot_test",
+      "interactive_slot",
+      "file_to_delete",
+      "slot_to_del_interactively",
+      "renamed_session_test",
+      "prompted_custom_slot",
+      "prompted_rename_slot",
+      "multi_del_1",
+      "multi_del_2",
+      "multi_del_3",
+      "multi_del_interactive_a",
+      "multi_del_interactive_b",
+    ];
+    for (const name of fixedNames) deleteSave(name);
+
+    // Random-name saves auto-generated during tests
+    for (const name of createdSaves) deleteSave(name);
   });
 
   describe("Basic Initialization & Commands", () => {
@@ -297,18 +324,17 @@ describe("D&D CLI Tracker Test Suite", () => {
     test("auto-saves on mutating commands", () => {
       handleCommand("new");
       handleCommand("add pc AutoSavedHero");
-      const activeSession = getCombatState();
+      const sessionName = getCombatState().currentSessionName;
+      if (sessionName) createdSaves.add(sessionName);
 
       // Reset in-memory creatures
       resetState();
       expect(creatures.length).toBe(0);
 
       // Loading the active session save file should restore AutoSavedHero
-      const sessionName = activeSession.currentSessionName;
       if (sessionName) {
         handleCommand(`load ${sessionName}`);
         expect(creatures.some((c) => c.name === "AutoSavedHero")).toBeTrue();
-        deleteSave(sessionName);
       }
     });
 
@@ -356,7 +382,6 @@ describe("D&D CLI Tracker Test Suite", () => {
 
       // Respond with custom name
       processSaveNamePrompt("prompted_custom_slot");
-      deleteSave("prompted_custom_slot");
     });
 
     test("deletes multiple save files at once via direct command and interactive selection", () => {
@@ -374,7 +399,6 @@ describe("D&D CLI Tracker Test Suite", () => {
       handleCommand("save multi_del_interactive_b");
       handleCommand("delete save");
       processSaveDeleteSelection("multi_del_interactive_a multi_del_interactive_b");
-      deleteSave("multi_del_3");
     });
 
     test("auto-saves with random name when adding first PC in a blank session", () => {
@@ -385,14 +409,19 @@ describe("D&D CLI Tracker Test Suite", () => {
       handleCommand("add pc FirstHero");
       expect(creatures.length).toBe(1);
 
-      // Verify a valid session name was assigned and file saved
-      const sessionName = handleCommand("saves");
-      expect(sessionName).toBeTrue();
+      const sessionName = getCombatState().currentSessionName;
+      expect(sessionName).toBeTruthy();
+      if (sessionName) createdSaves.add(sessionName);
     });
 
     test("renames current game session via rename command", () => {
       resetState();
       handleCommand("add pc HeroToRename");
+
+      // Capture the auto-generated name before rename so we don't leak it
+      const beforeRename = getCombatState().currentSessionName;
+      if (beforeRename) createdSaves.add(beforeRename);
+
       expect(handleCommand("rename renamed_session_test")).toBeTrue();
 
       // Reset state and load renamed session file
@@ -404,12 +433,16 @@ describe("D&D CLI Tracker Test Suite", () => {
     test("prompts with preset default when typing rename without arguments", () => {
       resetState();
       handleCommand("add pc PresetHero");
+
+      // Capture the auto-generated name before rename so we don't leak it
+      const beforeRename = getCombatState().currentSessionName;
+      if (beforeRename) createdSaves.add(beforeRename);
+
       handleCommand("rename"); // triggers pendingRenamePrompt
 
       processRenamePrompt("prompted_rename_slot");
       resetState();
       expect(handleCommand("load prompted_rename_slot")).toBeTrue();
-      deleteSave("prompted_rename_slot");
     });
   });
 });
