@@ -157,15 +157,24 @@ describe("D&D CLI Tracker Test Suite", () => {
       expect(heroB?.initiative).toBe(20);
     });
 
-    test("adds and removes status conditions", () => {
+    test("adds and removes status effects", () => {
       handleCommand("add pc Hero");
-      handleCommand("add cond Poisoned Hero");
+      handleCommand("add eff Poisoned Hero");
       let hero = creatures.find((c) => c.name === "Hero");
-      expect(hero?.conditions).toContain("Poisoned");
+      expect(hero?.statusEffects).toContain("Poisoned");
+
+      handleCommand("remove eff Poisoned Hero");
+      hero = creatures.find((c) => c.name === "Hero");
+      expect(hero?.statusEffects).not.toContain("Poisoned");
+
+      // Verify that "cond" alias works
+      handleCommand("add cond Poisoned Hero");
+      hero = creatures.find((c) => c.name === "Hero");
+      expect(hero?.statusEffects).toContain("Poisoned");
 
       handleCommand("remove cond Poisoned Hero");
       hero = creatures.find((c) => c.name === "Hero");
-      expect(hero?.conditions).not.toContain("Poisoned");
+      expect(hero?.statusEffects).not.toContain("Poisoned");
     });
   });
 

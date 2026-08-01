@@ -13,7 +13,7 @@ interface Creature {
   dmg: number;
   ac: number | null;
   initiative: number | null;
-  conditions: string[];
+  statusEffects: string[];
 }
 
 interface ActivityEntry {
@@ -122,7 +122,19 @@ export function loadState(saveName: string = "current"): { ok: true; name: strin
 
     creatures.length = 0;
     if (Array.isArray(data.creatures)) {
-      creatures.push(...data.creatures);
+      const mapped = data.creatures.map((c: any) => {
+        const statusEffects = c.statusEffects ?? c.conditions ?? [];
+        return {
+          name: c.name,
+          type: c.type,
+          hpMax: c.hpMax,
+          dmg: c.dmg,
+          ac: c.ac,
+          initiative: c.initiative,
+          statusEffects,
+        };
+      });
+      creatures.push(...mapped);
     }
     inCombat = Boolean(data.inCombat);
     currentRound = typeof data.currentRound === "number" ? data.currentRound : 1;
@@ -364,7 +376,7 @@ function renderTable(): void {
     console.log(`${DIM}  No creatures yet. Use "add pc n1 n2" to begin.${RESET}`);
   } else {
     // Header
-    const hdr = `    ${pad("Name", 22)}${pad("Type", 10)}${pad("HP Max", 8)}${pad("Dmg", 6)}${pad("AC", 6)}${pad("Init", 6)}${"Conditions"}`;
+    const hdr = `    ${pad("Name", 22)}${pad("Type", 10)}${pad("HP Max", 8)}${pad("Dmg", 6)}${pad("AC", 6)}${pad("Init", 6)}${"Status Effects"}`;
     console.log(`${BOLD}${CYAN}${hdr}${RESET}`);
     console.log(`${DIM}  ${"─".repeat(76)}${RESET}`);
 
@@ -377,7 +389,7 @@ function renderTable(): void {
       const dmg = pad(c.dmg > 0 ? String(c.dmg) : "—", 6);
       const ac = pad(fmt(c.ac), 6);
       const init = pad(fmt(c.initiative), 6);
-      const cond = c.conditions.length > 0 ? c.conditions.join(", ") : "";
+      const cond = c.statusEffects.length > 0 ? c.statusEffects.join(", ") : "";
 
       if (isTurn) {
         const prefix = `${BOLD}${MAGENTA}▶ ${RESET}`;
@@ -511,12 +523,12 @@ function handleCommand(input: string): boolean {
     console.log(`    ${CYAN}${pad("(next | n) [<count>]", 36)}${RESET} Advance 1 or <count> turns`);
     console.log(`    ${CYAN}${pad("(prev | p) [<count>]", 36)}${RESET} Go back 1 or <count> turns\n`);
 
-    console.log(`  ${BOLD}${MAGENTA}Stats & Conditions:${RESET}`);
-    console.log(`    ${CYAN}${pad("add cond <condition> <target>...", 36)}${RESET} Add status condition to target(s)`);
+    console.log(`  ${BOLD}${MAGENTA}Stats & Status Effects:${RESET}`);
+    console.log(`    ${CYAN}${pad("add (eff | cond) <effect> <target>...", 36)}${RESET} Add status effect to target(s)`);
     console.log(`    ${CYAN}${pad("add dmg <value> <target>...", 36)}${RESET} Add damage taken to target(s)`);
     console.log(`    ${CYAN}${pad("clear dmg (<all> | <target>...)", 36)}${RESET} Clear damage for target(s) or all`);
     console.log(`    ${CYAN}${pad("clear init (<all> | <target>...)", 36)}${RESET} Clear initiative for target(s) or all`);
-    console.log(`    ${CYAN}${pad("remove cond <condition> <target>...", 36)}${RESET} Remove status condition from target(s)`);
+    console.log(`    ${CYAN}${pad("remove (eff | cond) <effect> <target>...", 36)}${RESET} Remove status effect from target(s)`);
     console.log(`    ${CYAN}${pad("set ac <value> <target>...", 36)}${RESET} Set AC for target(s)`);
     console.log(`    ${CYAN}${pad("set ac bulk (<target> <value>)...", 36)}${RESET} Bulk set AC pairs`);
     console.log(`    ${CYAN}${pad("set hp <value> <target>...", 36)}${RESET} Set HP max for target(s)`);
@@ -877,17 +889,17 @@ function handleCommand(input: string): boolean {
     if (rawSub === "e" || rawSub === "enemies") rawSub = "enemy";
     if (rawSub === "n" || rawSub === "neutrals") rawSub = "neutral";
     const subCmd = rawSub;
-    const addOptions = ["pc", "char", "enemy", "neutral", "dmg", "cond", "condition"];
+    const addOptions = ["pc", "char", "enemy", "neutral", "dmg", "cond", "condition", "eff", "effect", "effects"];
     const matched = matchPrefix(subCmd, addOptions);
 
-    // --- add cond <str> n1 n2 ---
-    if (matched === "cond" || matched === "condition") {
+    // --- add eff/cond <str> n1 n2 ---
+    if (matched === "cond" || matched === "condition" || matched === "eff" || matched === "effect" || matched === "effects") {
       const cond = parts[2];
       const targets = parts.slice(3);
 
       if (!cond || targets.length === 0) {
         renderTable();
-        console.log(`${RED}Usage: add cond <str> n1 n2${RESET}\n`);
+        console.log(`${RED}Usage: add eff <str> n1 n2${RESET}\n`);
         return true;
       }
 
@@ -899,15 +911,15 @@ function handleCommand(input: string): boolean {
       }
 
       for (const creature of result.creatures) {
-        if (!creature.conditions.includes(cond)) {
-          creature.conditions.push(cond);
+        if (!creature.statusEffects.includes(cond)) {
+          creature.statusEffects.push(cond);
         }
       }
 
       renderTable();
       const names = result.creatures.map((c) => c.name).join(", ");
-      console.log(`${GREEN}✓ ${names}: +condition "${cond}"${RESET}\n`);
-      logActivity(`Added condition "${cond}" to ${names}`);
+      console.log(`${GREEN}✓ ${names}: +effect "${cond}"${RESET}\n`);
+      logActivity(`Added status effect "${cond}" to ${names}`);
       return true;
     }
 
@@ -978,7 +990,7 @@ function handleCommand(input: string): boolean {
 
     withTurnPreservation(() => {
       for (const name of targets) {
-        creatures.push({ name, type, hpMax: null, dmg: 0, ac: null, initiative: null, conditions: [] });
+        creatures.push({ name, type, hpMax: null, dmg: 0, ac: null, initiative: null, statusEffects: [] });
       }
     });
     hasAddedCreature = true;
@@ -1208,7 +1220,7 @@ function handleCommand(input: string): boolean {
 
   if (cmd === "remove" || cmd === "rm") {
     const subCmd = parts[1]?.toLowerCase() ?? "";
-    const isCond = matchPrefix(subCmd, ["condition", "cond"]) !== null;
+    const isCond = matchPrefix(subCmd, ["condition", "cond", "eff", "effect", "effects"]) !== null;
     const isInit = matchPrefix(subCmd, ["initiative", "init"]) !== null;
 
     if (isInit) {
@@ -1256,7 +1268,7 @@ function handleCommand(input: string): boolean {
 
       if (!condPattern || targets.length === 0) {
         renderTable();
-        console.log(`${RED}Usage: remove cond <str> n1 n2${RESET}\n`);
+        console.log(`${RED}Usage: remove eff <str> n1 n2${RESET}\n`);
         return true;
       }
 
@@ -1270,9 +1282,9 @@ function handleCommand(input: string): boolean {
       const lowerCond = condPattern.toLowerCase();
       let matchedAny = false;
       for (const creature of result.creatures) {
-        const prevLen = creature.conditions.length;
-        creature.conditions = creature.conditions.filter((c) => !c.toLowerCase().includes(lowerCond));
-        if (creature.conditions.length < prevLen) {
+        const prevLen = creature.statusEffects.length;
+        creature.statusEffects = creature.statusEffects.filter((c) => !c.toLowerCase().includes(lowerCond));
+        if (creature.statusEffects.length < prevLen) {
           matchedAny = true;
         }
       }
@@ -1280,10 +1292,10 @@ function handleCommand(input: string): boolean {
       renderTable();
       const names = result.creatures.map((c) => c.name).join(", ");
       if (matchedAny) {
-        console.log(`${GREEN}✓ Removed condition matching "${condPattern}" from ${names}${RESET}\n`);
-        logActivity(`Removed condition "${condPattern}" from ${names}`);
+        console.log(`${GREEN}✓ Removed status effect matching "${condPattern}" from ${names}${RESET}\n`);
+        logActivity(`Removed status effect "${condPattern}" from ${names}`);
       } else {
-        console.log(`${YELLOW}No condition matching "${condPattern}" found on ${names}.${RESET}\n`);
+        console.log(`${YELLOW}No status effect matching "${condPattern}" found on ${names}.${RESET}\n`);
       }
       return true;
     }
@@ -1393,9 +1405,9 @@ function handleCommand(input: string): boolean {
       handleCommand("add dmg 15 \"thorgan ironbreaker\"");
       handleCommand("add dmg 4 \"elaria shadowstep\"");
       handleCommand("add dmg 8 \"valerius frostweaver\"");
-      handleCommand("add cond Concentrating \"lyra moonwhisper\"");
-      handleCommand("add cond Raging \"thorgan ironbreaker\"");
-      handleCommand("add cond Invisible \"valerius frostweaver\"");
+      handleCommand("add eff Concentrating \"lyra moonwhisper\"");
+      handleCommand("add eff Raging \"thorgan ironbreaker\"");
+      handleCommand("add eff Invisible \"valerius frostweaver\"");
 
       // Enemies
       handleCommand("add enemy \"goblin warrior 1\" \"goblin warrior 2\" \"goblin archer\" \"goblin shaman\" \"bugbear chieftain\" \"hobgoblin captain\" \"skeleton archer\" \"dark cultist\" \"young red dragon\"");
@@ -1409,9 +1421,9 @@ function handleCommand(input: string): boolean {
       handleCommand("add dmg 14 \"bugbear chieftain\"");
       handleCommand("add dmg 11 \"dark cultist\"");
       handleCommand("add dmg 35 \"young red dragon\"");
-      handleCommand("add cond Dead \"goblin warrior 2\"");
-      handleCommand("add cond Poisoned \"goblin shaman\"");
-      handleCommand("add cond Frightened \"dark cultist\"");
+      handleCommand("add eff Dead \"goblin warrior 2\"");
+      handleCommand("add eff Poisoned \"goblin shaman\"");
+      handleCommand("add eff Frightened \"dark cultist\"");
 
       // Neutrals
       handleCommand("add neutral \"captured merchant\" \"village elder\" \"tavern keeper\" \"mysterious traveler\"");
@@ -1419,7 +1431,7 @@ function handleCommand(input: string): boolean {
       handleCommand("set ac bulk \"captured merchant\" 10 \"village elder\" 10 \"tavern keeper\" 11 \"mysterious traveler\" 14");
       handleCommand("set init 16 \"mysterious traveler\"");
       handleCommand("add dmg 3 \"captured merchant\"");
-      handleCommand("add cond Restrained \"captured merchant\"");
+      handleCommand("add eff Restrained \"captured merchant\"");
     }
 
     renderTable();

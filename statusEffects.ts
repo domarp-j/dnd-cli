@@ -121,7 +121,7 @@ export const DISADVANTAGE_EFFECTS = [
   "Attacks against have disadvantage",
 ] as const;
 
-export const ALL_CONDITIONS_AND_EFFECTS: string[] = [
+export const ALL_STATUS_EFFECTS: string[] = [
   ...STANDARD_CONDITIONS,
   ...COMBAT_STATUSES,
   ...DEFENSES,
@@ -129,7 +129,7 @@ export const ALL_CONDITIONS_AND_EFFECTS: string[] = [
   ...DISADVANTAGE_EFFECTS,
 ];
 
-export function findMatchingConditions(query: string): string[] {
+export function findMatchingStatusEffects(query: string): string[] {
   const lower = query.toLowerCase();
-  return ALL_CONDITIONS_AND_EFFECTS.filter((c) => c.toLowerCase().includes(lower));
+  return ALL_STATUS_EFFECTS.filter((c) => c.toLowerCase().includes(lower));
 }
