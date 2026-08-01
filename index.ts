@@ -295,25 +295,25 @@ function handleCommand(input: string): boolean {
   if (cmd === "help") {
     renderTable();
     console.log(`${BOLD}Available commands:${RESET}`);
-    console.log(`  ${CYAN}combat [start]${RESET}            Start combat mode (resorts by initiative)`);
-    console.log(`  ${CYAN}end combat${RESET}                End combat mode`);
-    console.log(`  ${CYAN}next / n [count]${RESET}          Advance 1 or [count] turns`);
-    console.log(`  ${CYAN}prev / p [count]${RESET}          Go back 1 or [count] turns`);
-    console.log(`  ${CYAN}add pc n1 n2${RESET}              Add PCs`);
-    console.log(`  ${CYAN}add enemy n1 n2${RESET}           Add enemies`);
-    console.log(`  ${CYAN}add neutral n1 n2${RESET}         Add neutral creatures`);
-    console.log(`  ${CYAN}add dmg <val> n1 n2${RESET}       Add damage to targets`);
-    console.log(`  ${CYAN}add cond <str> n1 n2${RESET}      Add condition to targets`);
-    console.log(`  ${CYAN}set hp <val> n1 n2${RESET}        Set HP max for targets`);
-    console.log(`  ${CYAN}set ac <val> n1 n2${RESET}        Set AC for targets`);
-    console.log(`  ${CYAN}set init <val> n1 n2${RESET}      Set initiative for targets`);
-    console.log(`  ${CYAN}clear dmg [n1 / all]${RESET}      Clear damage for targets (or all)`);
-    console.log(`  ${CYAN}clear init [n1 / all]${RESET}     Clear initiative for targets (or all)`);
-    console.log(`  ${CYAN}remove cond <str> n1 n2${RESET}   Remove condition from targets`);
-    console.log(`  ${CYAN}remove char n1 n2${RESET}         Remove creatures`);
-    console.log(`  ${CYAN}test [simple]${RESET}           Load test data`);
-    console.log(`  ${CYAN}help${RESET}                      Show this help`);
-    console.log(`  ${CYAN}quit${RESET}                      Exit\n`);
+    console.log(`  ${CYAN}${pad("combat [start]", 25)}${RESET} Start combat mode (resorts by initiative)`);
+    console.log(`  ${CYAN}${pad("end combat", 25)}${RESET} End combat mode`);
+    console.log(`  ${CYAN}${pad("next / n [count]", 25)}${RESET} Advance 1 or [count] turns`);
+    console.log(`  ${CYAN}${pad("prev / p [count]", 25)}${RESET} Go back 1 or [count] turns`);
+    console.log(`  ${CYAN}${pad("add pc n1 n2", 25)}${RESET} Add PCs`);
+    console.log(`  ${CYAN}${pad("add enemy n1 n2", 25)}${RESET} Add enemies`);
+    console.log(`  ${CYAN}${pad("add neutral n1 n2", 25)}${RESET} Add neutral creatures`);
+    console.log(`  ${CYAN}${pad("add dmg <val> n1 n2", 25)}${RESET} Add damage to targets`);
+    console.log(`  ${CYAN}${pad("add cond <str> n1 n2", 25)}${RESET} Add condition to targets`);
+    console.log(`  ${CYAN}${pad("set hp <val> n1 n2", 25)}${RESET} Set HP max for targets`);
+    console.log(`  ${CYAN}${pad("set ac <val> n1 n2", 25)}${RESET} Set AC for targets`);
+    console.log(`  ${CYAN}${pad("set init <val> n1 n2", 25)}${RESET} Set initiative for targets`);
+    console.log(`  ${CYAN}${pad("clear dmg [n1 / all]", 25)}${RESET} Clear damage for targets (or all)`);
+    console.log(`  ${CYAN}${pad("clear init [n1 / all]", 25)}${RESET} Clear initiative for targets (or all)`);
+    console.log(`  ${CYAN}${pad("remove cond <str> n1 n2", 25)}${RESET} Remove condition from targets`);
+    console.log(`  ${CYAN}${pad("remove char n1 n2", 25)}${RESET} Remove creatures`);
+    console.log(`  ${CYAN}${pad("test [simple]", 25)}${RESET} Load test data`);
+    console.log(`  ${CYAN}${pad("help", 25)}${RESET} Show this help`);
+    console.log(`  ${CYAN}${pad("quit", 25)}${RESET} Exit\n`);
     return true;
   }
 
