@@ -307,6 +307,7 @@ function handleCommand(input: string): boolean {
     console.log(`  ${CYAN}set hp <val> n1 n2${RESET}        Set HP max for targets`);
     console.log(`  ${CYAN}set ac <val> n1 n2${RESET}        Set AC for targets`);
     console.log(`  ${CYAN}set init <val> n1 n2${RESET}      Set initiative for targets`);
+    console.log(`  ${CYAN}clear dmg [n1 / all]${RESET}      Clear damage for targets (or all)`);
     console.log(`  ${CYAN}clear init [n1 / all]${RESET}     Clear initiative for targets (or all)`);
     console.log(`  ${CYAN}remove cond <str> n1 n2${RESET}   Remove condition from targets`);
     console.log(`  ${CYAN}remove char n1 n2${RESET}         Remove creatures`);
@@ -501,12 +502,11 @@ function handleCommand(input: string): boolean {
 
   if (cmd === "clear") {
     const subCmd = parts[1]?.toLowerCase() ?? "";
-    const isInit = subCmd === "" || matchPrefix(subCmd, ["init", "initiative"]) !== null;
+    const isInit = matchPrefix(subCmd, ["init", "initiative"]) !== null;
+    const isDmg = matchPrefix(subCmd, ["dmg", "damage"]) !== null;
 
     if (isInit) {
-      const targets = (subCmd === "init" || subCmd === "initiative" || matchPrefix(subCmd, ["init", "initiative"]) !== null)
-        ? parts.slice(2)
-        : parts.slice(1);
+      const targets = parts.slice(2);
 
       if (targets.length === 0 || targets[0] === "all" || targets[0] === "*") {
         withTurnPreservation(() => {
@@ -538,8 +538,41 @@ function handleCommand(input: string): boolean {
       return true;
     }
 
+    if (isDmg) {
+      const targets = parts.slice(2);
+
+      if (targets.length === 0 || targets[0] === "all" || targets[0] === "*") {
+        withTurnPreservation(() => {
+          for (const c of creatures) {
+            c.dmg = 0;
+          }
+        });
+        renderTable();
+        console.log(`${GREEN}✓ Cleared damage for all creatures.${RESET}\n`);
+        return true;
+      }
+
+      const result = findCreatures(targets);
+      if (!result.ok) {
+        renderTable();
+        console.log(`${RED}${result.error}${RESET}\n`);
+        return true;
+      }
+
+      withTurnPreservation(() => {
+        for (const c of result.creatures) {
+          c.dmg = 0;
+        }
+      });
+
+      renderTable();
+      const names = result.creatures.map((c) => c.name).join(", ");
+      console.log(`${GREEN}✓ Cleared damage for ${names}.${RESET}\n`);
+      return true;
+    }
+
     renderTable();
-    console.log(`${RED}Usage: clear init [target1 target2 ...] (or "clear init all" for all creatures)${RESET}\n`);
+    console.log(`${RED}Usage: clear <init|dmg> [target1 target2 ...] (e.g. "clear dmg all" or "clear init Ajax")${RESET}\n`);
     return true;
   }
 

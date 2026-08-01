@@ -68,6 +68,7 @@ Track accumulated damage and ongoing status conditions:
 
 ```text
 add dmg <value> <target1> <target2> ...   # Increase damage taken
+clear dmg [target1 target2 ...]          # Clear damage for targets (or all)
 add cond <condition> <target1> ...       # Apply condition (e.g., Poisoned, Stunned)
 remove cond <condition> <target1> ...    # Remove condition from targets
 ```
@@ -75,6 +76,8 @@ remove cond <condition> <target1> ...    # Remove condition from targets
 *Example:*
 ```text
 add dmg 5 "Goblin Warrior"
+clear dmg "Goblin Warrior"                # Reset damage for Goblin Warrior to 0
+clear dmg all                             # Reset damage for all creatures to 0
 add cond Poisoned Kaelor
 remove cond Poisoned Kaelor
 ```
