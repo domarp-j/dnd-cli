@@ -32,6 +32,9 @@ let inCombat = false;
 let currentRound = 1;
 let currentTurnIndex = 0;
 let pendingConfirmation: { type: "end_combat" } | null = null;
+let pendingSaveSelection: {
+  saves: { name: string; count: number; savedAt: string; filepath: string }[];
+} | null = null;
 
 // --- Persistence Helpers ---
 
@@ -498,7 +501,27 @@ function handleCommand(input: string): boolean {
   }
 
   if (cmd === "load" || cmd === "loadgame") {
-    const saveName = parts[1] || "current";
+    const saveName = parts[1];
+
+    if (!saveName) {
+      const savesList = listSaves();
+      if (savesList.length === 0) {
+        renderTable();
+        console.log(`${YELLOW}No saved games found to load.${RESET}\n`);
+        return true;
+      }
+
+      pendingSaveSelection = { saves: savesList };
+      renderTable();
+      console.log(`${BOLD}Available saved games to load:${RESET}`);
+      savesList.forEach((s, idx) => {
+        const timeStr = s.savedAt !== "Unknown" ? new Date(s.savedAt).toLocaleString() : s.savedAt;
+        console.log(`  ${CYAN}${idx + 1})${RESET} ${pad(s.name, 15)} ${s.count} creatures · ${DIM}${timeStr}${RESET}`);
+      });
+      console.log();
+      return true;
+    }
+
     const result = loadState(saveName);
     renderTable();
     if (result.ok) {
@@ -1181,6 +1204,48 @@ export function processConfirmation(answer: string): boolean {
   return false;
 }
 
+export function processSaveSelection(answer: string): boolean {
+  if (!pendingSaveSelection) return false;
+
+  const saves = pendingSaveSelection.saves;
+  pendingSaveSelection = null;
+
+  const choice = answer.trim();
+  if (choice.toLowerCase() === "c" || choice.toLowerCase() === "cancel") {
+    renderTable();
+    console.log(`${DIM}Load cancelled.${RESET}\n`);
+    return false;
+  }
+
+  const index = parseInt(choice, 10) - 1;
+  let targetSave: string | null = null;
+
+  if (!isNaN(index) && index >= 0 && index < saves.length) {
+    targetSave = saves[index]!.name;
+  } else {
+    const matched = saves.find((s) => s.name.toLowerCase() === choice.toLowerCase());
+    if (matched) {
+      targetSave = matched.name;
+    }
+  }
+
+  if (!targetSave) {
+    renderTable();
+    console.log(`${RED}Invalid selection "${choice}". Load cancelled.${RESET}\n`);
+    return false;
+  }
+
+  const result = loadState(targetSave);
+  renderTable();
+  if (result.ok) {
+    console.log(`${GREEN}✓ Loaded game state from "${result.name}" (${creatures.length} creatures).${RESET}\n`);
+    return true;
+  } else {
+    console.log(`${RED}${result.error}${RESET}\n`);
+    return false;
+  }
+}
+
 // Wrap handleCommand to ensure auto-saving on every mutating command
 const originalHandleCommand = handleCommand;
 function handleCommandWithAutoSave(input: string): boolean {
@@ -1211,11 +1276,19 @@ if (import.meta.main) {
   function prompt() {
     const promptStr = pendingConfirmation
       ? `${YELLOW}End combat and clear init & dmg for all creatures? (y/n) > ${RESET}`
+      : pendingSaveSelection
+      ? `${CYAN}Select save to load (1-${pendingSaveSelection.saves.length}) or 'c' to cancel > ${RESET}`
       : `${MAGENTA}> ${RESET}`;
 
     rl.question(promptStr, (answer) => {
       if (pendingConfirmation) {
         processConfirmation(answer);
+        prompt();
+        return;
+      }
+
+      if (pendingSaveSelection) {
+        processSaveSelection(answer);
         prompt();
         return;
       }

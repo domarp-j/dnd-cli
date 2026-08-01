@@ -6,6 +6,7 @@ import {
   resetState,
   getCombatState,
   processConfirmation,
+  processSaveSelection,
 } from "./index";
 
 describe("D&D CLI Tracker Test Suite", () => {
@@ -253,6 +254,21 @@ describe("D&D CLI Tracker Test Suite", () => {
       handleCommand("delete save file_to_delete");
       handleCommand("load file_to_delete");
       expect(creatures.some((c) => c.name === "AutoSavedHero")).toBeFalse();
+    });
+
+    test("shows interactive options when typing load without arguments", () => {
+      handleCommand("add pc InteractiveHero");
+      handleCommand("save interactive_slot");
+
+      resetState();
+      expect(creatures.length).toBe(0);
+
+      // Trigger 'load' without arguments -> presents options
+      handleCommand("load");
+
+      // Select option by typing 1 or save name
+      processSaveSelection("interactive_slot");
+      expect(creatures.some((c) => c.name === "InteractiveHero")).toBeTrue();
     });
   });
 });
