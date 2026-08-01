@@ -179,5 +179,5 @@ test simple   # Load simple test encounter (names only)
 - `save [name]` / `load [name]` — Save or load game state snapshots.
 - `saves` — List all local saved game files.
 - `remove enemies` / `pcs` / `neutrals` — Bulk remove creatures by type.
-- `help` — Show command reference menu.
+- `help` / `h` — Show command reference menu.
 - `quit` or `exit` — Exit the application.

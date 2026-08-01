@@ -413,7 +413,7 @@ function handleCommand(input: string): boolean {
     return false;
   }
 
-  if (cmd === "help") {
+  if (cmd === "help" || cmd === "h") {
     renderTable();
     console.log(`${BOLD}Available commands:${RESET}`);
     console.log(`  ${CYAN}${pad("combat [start]", 25)}${RESET} Start combat mode (resorts by initiative)`);
@@ -443,7 +443,7 @@ function handleCommand(input: string): boolean {
     console.log(`  ${CYAN}${pad("delete save <name>", 25)}${RESET} Delete a saved game file`);
     console.log(`  ${CYAN}${pad("saves", 25)}${RESET} List all saved game files`);
     console.log(`  ${CYAN}${pad("test [simple]", 25)}${RESET} Load test data`);
-    console.log(`  ${CYAN}${pad("help", 25)}${RESET} Show this help`);
+    console.log(`  ${CYAN}${pad("help / h", 25)}${RESET} Show this help`);
     console.log(`  ${CYAN}${pad("quit", 25)}${RESET} Exit\n`);
     return true;
   }

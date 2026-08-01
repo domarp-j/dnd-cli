@@ -33,6 +33,11 @@ describe("D&D CLI Tracker Test Suite", () => {
       expect(ajax).toBeDefined();
       expect(ajax?.hpMax).toBeNull();
     });
+
+    test("handles help and h commands", () => {
+      expect(handleCommand("help")).toBeTrue();
+      expect(handleCommand("h")).toBeTrue();
+    });
   });
 
   describe("Adding Creatures", () => {
