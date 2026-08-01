@@ -66,7 +66,7 @@ function renderTable(): void {
   console.log(`${DIM}${"─".repeat(80)}${RESET}`);
 
   if (creatures.length === 0) {
-    console.log(`${DIM}  No creatures yet. Use "add char <name>" to begin.${RESET}`);
+    console.log(`${DIM}  No creatures yet. Use "add pc n1 n2" to begin.${RESET}`);
   } else {
     // Header
     const hdr = `  ${pad("Name", 22)}${pad("Type", 10)}${pad("HP Max", 8)}${pad("Dmg", 6)}${pad("AC", 6)}${pad("Init", 6)}${"Conditions"}`;
@@ -89,7 +89,7 @@ function renderTable(): void {
   }
 
   console.log(`${DIM}${"─".repeat(80)}${RESET}`);
-  console.log(`${DIM}  add char n1 n2 · set hp <val> n1 n2 · add dmg <val> n1 n2 · help · quit${RESET}\n`);
+  console.log(`${DIM}  add pc n1 n2 · set hp <val> n1 n2 · add dmg <val> n1 n2 · help · quit${RESET}\n`);
 }
 
 // --- Helpers ---
@@ -112,15 +112,31 @@ function matchPrefix(input: string, options: string[]): string | null {
   return matches.length === 1 ? matches[0]! : null;
 }
 
-type FindResult =
-  | { ok: true; creature: Creature }
+type FindManyResult =
+  | { ok: true; creatures: Creature[] }
   | { ok: false; error: string };
 
-function findCreature(identifier: string): FindResult {
+function findCreaturesForIdentifier(identifier: string): FindManyResult {
+  const isWildcard = identifier.includes("*");
+
+  if (isWildcard) {
+    const escaped = identifier
+      .split("*")
+      .map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+      .join(".*");
+    const pattern = new RegExp(escaped, "i");
+    const matches = creatures.filter((c) => pattern.test(c.name));
+
+    if (matches.length === 0) {
+      return { ok: false, error: `No creature matching "${identifier}".` };
+    }
+    return { ok: true, creatures: matches };
+  }
+
   const lower = identifier.toLowerCase();
   const exactMatch = creatures.find((c) => c.name.toLowerCase() === lower);
   if (exactMatch) {
-    return { ok: true, creature: exactMatch };
+    return { ok: true, creatures: [exactMatch] };
   }
 
   const escaped = identifier.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -128,29 +144,31 @@ function findCreature(identifier: string): FindResult {
   const matches = creatures.filter((c) => pattern.test(c.name));
 
   if (matches.length === 1) {
-    return { ok: true, creature: matches[0]! };
+    return { ok: true, creatures: [matches[0]!] };
   }
   if (matches.length === 0) {
     return { ok: false, error: `No creature matching "${identifier}".` };
   }
   const names = matches.map((c) => c.name).join(", ");
-  return { ok: false, error: `Ambiguous match "${identifier}" — matches: ${names}` };
+  const suggestedWildcard = identifier.endsWith("*") ? identifier : `${identifier}*`;
+  return {
+    ok: false,
+    error: `Ambiguous match "${identifier}" — matches: ${names}. Perhaps you meant ${suggestedWildcard}?`,
+  };
 }
-
-type FindManyResult =
-  | { ok: true; creatures: Creature[] }
-  | { ok: false; error: string };
 
 function findCreatures(identifiers: string[]): FindManyResult {
   const found: Creature[] = [];
 
   for (const id of identifiers) {
-    const result = findCreature(id);
+    const result = findCreaturesForIdentifier(id);
     if (!result.ok) {
       return result;
     }
-    if (!found.includes(result.creature)) {
-      found.push(result.creature);
+    for (const c of result.creatures) {
+      if (!found.includes(c)) {
+        found.push(c);
+      }
     }
   }
 
@@ -178,7 +196,7 @@ function handleCommand(input: string): boolean {
   if (cmd === "help") {
     renderTable();
     console.log(`${BOLD}Available commands:${RESET}`);
-    console.log(`  ${CYAN}add char n1 n2${RESET}            Add PCs`);
+    console.log(`  ${CYAN}add pc n1 n2${RESET}              Add PCs`);
     console.log(`  ${CYAN}add enemy n1 n2${RESET}           Add enemies`);
     console.log(`  ${CYAN}add neutral n1 n2${RESET}         Add neutral creatures`);
     console.log(`  ${CYAN}add dmg <val> n1 n2${RESET}       Add damage to targets`);
@@ -187,7 +205,7 @@ function handleCommand(input: string): boolean {
     console.log(`  ${CYAN}set ac <val> n1 n2${RESET}        Set AC for targets`);
     console.log(`  ${CYAN}set init <val> n1 n2${RESET}      Set initiative for targets`);
     console.log(`  ${CYAN}remove cond <str> n1 n2${RESET}   Remove condition from targets`);
-    console.log(`  ${CYAN}remove n1 n2${RESET}              Remove creatures`);
+    console.log(`  ${CYAN}remove char n1 n2${RESET}         Remove creatures`);
     console.log(`  ${CYAN}test [simple]${RESET}           Load test data`);
     console.log(`  ${CYAN}help${RESET}                      Show this help`);
     console.log(`  ${CYAN}quit${RESET}                      Exit\n`);
@@ -196,7 +214,7 @@ function handleCommand(input: string): boolean {
 
   if (cmd === "add") {
     const subCmd = parts[1]?.toLowerCase() ?? "";
-    const addOptions = ["char", "pc", "enemy", "neutral", "dmg", "condition"];
+    const addOptions = ["pc", "char", "enemy", "neutral", "dmg", "condition"];
     const matched = matchPrefix(subCmd, addOptions);
 
     // --- add condition <str> n1 n2 ---
@@ -269,7 +287,7 @@ function handleCommand(input: string): boolean {
 
     if (targets.length === 0) {
       renderTable();
-      console.log(`${RED}Usage: add <char|enemy|neutral> n1 n2${RESET}\n`);
+      console.log(`${RED}Usage: add <pc|enemy|neutral> n1 n2${RESET}\n`);
       return true;
     }
 
@@ -395,11 +413,12 @@ function handleCommand(input: string): boolean {
       return true;
     }
 
-    const targets = parts.slice(1);
+    const isCharSubCmd = matchPrefix(subCmd, ["char", "creature", "pc", "enemy", "neutral"]) !== null;
+    const targets = isCharSubCmd ? parts.slice(2) : parts.slice(1);
 
     if (targets.length === 0) {
       renderTable();
-      console.log(`${RED}Usage: remove n1 n2${RESET}\n`);
+      console.log(`${RED}Usage: remove char n1 n2${RESET}\n`);
       return true;
     }
 
