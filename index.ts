@@ -577,8 +577,11 @@ function renderTable(): void {
 
     sorted.forEach((c, idx) => {
       const isTurn = inCombat && idx === currentTurnIndex;
+      const isDead = c.statusEffects.some(e => e.toLowerCase() === "dead");
+      const displayName = isDead ? `💀 ${c.name}` : c.name;
+
       const color = typeColor(c.type);
-      const name = pad(c.name, 22);
+      const name = pad(displayName, 22);
       const type = pad(typeLabel(c.type), 10);
       const hpMax = pad(fmt(c.hpMax), 8);
       const dmg = pad(c.dmg > 0 ? String(c.dmg) : "—", 6);
@@ -587,11 +590,22 @@ function renderTable(): void {
       const rxn = inCombat ? pad(c.reactionUsed ? "✓" : "—", 6) : "";
       const cond = c.statusEffects.length > 0 ? c.statusEffects.join(", ") : "";
 
-      if (isTurn) {
-        const prefix = `${BOLD}${MAGENTA}▶ ${RESET}`;
-        console.log(`${prefix}${BOLD}${CYAN}${name}${RESET}${color}${type}${RESET}${BOLD}${CYAN}${hpMax}${dmg}${ac}${init}${rxn}${cond}${RESET}`);
+      const rowContent = `${name}${type}${hpMax}${dmg}${ac}${init}${rxn}${cond}`;
+
+      if (isDead) {
+        if (isTurn) {
+          const prefix = `${BOLD}${MAGENTA}▶ ${RESET}`;
+          console.log(`${prefix}${RED}${DIM}${rowContent}${RESET}`);
+        } else {
+          console.log(`  ${RED}${DIM}${rowContent}${RESET}`);
+        }
       } else {
-        console.log(`  ${BOLD}${name}${RESET}${color}${type}${RESET}${hpMax}${dmg}${ac}${init}${rxn}${cond}`);
+        if (isTurn) {
+          const prefix = `${BOLD}${MAGENTA}▶ ${RESET}`;
+          console.log(`${prefix}${BOLD}${CYAN}${name}${RESET}${color}${type}${RESET}${BOLD}${CYAN}${hpMax}${dmg}${ac}${init}${rxn}${cond}${RESET}`);
+        } else {
+          console.log(`  ${BOLD}${name}${RESET}${color}${type}${RESET}${hpMax}${dmg}${ac}${init}${rxn}${cond}`);
+        }
       }
     });
   }
