@@ -17,6 +17,8 @@ import {
   renameSession,
   deleteSave,
   getHistoryStacks,
+  processCharTypePrompt,
+  getPendingCharTypePrompt,
 } from "./index";
 
 const SAVES_DIR = path.join(process.cwd(), "saves");
@@ -709,6 +711,35 @@ describe("D&D CLI Tracker Test Suite", () => {
       // Revert the 1st subcommand (add pc)
       handleCommand("undo");
       expect(creatures.length).toBe(0);
+    });
+
+    test("add char command prompts for character type, adds correctly, and is undoable", () => {
+      handleCommand("new game");
+      expect(creatures.length).toBe(0);
+
+      // Running 'add char' should set the pending prompt and NOT add any creatures yet
+      handleCommand("add char Legolas Aragorn");
+      expect(creatures.length).toBe(0);
+      expect(getPendingCharTypePrompt()?.names).toEqual(["Legolas", "Aragorn"]);
+
+      // Invalid selection should keep prompt active
+      const resInvalid = processCharTypePrompt("invalid");
+      expect(resInvalid).toBeFalse();
+      expect(getPendingCharTypePrompt()).not.toBeNull();
+      expect(creatures.length).toBe(0);
+
+      // Valid selection (enemy) should add creatures as enemy, clear prompt, and be undoable
+      const resValid = processCharTypePrompt("enemy");
+      expect(resValid).toBeTrue();
+      expect(getPendingCharTypePrompt()).toBeNull();
+      expect(creatures.length).toBe(2);
+      expect(creatures.every(c => c.type === "enemy")).toBeTrue();
+      expect(getHistoryStacks().undoLength).toBe(1);
+
+      // Undoing should remove the characters
+      handleCommand("undo");
+      expect(creatures.length).toBe(0);
+      expect(getHistoryStacks().undoLength).toBe(0);
     });
   });
 });

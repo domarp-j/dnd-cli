@@ -47,6 +47,7 @@ let pendingSaveDeleteSelection: {
 let pendingSaveNamePrompt: { defaultName: string } | null = null;
 let pendingRenamePrompt: { defaultName: string } | null = null;
 let pendingQuitConfirmation = false;
+let pendingCharTypePrompt: { names: string[] } | null = null;
 let hasAddedCreature = false;
 let currentSessionName: string | null = null;
 const activityLog: ActivityEntry[] = [];
@@ -188,6 +189,10 @@ export function getHistoryStacks() {
     undoStack: [...undoStack],
     redoStack: [...redoStack],
   };
+}
+
+export function getPendingCharTypePrompt() {
+  return pendingCharTypePrompt;
 }
 
 function logActivity(message: string): void {
@@ -738,6 +743,7 @@ function handleCommandInternal(input: string): boolean {
     console.log(`    ${CYAN}${pad("add (enemy | e) <name>...", 44)}${RESET} Add enemy creature(s)`);
     console.log(`    ${CYAN}${pad("add (neutral | n) <name>...", 44)}${RESET} Add neutral creature(s)`);
     console.log(`    ${CYAN}${pad("add (pc | p) <name>...", 44)}${RESET} Add player character(s)`);
+    console.log(`    ${CYAN}${pad("add char <name>...", 44)}${RESET} Add creature(s) by prompting for type`);
     console.log(`    ${CYAN}${pad("remove char <name>...", 44)}${RESET} Remove specific creature(s) by name`);
     console.log(`    ${CYAN}${pad("remove (pcs | enemies | neutrals)", 44)}${RESET} Bulk remove creatures by type (or p | e | n)\n`);
 
@@ -1196,9 +1202,14 @@ function handleCommandInternal(input: string): boolean {
       return true;
     }
 
+    if (matched === "char") {
+      pendingCharTypePrompt = { names: targets };
+      renderTable();
+      return true;
+    }
+
     let type: CreatureType;
     switch (matched) {
-      case "char":
       case "pc":
         type = "pc";
         break;
@@ -1888,6 +1899,7 @@ export function resetState(): void {
   pendingSaveNamePrompt = null;
   pendingRenamePrompt = null;
   pendingQuitConfirmation = false;
+  pendingCharTypePrompt = null;
   hasAddedCreature = false;
   currentSessionName = null;
   activityLog.length = 0;
@@ -2009,6 +2021,55 @@ export function processRenamePrompt(answer: string): boolean {
       return false;
     }
   }, `rename session to: ${answer}`);
+}
+
+export function processCharTypePrompt(answer: string): boolean {
+  if (!pendingCharTypePrompt) return false;
+  const ans = answer.trim().toLowerCase();
+  let type: CreatureType | null = null;
+  if (ans === "pc" || ans === "p") type = "pc";
+  else if (ans === "enemy" || ans === "e") type = "enemy";
+  else if (ans === "neutral" || ans === "n") type = "neutral";
+
+  if (!type) {
+    renderTable();
+    console.log(`${RED}Invalid type "${answer}". Please choose pc, enemy, or neutral.${RESET}\n`);
+    return false;
+  }
+
+  const names = pendingCharTypePrompt.names;
+  pendingCharTypePrompt = null; // Clear prompt
+
+  return executeWithUndoTracking(() => {
+    const isFirstPcInBlankSession = type === "pc" && !currentSessionName;
+
+    withTurnPreservation(() => {
+      for (const name of names) {
+        creatures.push({ name, type: type!, hpMax: null, dmg: 0, ac: null, initiative: null, statusEffects: [] });
+      }
+    });
+    hasAddedCreature = true;
+
+    let createdSaveMsg: string | null = null;
+    if (isFirstPcInBlankSession) {
+      const generatedName = generateRandomSaveName();
+      currentSessionName = generatedName;
+      const res = saveState(generatedName);
+      const filepath = path.resolve(SAVES_DIR, `${res.name}.json`);
+      if (res.isNew) {
+        createdSaveMsg = `✓ Created new save state "${res.name}" at "${filepath}".`;
+      }
+    }
+
+    renderTable();
+    console.log(`${GREEN}+ Added ${typeLabel(type!)}: ${names.join(", ")}${RESET}`);
+    if (createdSaveMsg) {
+      console.log(`${GREEN}${createdSaveMsg}${RESET}`);
+    }
+    console.log();
+    logActivity(`Added ${typeLabel(type!)}: ${names.join(", ")}`);
+    return true;
+  }, `add ${type} ${names.map(n => n.includes(" ") ? `"${n}"` : n).join(" ")}`);
 }
 
 export function processSaveSelection(answer: string): boolean {
@@ -2160,6 +2221,8 @@ if (import.meta.main) {
       ? `${CYAN}Enter session name [Press Enter for "${pendingSaveNamePrompt.defaultName}"] > ${RESET}`
       : pendingRenamePrompt
       ? `${CYAN}Enter new session name [Press Enter for "${pendingRenamePrompt.defaultName}"] > ${RESET}`
+      : pendingCharTypePrompt
+      ? `${CYAN}What kind of character is this? (pc / enemy / neutral) > ${RESET}`
       : `${MAGENTA}> ${RESET}`;
 
     rl.question(promptStr, (answer) => {
@@ -2187,6 +2250,12 @@ if (import.meta.main) {
 
       if (pendingRenamePrompt) {
         processRenamePrompt(answer);
+        prompt();
+        return;
+      }
+
+      if (pendingCharTypePrompt) {
+        processCharTypePrompt(answer);
         prompt();
         return;
       }
