@@ -562,7 +562,7 @@ function renderTable(): void {
   }
 
   console.log(`${DIM}${"─".repeat(80)}${RESET}`);
-  console.log(`${DIM}  help (h) · quit (q) · hint: <command> <stat/effect> <value> <creature>${RESET}\n`);
+  console.log(`${DIM}  help (h) · quit (q) · <command> <stat/effect> <value> <creature>${RESET}\n`);
 }
 
 // --- Helpers ---
