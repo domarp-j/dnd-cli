@@ -1,6 +1,5 @@
 # TODOs
 
-- [x] Undo
 - Store attack bonuses for enemies
 - Store resource usage for enemies
 - Store rxn used boolean

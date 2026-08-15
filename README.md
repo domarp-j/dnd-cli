@@ -85,6 +85,15 @@ Here is a sampling of useful commands to demonstrate the CLI's capabilities:
   saves                   # View all saved game files
   ```
 
+### Undo and Redo History
+- **Revert or re-apply state mutations (supports optional count arguments):**
+  ```text
+  undo       # Undo the last action
+  u 3        # Undo the last 3 actions
+  redo       # Redo the last undone action
+  r 2        # Redo the last 2 undone actions
+  ```
+
 ---
 
 ## Development & Testing
