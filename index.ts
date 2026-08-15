@@ -127,11 +127,14 @@ function isUndoExemptCommand(input: string): boolean {
 
 function executeWithUndoTracking<T>(action: () => T, commandInput: string): T {
   if (isUndoExemptCommand(commandInput)) {
-    return action();
+    const res = action();
+    checkDeathStates();
+    return res;
   }
 
   const pre = captureSnapshot();
   const res = action();
+  checkDeathStates();
   const post = captureSnapshot();
 
   if (JSON.stringify(pre) !== JSON.stringify(post)) {
@@ -144,6 +147,19 @@ function executeWithUndoTracking<T>(action: () => T, commandInput: string): T {
   }
 
   return res;
+}
+
+export function checkDeathStates(): void {
+  for (const c of creatures) {
+    if (c.hpMax !== null && c.dmg >= c.hpMax) {
+      const hasDead = c.statusEffects.some(e => e.toLowerCase() === "dead");
+      if (!hasDead) {
+        c.statusEffects.push("Dead");
+      }
+    } else {
+      c.statusEffects = c.statusEffects.filter(e => e.toLowerCase() !== "dead");
+    }
+  }
 }
 
 export function executeUndo(): boolean {
@@ -299,6 +315,7 @@ export function loadState(saveName: string = "current"): { ok: true; name: strin
     undoStack.length = 0;
     redoStack.length = 0;
 
+    checkDeathStates();
     return { ok: true, name: cleanName };
   } catch {
     return { ok: false, error: `Failed to parse save file "${cleanName}".` };
@@ -422,12 +439,21 @@ function withTurnPreservation(fn: () => void): void {
 function nextTurn(count = 1): void {
   if (!inCombat || creatures.length === 0) return;
   const sorted = getSortedCreatures();
+  const allDead = sorted.every(c => c.statusEffects.some(e => e.toLowerCase() === "dead"));
+  if (allDead) return;
+
   for (let i = 0; i < count; i++) {
-    currentTurnIndex++;
-    if (currentTurnIndex >= sorted.length) {
-      currentTurnIndex = 0;
-      currentRound++;
-    }
+    let loops = 0;
+    do {
+      currentTurnIndex++;
+      if (currentTurnIndex >= sorted.length) {
+        currentTurnIndex = 0;
+        currentRound++;
+      }
+      loops++;
+      if (loops > sorted.length) break;
+    } while (sorted[currentTurnIndex]?.statusEffects.some(e => e.toLowerCase() === "dead"));
+
     const active = sorted[currentTurnIndex];
     if (active) {
       active.reactionUsed = false;
@@ -438,17 +464,26 @@ function nextTurn(count = 1): void {
 function prevTurn(count = 1): void {
   if (!inCombat || creatures.length === 0) return;
   const sorted = getSortedCreatures();
+  const allDead = sorted.every(c => c.statusEffects.some(e => e.toLowerCase() === "dead"));
+  if (allDead) return;
+
   for (let i = 0; i < count; i++) {
-    currentTurnIndex--;
-    if (currentTurnIndex < 0) {
-      if (currentRound > 1) {
-        currentRound--;
-        currentTurnIndex = sorted.length - 1;
-      } else {
-        currentTurnIndex = 0;
-        break;
+    let loops = 0;
+    do {
+      currentTurnIndex--;
+      if (currentTurnIndex < 0) {
+        if (currentRound > 1) {
+          currentRound--;
+          currentTurnIndex = sorted.length - 1;
+        } else {
+          currentTurnIndex = 0;
+          break;
+        }
       }
-    }
+      loops++;
+      if (loops > sorted.length) break;
+    } while (sorted[currentTurnIndex]?.statusEffects.some(e => e.toLowerCase() === "dead"));
+
     const active = sorted[currentTurnIndex];
     if (active) {
       active.reactionUsed = false;
@@ -1069,6 +1104,18 @@ function handleCommandInternal(input: string): boolean {
     currentRound = 1;
     currentTurnIndex = 0;
     const sorted = getSortedCreatures();
+    
+    const allDead = sorted.every(c => c.statusEffects.some(e => e.toLowerCase() === "dead"));
+    if (!allDead) {
+      while (sorted[currentTurnIndex]?.statusEffects.some(e => e.toLowerCase() === "dead")) {
+        currentTurnIndex++;
+        if (currentTurnIndex >= sorted.length) {
+          currentTurnIndex = 0;
+          currentRound++;
+        }
+      }
+    }
+
     const active = sorted[currentTurnIndex];
     if (active) {
       active.reactionUsed = false;

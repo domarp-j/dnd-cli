@@ -287,6 +287,7 @@ describe("D&D CLI Tracker Test Suite", () => {
 
     test("navigates turns with next/prev and skip counts", () => {
       handleCommand("test");
+      handleCommand("clear dmg \"goblin archer\"");
       handleCommand("combat");
 
       const initialActive = getCombatState().activeCreature?.name;
@@ -823,6 +824,32 @@ describe("D&D CLI Tracker Test Suite", () => {
       expect(hitsC).toContain("c start");
       expect(hitsC).toContain("c end");
       expect(lineC).toBe("c ");
+    });
+
+    test("skips dead creatures during combat turn transitions", () => {
+      handleCommand("new game");
+      handleCommand("add pc A B C");
+      handleCommand("set hp 10 A 10 B 10 C");
+      handleCommand("set init 30 A 20 B 10 C");
+
+      handleCommand("add dmg 10 B");
+      expect(creatures.find(c => c.name === "A")?.statusEffects).not.toContain("Dead");
+      expect(creatures.find(c => c.name === "B")?.statusEffects).toContain("Dead");
+
+      handleCommand("combat");
+      expect(getCombatState().activeCreature?.name).toBe("A");
+
+      handleCommand("next");
+      expect(getCombatState().activeCreature?.name).toBe("C");
+
+      handleCommand("next");
+      expect(getCombatState().activeCreature?.name).toBe("A");
+
+      handleCommand("remove dmg 10 B");
+      expect(creatures.find(c => c.name === "B")?.statusEffects).not.toContain("Dead");
+
+      handleCommand("next");
+      expect(getCombatState().activeCreature?.name).toBe("B");
     });
   });
 });
