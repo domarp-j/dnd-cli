@@ -20,6 +20,7 @@ import {
   processCharTypePrompt,
   getPendingCharTypePrompt,
   completer,
+  wrapStatusEffects,
 } from "./index";
 
 const SAVES_DIR = path.join(process.cwd(), "saves");
@@ -860,6 +861,20 @@ describe("D&D CLI Tracker Test Suite", () => {
 
       handleCommand("combat");
       expect(getCombatState().inCombat).toBeTrue();
+    });
+
+    test("wraps status effects to multiple lines when exceeding column width", () => {
+      const effects = ["Poisoned", "Raging", "Concentrating", "Blessed", "Inspired", "Restrained"];
+      const wrapped = wrapStatusEffects(effects, 20);
+      expect(wrapped.length).toBeGreaterThan(1);
+      
+      for (const line of wrapped) {
+        expect(line.length).toBeLessThanOrEqual(20);
+      }
+
+      const singleLong = ["SuperLongEffectNameThatIsWayMoreThanTenCharacters"];
+      const wrappedLong = wrapStatusEffects(singleLong, 10);
+      expect(wrappedLong).toEqual(["SuperLongEffectNameThatIsWayMoreThanTenCharacters"]);
     });
   });
 });

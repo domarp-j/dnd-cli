@@ -588,25 +588,43 @@ function renderTable(): void {
       const ac = pad(fmt(c.ac), 6);
       const init = pad(fmt(c.initiative), 6);
       const rxn = inCombat ? pad(c.reactionUsed ? "✓" : "—", 6) : "";
-      const cond = c.statusEffects.length > 0 ? c.statusEffects.join(", ") : "";
 
-      const rowContent = `${name}${type}${hpMax}${dmg}${ac}${init}${rxn}${cond}`;
+      const prefixWidth = inCombat ? 66 : 60;
+      const statusWidth = Math.max(15, 80 - prefixWidth);
+      const effectLines = wrapStatusEffects(c.statusEffects, statusWidth);
 
-      if (isDead) {
-        if (isTurn) {
-          const prefix = `${BOLD}${MAGENTA}▶ ${RESET}`;
-          console.log(`${prefix}${RED}${DIM}${rowContent}${RESET}`);
+      effectLines.forEach((effectLine, lineIdx) => {
+        if (lineIdx === 0) {
+          const rowContent = `${name}${type}${hpMax}${dmg}${ac}${init}${rxn}${effectLine}`;
+          if (isDead) {
+            if (isTurn) {
+              const prefix = `${BOLD}${MAGENTA}▶ ${RESET}`;
+              console.log(`${prefix}${RED}${DIM}${rowContent}${RESET}`);
+            } else {
+              console.log(`  ${RED}${DIM}${rowContent}${RESET}`);
+            }
+          } else {
+            if (isTurn) {
+              const prefix = `${BOLD}${MAGENTA}▶ ${RESET}`;
+              console.log(`${prefix}${BOLD}${CYAN}${name}${RESET}${color}${type}${RESET}${BOLD}${CYAN}${hpMax}${dmg}${ac}${init}${rxn}${effectLine}${RESET}`);
+            } else {
+              console.log(`  ${BOLD}${name}${RESET}${color}${type}${RESET}${hpMax}${dmg}${ac}${init}${rxn}${effectLine}`);
+            }
+          }
         } else {
-          console.log(`  ${RED}${DIM}${rowContent}${RESET}`);
+          const indent = " ".repeat(prefixWidth - 2);
+          const subRowContent = `${indent}${effectLine}`;
+          if (isDead) {
+            console.log(`  ${RED}${DIM}${subRowContent}${RESET}`);
+          } else {
+            if (isTurn) {
+              console.log(`  ${BOLD}${CYAN}${subRowContent}${RESET}`);
+            } else {
+              console.log(`  ${subRowContent}`);
+            }
+          }
         }
-      } else {
-        if (isTurn) {
-          const prefix = `${BOLD}${MAGENTA}▶ ${RESET}`;
-          console.log(`${prefix}${BOLD}${CYAN}${name}${RESET}${color}${type}${RESET}${BOLD}${CYAN}${hpMax}${dmg}${ac}${init}${rxn}${cond}${RESET}`);
-        } else {
-          console.log(`  ${BOLD}${name}${RESET}${color}${type}${RESET}${hpMax}${dmg}${ac}${init}${rxn}${cond}`);
-        }
-      }
+      });
     });
   }
 
@@ -615,6 +633,29 @@ function renderTable(): void {
 }
 
 // --- Helpers ---
+
+export function wrapStatusEffects(effects: string[], width: number): string[] {
+  if (effects.length === 0) return [""];
+  const lines: string[] = [];
+  let currentLine = "";
+
+  for (let i = 0; i < effects.length; i++) {
+    const effect = effects[i];
+    const nextWord = currentLine === "" ? effect : ", " + effect;
+    if (currentLine.length + nextWord.length <= width) {
+      currentLine += nextWord;
+    } else {
+      if (currentLine !== "") {
+        lines.push(currentLine);
+      }
+      currentLine = effect;
+    }
+  }
+  if (currentLine !== "") {
+    lines.push(currentLine);
+  }
+  return lines;
+}
 
 function tokenize(input: string): string[] {
   const regex = /"([^"]+)"|'([^']+)'|(\S+)/g;
