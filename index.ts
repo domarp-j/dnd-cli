@@ -102,14 +102,28 @@ function restoreSnapshot(snapshot: Snapshot): void {
   currentSessionName = snapshot.currentSessionName;
 }
 
-function isUndoRedoCommand(input: string): boolean {
+function isUndoExemptCommand(input: string): boolean {
   const parts = tokenize(input.trim());
   const cmd = parts[0]?.toLowerCase();
-  return cmd === "undo" || cmd === "u" || cmd === "redo" || cmd === "r";
+  const exemptCmds = [
+    "undo", "u",
+    "redo", "r",
+    "test",
+    "new",
+    "load", "loadgame",
+    "save", "savegame",
+    "rename",
+    "delete", "del",
+    "saves",
+    "help", "h",
+    "quit", "q", "exit",
+    "show"
+  ];
+  return exemptCmds.includes(cmd ?? "");
 }
 
 function executeWithUndoTracking<T>(action: () => T, commandInput: string): T {
-  if (isUndoRedoCommand(commandInput)) {
+  if (isUndoExemptCommand(commandInput)) {
     return action();
   }
 
@@ -273,6 +287,9 @@ export function loadState(saveName: string = "current"): { ok: true; name: strin
     if (cleanName !== "current") {
       currentSessionName = cleanName;
     }
+
+    undoStack.length = 0;
+    redoStack.length = 0;
 
     return { ok: true, name: cleanName };
   } catch {

@@ -649,5 +649,40 @@ describe("D&D CLI Tracker Test Suite", () => {
       handleCommand("undo 10");
       expect(creatures.length).toBe(0);
     });
+
+    test("game state & storage and utility commands are not undoable and clear stacks on load/new", () => {
+      handleCommand("add pc HeroA");
+      expect(getHistoryStacks().undoLength).toBe(1);
+
+      // 'save' should be exempt from undo tracking and not push to undoStack
+      handleCommand("save test_exempt_save");
+      expect(getHistoryStacks().undoLength).toBe(1);
+
+      // 'rename save' should be exempt
+      handleCommand("rename save test_exempt_rename");
+      expect(getHistoryStacks().undoLength).toBe(1);
+
+      // 'new game' should clear the history stacks entirely
+      handleCommand("new game");
+      expect(creatures.length).toBe(0);
+      expect(getHistoryStacks().undoLength).toBe(0);
+
+      // Setup state for load test
+      handleCommand("add pc LoadHero");
+      handleCommand("save test_load_exempt");
+      expect(getHistoryStacks().undoLength).toBe(1);
+
+      // Save to another slot to shift active session and prevent overwriting test_load_exempt.json
+      handleCommand("save test_another_session");
+
+      handleCommand("add pc AnotherHero");
+      expect(getHistoryStacks().undoLength).toBe(2);
+
+      // 'load save' should clear history stacks
+      handleCommand("load save test_load_exempt");
+      expect(creatures.length).toBe(1);
+      expect(creatures[0]?.name).toBe("LoadHero");
+      expect(getHistoryStacks().undoLength).toBe(0);
+    });
   });
 });
