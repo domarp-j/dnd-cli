@@ -762,8 +762,8 @@ function handleCommandInternal(input: string): boolean {
     console.log(`    ${CYAN}${pad("remove (pcs | enemies | neutrals)", 44)}${RESET} Bulk remove creatures by type (or p | e | n)\n`);
 
     console.log(`  ${BOLD}${MAGENTA}Combat & Turn Control:${RESET}`);
-    console.log(`    ${CYAN}${pad("combat [start]", 44)}${RESET} Start combat mode (resorts by initiative)`);
-    console.log(`    ${CYAN}${pad("combat end", 44)}${RESET} End combat mode (clears init & dmg)`);
+    console.log(`    ${CYAN}${pad("combat | c [start]", 44)}${RESET} Start combat mode (resorts by initiative)`);
+    console.log(`    ${CYAN}${pad("combat | c end", 44)}${RESET} End combat mode (clears init & dmg)`);
     console.log(`    ${CYAN}${pad("(next | n) [<count>]", 44)}${RESET} Advance 1 or <count> turns`);
     console.log(`    ${CYAN}${pad("(prev | p) [<count>]", 44)}${RESET} Go back 1 or <count> turns`);
     console.log(`    ${CYAN}${pad("add/set (rxn | reaction) <target>...", 44)}${RESET} Mark creature reaction as used`);
@@ -1046,7 +1046,7 @@ function handleCommandInternal(input: string): boolean {
     return true;
   }
 
-  if (cmd === "combat" || (cmd === "start" && parts[1]?.toLowerCase() === "combat")) {
+  if (cmd === "combat" || cmd === "c" || (cmd === "start" && (parts[1]?.toLowerCase() === "combat" || parts[1]?.toLowerCase() === "c"))) {
     const sub = parts[1]?.toLowerCase();
     if (sub === "end" || sub === "stop" || sub === "exit") {
       if (!inCombat) {
@@ -1079,7 +1079,7 @@ function handleCommandInternal(input: string): boolean {
     return true;
   }
 
-  if (cmd === "end" && parts[1]?.toLowerCase() === "combat") {
+  if (cmd === "end" && (parts[1]?.toLowerCase() === "combat" || parts[1]?.toLowerCase() === "c")) {
     if (!inCombat) {
       renderTable();
       console.log(`${RED}Not currently in combat mode.${RESET}\n`);
@@ -1093,7 +1093,7 @@ function handleCommandInternal(input: string): boolean {
   if (cmd === "next" || cmd === "n") {
     if (!inCombat) {
       renderTable();
-      console.log(`${RED}Not in combat mode. Type "combat" to start combat.${RESET}\n`);
+      console.log(`${RED}Not in combat mode. Type "combat" or "c" to start combat.${RESET}\n`);
       return true;
     }
     let count = 1;
@@ -1116,7 +1116,7 @@ function handleCommandInternal(input: string): boolean {
   if (cmd === "prev" || cmd === "p") {
     if (!inCombat) {
       renderTable();
-      console.log(`${RED}Not in combat mode. Type "combat" to start combat.${RESET}\n`);
+      console.log(`${RED}Not in combat mode. Type "combat" or "c" to start combat.${RESET}\n`);
       return true;
     }
     let count = 1;
@@ -2407,9 +2407,9 @@ export function completer(line: string): [string[], string] {
         return `${baseParts.join(" ")} ${formatted}`;
       });
     }
-  } else if (cmd === "combat") {
+  } else if (cmd === "combat" || cmd === "c") {
     if (baseParts.length === 1) {
-      completions = ["combat start", "combat end"];
+      completions = [`${cmd} start`, `${cmd} end`];
     }
   } else if (cmd === "show") {
     if (baseParts.length === 1) {

@@ -62,17 +62,18 @@ Here is a sampling of useful commands to demonstrate the CLI's capabilities:
 ### Combat Mode
 - **Activate combat mode (automatically sorts by descending initiative):**
   ```text
-  combat
+  combat                 # Start combat mode (alias 'c')
+  c start
   ```
 - **Navigate turns and skip ahead or back:**
   ```text
-  next       # Advance 1 turn
-  n 3        # Advance 3 turns
-  prev       # Go back 1 turn
+  next                   # Advance 1 turn (alias 'n')
+  n 3                    # Advance 3 turns
+  prev                   # Go back 1 turn (alias 'p')
   ```
 - **End combat (clears all damage & initiative):**
   ```text
-  combat end
+  combat end             # End combat mode (alias 'c end')
   ```
 - **Track reaction usage (automatically resets when the creature's turn starts):**
   ```text

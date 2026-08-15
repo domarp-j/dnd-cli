@@ -804,5 +804,25 @@ describe("D&D CLI Tracker Test Suite", () => {
       handleCommand("undo");
       expect(creatures.find(c => c.name.toLowerCase() === "aragorn")?.reactionUsed).toBeFalse();
     });
+
+    test("c alias starts and ends combat correctly and autocompletes", () => {
+      handleCommand("new game");
+      handleCommand("add pc Aragorn");
+      handleCommand("set init 15 Aragorn");
+
+      expect(getCombatState().inCombat).toBeFalse();
+
+      handleCommand("c");
+      expect(getCombatState().inCombat).toBeTrue();
+
+      handleCommand("c end");
+      expect(processConfirmation("y")).toBeTrue();
+      expect(getCombatState().inCombat).toBeFalse();
+
+      const [hitsC, lineC] = completer("c ");
+      expect(hitsC).toContain("c start");
+      expect(hitsC).toContain("c end");
+      expect(lineC).toBe("c ");
+    });
   });
 });
