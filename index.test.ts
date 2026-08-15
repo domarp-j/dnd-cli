@@ -851,5 +851,15 @@ describe("D&D CLI Tracker Test Suite", () => {
       handleCommand("next");
       expect(getCombatState().activeCreature?.name).toBe("B");
     });
+
+    test("does not restart combat if already started", () => {
+      handleCommand("new game");
+      handleCommand("add pc A");
+      handleCommand("combat");
+      expect(getCombatState().inCombat).toBeTrue();
+
+      handleCommand("combat");
+      expect(getCombatState().inCombat).toBeTrue();
+    });
   });
 });

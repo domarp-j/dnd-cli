@@ -1094,6 +1094,12 @@ function handleCommandInternal(input: string): boolean {
       return true;
     }
 
+    if (inCombat) {
+      renderTable();
+      console.log(`${RED}Combat has already started.${RESET}\n`);
+      return true;
+    }
+
     if (creatures.length === 0) {
       renderTable();
       console.log(`${RED}No creatures in tracker. Add creatures before starting combat.${RESET}\n`);
