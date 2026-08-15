@@ -767,5 +767,42 @@ describe("D&D CLI Tracker Test Suite", () => {
       expect(hitsSet).toContain("set hp 10 Legolas");
       expect(lineSet).toBe("set hp 10 L");
     });
+
+    test("reaction state is set, cleared on turn start, manually restored, and undoable", () => {
+      handleCommand("new game");
+      handleCommand("add pc Aragorn Legolas");
+      handleCommand("set init 15 Aragorn 10 Legolas");
+      
+      handleCommand("combat start");
+      const aragorn = creatures.find(c => c.name.toLowerCase() === "aragorn");
+      const legolas = creatures.find(c => c.name.toLowerCase() === "legolas");
+      expect(aragorn).toBeDefined();
+      expect(legolas).toBeDefined();
+      expect(creatures.find(c => c.name.toLowerCase() === "aragorn")?.reactionUsed).toBeFalse();
+      expect(creatures.find(c => c.name.toLowerCase() === "legolas")?.reactionUsed).toBeFalsy();
+
+      handleCommand("add rxn Aragorn");
+      expect(creatures.find(c => c.name.toLowerCase() === "aragorn")?.reactionUsed).toBeTrue();
+
+      handleCommand("set reaction Legolas");
+      expect(creatures.find(c => c.name.toLowerCase() === "legolas")?.reactionUsed).toBeTrue();
+
+      handleCommand("next");
+      expect(creatures.find(c => c.name.toLowerCase() === "legolas")?.reactionUsed).toBeFalse();
+      expect(creatures.find(c => c.name.toLowerCase() === "aragorn")?.reactionUsed).toBeTrue();
+
+      handleCommand("next");
+      expect(creatures.find(c => c.name.toLowerCase() === "aragorn")?.reactionUsed).toBeFalse();
+
+      handleCommand("add rxn Aragorn");
+      expect(creatures.find(c => c.name.toLowerCase() === "aragorn")?.reactionUsed).toBeTrue();
+      handleCommand("remove rxn Aragorn");
+      expect(creatures.find(c => c.name.toLowerCase() === "aragorn")?.reactionUsed).toBeFalse();
+
+      handleCommand("add rxn Aragorn");
+      expect(creatures.find(c => c.name.toLowerCase() === "aragorn")?.reactionUsed).toBeTrue();
+      handleCommand("undo");
+      expect(creatures.find(c => c.name.toLowerCase() === "aragorn")?.reactionUsed).toBeFalse();
+    });
   });
 });

@@ -74,6 +74,13 @@ Here is a sampling of useful commands to demonstrate the CLI's capabilities:
   ```text
   combat end
   ```
+- **Track reaction usage (automatically resets when the creature's turn starts):**
+  ```text
+  add rxn Aragorn          # Mark Aragorn's reaction as used (shows "✓" in "Rxn" column)
+  set reaction Legolas     # Mark Legolas's reaction as used (alternate syntax)
+  remove rxn Aragorn       # Restore Aragorn's reaction manually (removes checkmark)
+  ```
+
 
 ### Game State Persistence
 - **Save/load state snapshots and rename sessions:**

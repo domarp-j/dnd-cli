@@ -15,6 +15,7 @@ interface Creature {
   ac: number | null;
   initiative: number | null;
   statusEffects: string[];
+  reactionUsed?: boolean;
 }
 
 interface ActivityEntry {
@@ -277,6 +278,7 @@ export function loadState(saveName: string = "current"): { ok: true; name: strin
           ac: c.ac,
           initiative: c.initiative,
           statusEffects,
+          reactionUsed: c.reactionUsed ?? false,
         };
       });
       creatures.push(...mapped);
@@ -426,6 +428,10 @@ function nextTurn(count = 1): void {
       currentTurnIndex = 0;
       currentRound++;
     }
+    const active = sorted[currentTurnIndex];
+    if (active) {
+      active.reactionUsed = false;
+    }
   }
 }
 
@@ -442,6 +448,10 @@ function prevTurn(count = 1): void {
         currentTurnIndex = 0;
         break;
       }
+    }
+    const active = sorted[currentTurnIndex];
+    if (active) {
+      active.reactionUsed = false;
     }
   }
 }
@@ -524,9 +534,11 @@ function renderTable(): void {
     console.log(`${DIM}  No creatures yet. Use "add pc n1 n2" to begin.${RESET}`);
   } else {
     // Header
-    const hdr = `  ${pad("Name", 22)}${pad("Type", 10)}${pad("HP Max", 8)}${pad("Dmg", 6)}${pad("AC", 6)}${pad("Init", 6)}${"Status Effects"}`;
+    const hdr = inCombat
+      ? `  ${pad("Name", 22)}${pad("Type", 10)}${pad("HP Max", 8)}${pad("Dmg", 6)}${pad("AC", 6)}${pad("Init", 6)}${pad("Rxn", 6)}${"Status Effects"}`
+      : `  ${pad("Name", 22)}${pad("Type", 10)}${pad("HP Max", 8)}${pad("Dmg", 6)}${pad("AC", 6)}${pad("Init", 6)}${"Status Effects"}`;
     console.log(`${BOLD}${CYAN}${hdr}${RESET}`);
-    console.log(`${DIM}  ${"─".repeat(76)}${RESET}`);
+    console.log(`${DIM}  ${"─".repeat(inCombat ? 82 : 76)}${RESET}`);
 
     sorted.forEach((c, idx) => {
       const isTurn = inCombat && idx === currentTurnIndex;
@@ -537,13 +549,14 @@ function renderTable(): void {
       const dmg = pad(c.dmg > 0 ? String(c.dmg) : "—", 6);
       const ac = pad(fmt(c.ac), 6);
       const init = pad(fmt(c.initiative), 6);
+      const rxn = inCombat ? pad(c.reactionUsed ? "✓" : "—", 6) : "";
       const cond = c.statusEffects.length > 0 ? c.statusEffects.join(", ") : "";
 
       if (isTurn) {
         const prefix = `${BOLD}${MAGENTA}▶ ${RESET}`;
-        console.log(`${prefix}${BOLD}${CYAN}${name}${RESET}${color}${type}${RESET}${BOLD}${CYAN}${hpMax}${dmg}${ac}${init}${cond}${RESET}`);
+        console.log(`${prefix}${BOLD}${CYAN}${name}${RESET}${color}${type}${RESET}${BOLD}${CYAN}${hpMax}${dmg}${ac}${init}${rxn}${cond}${RESET}`);
       } else {
-        console.log(`  ${BOLD}${name}${RESET}${color}${type}${RESET}${hpMax}${dmg}${ac}${init}${cond}`);
+        console.log(`  ${BOLD}${name}${RESET}${color}${type}${RESET}${hpMax}${dmg}${ac}${init}${rxn}${cond}`);
       }
     });
   }
@@ -752,7 +765,9 @@ function handleCommandInternal(input: string): boolean {
     console.log(`    ${CYAN}${pad("combat [start]", 44)}${RESET} Start combat mode (resorts by initiative)`);
     console.log(`    ${CYAN}${pad("combat end", 44)}${RESET} End combat mode (clears init & dmg)`);
     console.log(`    ${CYAN}${pad("(next | n) [<count>]", 44)}${RESET} Advance 1 or <count> turns`);
-    console.log(`    ${CYAN}${pad("(prev | p) [<count>]", 44)}${RESET} Go back 1 or <count> turns\n`);
+    console.log(`    ${CYAN}${pad("(prev | p) [<count>]", 44)}${RESET} Go back 1 or <count> turns`);
+    console.log(`    ${CYAN}${pad("add/set (rxn | reaction) <target>...", 44)}${RESET} Mark creature reaction as used`);
+    console.log(`    ${CYAN}${pad("remove (rxn | reaction) <target>...", 44)}${RESET} Restore creature reaction\n`);
 
     console.log(`  ${BOLD}${MAGENTA}Stats & Status Effects:${RESET}`);
     console.log(`    ${CYAN}${pad("add (eff | cond) <effect> <target>...", 44)}${RESET} Add status effect to target(s)`);
@@ -1053,9 +1068,12 @@ function handleCommandInternal(input: string): boolean {
     inCombat = true;
     currentRound = 1;
     currentTurnIndex = 0;
-    renderTable();
     const sorted = getSortedCreatures();
     const active = sorted[currentTurnIndex];
+    if (active) {
+      active.reactionUsed = false;
+    }
+    renderTable();
     console.log(`${GREEN}⚔ Combat started! Round 1 — ${BOLD}${active ? active.name : ""}'s turn${RESET}\n`);
     logActivity(`⚔ Combat started (Round 1 — ${active ? active.name : ""}'s turn)`);
     return true;
@@ -1123,9 +1141,37 @@ function handleCommandInternal(input: string): boolean {
     if (rawSub === "p" || rawSub === "pcs") rawSub = "pc";
     if (rawSub === "e" || rawSub === "enemies") rawSub = "enemy";
     if (rawSub === "n" || rawSub === "neutrals") rawSub = "neutral";
+    if (rawSub === "rxn" || rawSub === "reaction") rawSub = "rxn";
     const subCmd = rawSub;
-    const addOptions = ["pc", "char", "enemy", "neutral", "dmg", "cond", "condition", "eff", "effect", "effects"];
+    const addOptions = ["pc", "char", "enemy", "neutral", "dmg", "cond", "condition", "eff", "effect", "effects", "rxn"];
     const matched = matchPrefix(subCmd, addOptions);
+
+    // --- add rxn <target>... ---
+    if (matched === "rxn") {
+      const targets = parts.slice(2);
+      if (targets.length === 0) {
+        renderTable();
+        console.log(`${RED}Usage: add rxn <target>...${RESET}\n`);
+        return true;
+      }
+
+      const result = findCreatures(targets);
+      if (!result.ok) {
+        renderTable();
+        console.log(`${RED}${result.error}${RESET}\n`);
+        return true;
+      }
+
+      for (const creature of result.creatures) {
+        creature.reactionUsed = true;
+      }
+
+      renderTable();
+      const names = result.creatures.map((c) => c.name).join(", ");
+      console.log(`${GREEN}✓ Reaction marked as used for ${names}.${RESET}\n`);
+      logActivity(`Reaction marked as used for ${names}`);
+      return true;
+    }
 
     // --- add eff/cond <str> n1 n2 ---
     if (matched === "cond" || matched === "condition" || matched === "eff" || matched === "effect" || matched === "effects") {
@@ -1434,6 +1480,32 @@ function handleCommandInternal(input: string): boolean {
 
   if (cmd === "set") {
     const fieldInput = parts[1]?.toLowerCase() ?? "";
+    if (fieldInput === "rxn" || fieldInput === "reaction") {
+      const targets = parts.slice(2);
+      if (targets.length === 0) {
+        renderTable();
+        console.log(`${RED}Usage: set rxn <target>...${RESET}\n`);
+        return true;
+      }
+
+      const result = findCreatures(targets);
+      if (!result.ok) {
+        renderTable();
+        console.log(`${RED}${result.error}${RESET}\n`);
+        return true;
+      }
+
+      for (const creature of result.creatures) {
+        creature.reactionUsed = true;
+      }
+
+      renderTable();
+      const names = result.creatures.map((c) => c.name).join(", ");
+      console.log(`${GREEN}✓ Reaction marked as used for ${names}.${RESET}\n`);
+      logActivity(`Reaction marked as used for ${names}`);
+      return true;
+    }
+
     const setOptions = ["hp", "ac", "init"];
     const field = matchPrefix(fieldInput, setOptions);
 
@@ -1497,6 +1569,33 @@ function handleCommandInternal(input: string): boolean {
     const isDmg = matchPrefix(subCmd, ["dmg", "damage"]) !== null;
     const isHp = matchPrefix(subCmd, ["hp"]) !== null;
     const isAc = matchPrefix(subCmd, ["ac"]) !== null;
+    const isRxn = matchPrefix(subCmd, ["reaction", "rxn"]) !== null;
+
+    if (isRxn) {
+      const targets = parts.slice(2);
+      if (targets.length === 0) {
+        renderTable();
+        console.log(`${RED}Please specify targets to restore reaction (e.g., "remove rxn Ajax").${RESET}\n`);
+        return true;
+      }
+
+      const result = findCreatures(targets);
+      if (!result.ok) {
+        renderTable();
+        console.log(`${RED}${result.error}${RESET}\n`);
+        return true;
+      }
+
+      for (const creature of result.creatures) {
+        creature.reactionUsed = false;
+      }
+
+      renderTable();
+      const names = result.creatures.map((c) => c.name).join(", ");
+      console.log(`${GREEN}✓ Reaction restored for ${names}.${RESET}\n`);
+      logActivity(`Reaction restored for ${names}`);
+      return true;
+    }
 
     if (isInit) {
       const targets = parts.slice(2);
@@ -2222,8 +2321,13 @@ export function completer(line: string): [string[], string] {
     completions = mainCommands;
   } else if (cmd === "add") {
     if (baseParts.length === 1) {
-      const addSubs = ["pc", "enemy", "neutral", "char", "eff", "dmg", "condition", "effect"];
+      const addSubs = ["pc", "enemy", "neutral", "char", "eff", "dmg", "condition", "effect", "rxn", "reaction"];
       completions = addSubs.map(s => `add ${s}`);
+    } else if (subCmd === "rxn" || subCmd === "reaction") {
+      completions = creatures.map(c => {
+        const formatted = c.name.includes(" ") ? `"${c.name}"` : c.name;
+        return `${baseParts.join(" ")} ${formatted}`;
+      });
     } else if (subCmd === "eff" || subCmd === "cond" || subCmd === "effect" || subCmd === "condition") {
       if (baseParts.length === 2) {
         completions = ALL_STATUS_EFFECTS.map(eff => {
@@ -2247,8 +2351,13 @@ export function completer(line: string): [string[], string] {
   } else if (cmd === "remove" || cmd === "rm") {
     const rmPrefix = cmd;
     if (baseParts.length === 1) {
-      const rmSubs = ["char", "pcs", "enemies", "neutrals", "eff", "dmg"];
+      const rmSubs = ["char", "pcs", "enemies", "neutrals", "eff", "dmg", "rxn", "reaction"];
       completions = rmSubs.map(s => `${rmPrefix} ${s}`);
+    } else if (subCmd === "rxn" || subCmd === "reaction") {
+      completions = creatures.map(c => {
+        const formatted = c.name.includes(" ") ? `"${c.name}"` : c.name;
+        return `${baseParts.join(" ")} ${formatted}`;
+      });
     } else if (subCmd === "eff" || subCmd === "cond" || subCmd === "effect" || subCmd === "condition") {
       if (baseParts.length === 2) {
         completions = ALL_STATUS_EFFECTS.map(eff => {
@@ -2285,8 +2394,13 @@ export function completer(line: string): [string[], string] {
     }
   } else if (cmd === "set") {
     if (baseParts.length === 1) {
-      const setSubs = ["hp", "ac", "init"];
+      const setSubs = ["hp", "ac", "init", "rxn", "reaction"];
       completions = setSubs.map(s => `set ${s}`);
+    } else if (subCmd === "rxn" || subCmd === "reaction") {
+      completions = creatures.map(c => {
+        const formatted = c.name.includes(" ") ? `"${c.name}"` : c.name;
+        return `${baseParts.join(" ")} ${formatted}`;
+      });
     } else if (baseParts.length % 2 === 1) {
       completions = creatures.map(c => {
         const formatted = c.name.includes(" ") ? `"${c.name}"` : c.name;
