@@ -634,7 +634,7 @@ function findCreatures(identifiers: string[]): FindManyResult {
 
 // --- Commands ---
 
-function handleCommand(input: string): boolean {
+function handleCommandInternal(input: string): boolean {
   let parts = tokenize(input.trim());
   let cmd = parts[0]?.toLowerCase();
 
@@ -2177,12 +2177,11 @@ export function processSaveDeleteSelection(answer: string): boolean {
 }
 
 // Wrap handleCommand to ensure auto-saving on every mutating command
-const originalHandleCommand = handleCommand;
-function handleCommandWithAutoSave(input: string): boolean {
+export function handleCommand(input: string): boolean {
   return executeWithUndoTracking(() => {
     const parts = tokenize(input.trim());
     const cmd = parts[0]?.toLowerCase();
-    const res = originalHandleCommand(input);
+    const res = handleCommandInternal(input);
 
     const nonMutatingCmds = ["help", "saves", "delete", "del", "quit", "exit", "q", "rename", "undo", "u", "redo", "r"];
     if (cmd && !nonMutatingCmds.includes(cmd) && hasAddedCreature && currentSessionName) {
@@ -2191,8 +2190,6 @@ function handleCommandWithAutoSave(input: string): boolean {
     return res;
   }, input);
 }
-
-export { handleCommandWithAutoSave as handleCommand };
 
 // --- REPL ---
 
@@ -2261,7 +2258,7 @@ if (import.meta.main) {
         return;
       }
 
-      const shouldContinue = handleCommandWithAutoSave(answer);
+      const shouldContinue = handleCommand(answer);
       if (shouldContinue) {
         prompt();
       } else {

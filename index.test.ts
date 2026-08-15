@@ -684,5 +684,31 @@ describe("D&D CLI Tracker Test Suite", () => {
       expect(creatures[0]?.name).toBe("LoadHero");
       expect(getHistoryStacks().undoLength).toBe(0);
     });
+
+    test("running test command runs internal subcommands with tracking, allowing command-by-command undo", () => {
+      handleCommand("new game");
+      expect(creatures.length).toBe(0);
+      expect(getHistoryStacks().undoLength).toBe(0);
+
+      // Run test simple (which runs 3 subcommands internally: add pc, add enemy, add neutral)
+      handleCommand("test simple");
+      expect(creatures.length).toBe(20);
+      // The 3 subcommands should be recorded on the undo stack
+      expect(getHistoryStacks().undoLength).toBe(3);
+
+      // Revert the 3rd subcommand (add neutral)
+      handleCommand("undo");
+      expect(creatures.length).toBe(16);
+      expect(creatures.some(c => c.type === "neutral")).toBeFalse();
+
+      // Revert the 2nd subcommand (add enemy)
+      handleCommand("undo");
+      expect(creatures.length).toBe(7);
+      expect(creatures.every(c => c.type === "pc")).toBeTrue();
+
+      // Revert the 1st subcommand (add pc)
+      handleCommand("undo");
+      expect(creatures.length).toBe(0);
+    });
   });
 });
