@@ -1,6 +1,7 @@
 import * as readline from "readline";
 import * as fs from "fs";
 import * as path from "path";
+import { ALL_STATUS_EFFECTS } from "./statusEffects";
 
 // --- Types ---
 
@@ -2197,12 +2198,145 @@ export function handleCommand(input: string): boolean {
   }, input);
 }
 
+export function completer(line: string): [string[], string] {
+  const lineTrimmed = line.trimStart();
+  const endsWithSpace = line.endsWith(" ");
+  
+  const rawParts = lineTrimmed.split(/\s+/);
+  const partsCount = rawParts.length;
+  const lastPart = endsWithSpace ? "" : rawParts[partsCount - 1] || "";
+  const baseParts = endsWithSpace ? rawParts : rawParts.slice(0, -1);
+  if (baseParts.length > 0 && baseParts[baseParts.length - 1] === "") {
+    baseParts.pop();
+  }
+  const cmd = baseParts[0]?.toLowerCase() || "";
+  const subCmd = baseParts[1]?.toLowerCase() || "";
+  
+  let completions: string[] = [];
+  
+  if (lineTrimmed === "" || (rawParts.length === 1 && !endsWithSpace)) {
+    const mainCommands = [
+      "add", "remove", "rm", "clear", "set", "combat", "next", "n", "prev", "p",
+      "undo", "u", "redo", "r", "save", "saves", "load save", "rename save", "delete save", "show activity", "help", "h", "quit", "exit", "q", "test"
+    ];
+    completions = mainCommands;
+  } else if (cmd === "add") {
+    if (baseParts.length === 1) {
+      const addSubs = ["pc", "enemy", "neutral", "char", "eff", "dmg", "condition", "effect"];
+      completions = addSubs.map(s => `add ${s}`);
+    } else if (subCmd === "eff" || subCmd === "cond" || subCmd === "effect" || subCmd === "condition") {
+      if (baseParts.length === 2) {
+        completions = ALL_STATUS_EFFECTS.map(eff => {
+          const formatted = eff.includes(" ") ? `"${eff}"` : eff;
+          return `add ${baseParts[1]} ${formatted}`;
+        });
+      } else {
+        completions = creatures.map(c => {
+          const formatted = c.name.includes(" ") ? `"${c.name}"` : c.name;
+          return `${baseParts.join(" ")} ${formatted}`;
+        });
+      }
+    } else if (subCmd === "dmg") {
+      if (baseParts.length >= 3) {
+        completions = creatures.map(c => {
+          const formatted = c.name.includes(" ") ? `"${c.name}"` : c.name;
+          return `${baseParts.join(" ")} ${formatted}`;
+        });
+      }
+    }
+  } else if (cmd === "remove" || cmd === "rm") {
+    const rmPrefix = cmd;
+    if (baseParts.length === 1) {
+      const rmSubs = ["char", "pcs", "enemies", "neutrals", "eff", "dmg"];
+      completions = rmSubs.map(s => `${rmPrefix} ${s}`);
+    } else if (subCmd === "eff" || subCmd === "cond" || subCmd === "effect" || subCmd === "condition") {
+      if (baseParts.length === 2) {
+        completions = ALL_STATUS_EFFECTS.map(eff => {
+          const formatted = eff.includes(" ") ? `"${eff}"` : eff;
+          return `${rmPrefix} ${baseParts[1]} ${formatted}`;
+        });
+      } else {
+        completions = creatures.map(c => {
+          const formatted = c.name.includes(" ") ? `"${c.name}"` : c.name;
+          return `${baseParts.join(" ")} ${formatted}`;
+        });
+      }
+    } else if (subCmd === "dmg") {
+      if (baseParts.length >= 3) {
+        completions = creatures.map(c => {
+          const formatted = c.name.includes(" ") ? `"${c.name}"` : c.name;
+          return `${baseParts.join(" ")} ${formatted}`;
+        });
+      }
+    } else if (subCmd === "char") {
+      completions = creatures.map(c => {
+        const formatted = c.name.includes(" ") ? `"${c.name}"` : c.name;
+        return `${rmPrefix} char ${formatted}`;
+      });
+    }
+  } else if (cmd === "clear") {
+    if (baseParts.length === 1) {
+      const clearSubs = ["init", "dmg", "hp", "ac"];
+      completions = clearSubs.map(s => `clear ${s}`);
+    } else {
+      completions = ["all", ...creatures.map(c => c.name.includes(" ") ? `"${c.name}"` : c.name)].map(target => {
+        return `clear ${baseParts[1]} ${target}`;
+      });
+    }
+  } else if (cmd === "set") {
+    if (baseParts.length === 1) {
+      const setSubs = ["hp", "ac", "init"];
+      completions = setSubs.map(s => `set ${s}`);
+    } else if (baseParts.length % 2 === 1) {
+      completions = creatures.map(c => {
+        const formatted = c.name.includes(" ") ? `"${c.name}"` : c.name;
+        return `${baseParts.join(" ")} ${formatted}`;
+      });
+    }
+  } else if (cmd === "combat") {
+    if (baseParts.length === 1) {
+      completions = ["combat start", "combat end"];
+    }
+  } else if (cmd === "show") {
+    if (baseParts.length === 1) {
+      completions = ["show activity"];
+    }
+  } else if (cmd === "load" || cmd === "rename" || cmd === "delete") {
+    if (baseParts.length === 1) {
+      completions = [`${cmd} save`];
+    } else if (subCmd === "save" && baseParts.length === 2) {
+      if (fs.existsSync(SAVES_DIR)) {
+        const files = fs.readdirSync(SAVES_DIR).filter(f => f.endsWith(".json"));
+        completions = files.map(f => {
+          const name = f.replace(/\.json$/, "");
+          const formatted = name.includes(" ") ? `"${name}"` : name;
+          return `${cmd} save ${formatted}`;
+        });
+      }
+    }
+  } else if (cmd === "heal" || cmd === "hurt") {
+    if (baseParts.length >= 2) {
+      completions = creatures.map(c => {
+        const formatted = c.name.includes(" ") ? `"${c.name}"` : c.name;
+        return `${baseParts.join(" ")} ${formatted}`;
+      });
+    }
+  }
+
+  const fullTyped = baseParts.length > 0 ? baseParts.join(" ") + " " : "";
+  const searchPrefix = (fullTyped + lastPart).toLowerCase();
+  const hits = completions.filter(c => c.toLowerCase().startsWith(searchPrefix));
+  
+  return [hits, line];
+}
+
 // --- REPL ---
 
 if (import.meta.main) {
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
+    completer,
   });
 
   resetState();

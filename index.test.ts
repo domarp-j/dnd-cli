@@ -19,6 +19,7 @@ import {
   getHistoryStacks,
   processCharTypePrompt,
   getPendingCharTypePrompt,
+  completer,
 } from "./index";
 
 const SAVES_DIR = path.join(process.cwd(), "saves");
@@ -740,6 +741,31 @@ describe("D&D CLI Tracker Test Suite", () => {
       handleCommand("undo");
       expect(creatures.length).toBe(0);
       expect(getHistoryStacks().undoLength).toBe(0);
+    });
+
+    test("completer function provides command and context autocomplete", () => {
+      // 1. Match main command prefix
+      const [hitsMain, lineMain] = completer("ad");
+      expect(hitsMain).toContain("add");
+      expect(lineMain).toBe("ad");
+
+      // 2. Match add subcommands
+      const [hitsAdd, lineAdd] = completer("add ");
+      expect(hitsAdd).toContain("add pc");
+      expect(hitsAdd).toContain("add enemy");
+      expect(hitsAdd).toContain("add eff");
+
+      // 3. Match status effects
+      const [hitsEff, lineEff] = completer("add eff Pois");
+      expect(hitsEff).toContain("add eff Poisoned");
+
+      // 4. Match target names when setting stats
+      handleCommand("new game");
+      handleCommand("add pc Legolas Aragorn");
+
+      const [hitsSet, lineSet] = completer("set hp 10 L");
+      expect(hitsSet).toContain("set hp 10 Legolas");
+      expect(lineSet).toBe("set hp 10 L");
     });
   });
 });
