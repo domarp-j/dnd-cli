@@ -142,6 +142,20 @@ describe("D&D CLI Tracker Test Suite", () => {
       expect(hero?.dmg).toBe(10);
     });
 
+    test("supports hurt and heal alias commands", () => {
+      handleCommand("add pc Hero");
+      handleCommand("hurt 15 Hero");
+      const hero = creatures.find((c) => c.name === "Hero");
+      expect(hero?.dmg).toBe(15);
+
+      handleCommand("heal 5 Hero");
+      expect(hero?.dmg).toBe(10);
+
+      // heal down to 0 cap
+      handleCommand("heal 20 Hero");
+      expect(hero?.dmg).toBe(0);
+    });
+
     test("supports bulk setting of HP, AC, and initiative with alternating pairs", () => {
       handleCommand("add pc HeroA HeroB");
       handleCommand("set hp bulk HeroA 40 HeroB 35");
@@ -182,10 +196,12 @@ describe("D&D CLI Tracker Test Suite", () => {
   });
 
   describe("Clear Safety Checks", () => {
-    test("requires explicit target or all to clear initiative and damage", () => {
+    test("requires explicit target or all to clear initiative, damage, HP max, and AC", () => {
       handleCommand("test");
       const initBefore = creatures.map((c) => c.initiative);
       const dmgBefore = creatures.map((c) => c.dmg);
+      const hpBefore = creatures.map((c) => c.hpMax);
+      const acBefore = creatures.map((c) => c.ac);
 
       // Running without target should NOT modify creatures
       handleCommand("clear init");
@@ -194,16 +210,61 @@ describe("D&D CLI Tracker Test Suite", () => {
       handleCommand("clear dmg");
       expect(creatures.map((c) => c.dmg)).toEqual(dmgBefore);
 
-      // Explicit target clears for specified creature
-      handleCommand("clear init ajax");
-      expect(creatures.find((c) => c.name === "ajax")?.initiative).toBeNull();
+      handleCommand("clear hp");
+      expect(creatures.map((c) => c.hpMax)).toEqual(hpBefore);
 
-      // Explicit all clears for all creatures
+      handleCommand("clear ac");
+      expect(creatures.map((c) => c.ac)).toEqual(acBefore);
+
+      // Explicit target clears for specified creature via clear command
+      handleCommand("clear init ajax");
+      expect(creatures.find((c) => c.name.toLowerCase().includes("ajax"))?.initiative).toBeNull();
+
+      handleCommand("clear hp kaelor");
+      expect(creatures.find((c) => c.name.toLowerCase().includes("kaelor"))?.hpMax).toBeNull();
+
+      handleCommand("clear ac thorgan");
+      expect(creatures.find((c) => c.name.toLowerCase().includes("thorgan"))?.ac).toBeNull();
+
+      // Explicit all clears for all creatures via clear command
       handleCommand("clear init all");
       expect(creatures.every((c) => c.initiative === null)).toBeTrue();
 
       handleCommand("clear dmg all");
       expect(creatures.every((c) => c.dmg === 0)).toBeTrue();
+
+      handleCommand("clear hp all");
+      expect(creatures.every((c) => c.hpMax === null)).toBeTrue();
+
+      handleCommand("clear ac all");
+      expect(creatures.every((c) => c.ac === null)).toBeTrue();
+
+      // Test the same for remove command on a clean test state
+      handleCommand("test");
+      handleCommand("remove init ajax");
+      expect(creatures.find((c) => c.name.toLowerCase().includes("ajax"))?.initiative).toBeNull();
+
+      handleCommand("remove hp kaelor");
+      expect(creatures.find((c) => c.name.toLowerCase().includes("kaelor"))?.hpMax).toBeNull();
+
+      handleCommand("remove ac thorgan");
+      expect(creatures.find((c) => c.name.toLowerCase().includes("thorgan"))?.ac).toBeNull();
+
+      handleCommand("remove dmg thorgan");
+      expect(creatures.find((c) => c.name.toLowerCase().includes("thorgan"))?.dmg).toBe(0);
+
+      // Explicit all clears via remove command
+      handleCommand("remove init all");
+      expect(creatures.every((c) => c.initiative === null)).toBeTrue();
+
+      handleCommand("remove dmg all");
+      expect(creatures.every((c) => c.dmg === 0)).toBeTrue();
+
+      handleCommand("remove hp all");
+      expect(creatures.every((c) => c.hpMax === null)).toBeTrue();
+
+      handleCommand("remove ac all");
+      expect(creatures.every((c) => c.ac === null)).toBeTrue();
     });
   });
 

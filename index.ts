@@ -493,8 +493,18 @@ function findCreatures(identifiers: string[]): FindManyResult {
 // --- Commands ---
 
 function handleCommand(input: string): boolean {
-  const parts = tokenize(input.trim());
-  const cmd = parts[0]?.toLowerCase();
+  let parts = tokenize(input.trim());
+  let cmd = parts[0]?.toLowerCase();
+
+  if (cmd === "hurt") {
+    parts[0] = "add";
+    parts.splice(1, 0, "dmg");
+    cmd = "add";
+  } else if (cmd === "heal") {
+    parts[0] = "remove";
+    parts.splice(1, 0, "dmg");
+    cmd = "remove";
+  }
 
   if (!cmd) {
     return true; // empty input, just re-render
@@ -526,8 +536,12 @@ function handleCommand(input: string): boolean {
     console.log(`  ${BOLD}${MAGENTA}Stats & Status Effects:${RESET}`);
     console.log(`    ${CYAN}${pad("add (eff | cond) <effect> <target>...", 44)}${RESET} Add status effect to target(s)`);
     console.log(`    ${CYAN}${pad("add dmg <value> <target>...", 44)}${RESET} Add damage taken to target(s)`);
+    console.log(`    ${CYAN}${pad("clear ac (<all> | <target>...)", 44)}${RESET} Clear AC for target(s) or all`);
     console.log(`    ${CYAN}${pad("clear dmg (<all> | <target>...)", 44)}${RESET} Clear damage for target(s) or all`);
+    console.log(`    ${CYAN}${pad("clear hp (<all> | <target>...)", 44)}${RESET} Clear HP max for target(s) or all`);
     console.log(`    ${CYAN}${pad("clear init (<all> | <target>...)", 44)}${RESET} Clear initiative for target(s) or all`);
+    console.log(`    ${CYAN}${pad("heal <value> <target>...", 44)}${RESET} Heal/subtract damage from target(s) (alias for remove dmg)`);
+    console.log(`    ${CYAN}${pad("hurt <value> <target>...", 44)}${RESET} Add damage taken to target(s) (alias for add dmg)`);
     console.log(`    ${CYAN}${pad("remove (eff | cond) <effect> <target>...", 44)}${RESET} Remove status effect from target(s)`);
     console.log(`    ${CYAN}${pad("set ac <value> <target>...", 44)}${RESET} Set AC for target(s)`);
     console.log(`    ${CYAN}${pad("set ac bulk (<target> <value>)...", 44)}${RESET} Bulk set AC pairs`);
@@ -1021,6 +1035,8 @@ function handleCommand(input: string): boolean {
     const subCmd = parts[1]?.toLowerCase() ?? "";
     const isInit = matchPrefix(subCmd, ["init", "initiative"]) !== null;
     const isDmg = matchPrefix(subCmd, ["dmg", "damage"]) !== null;
+    const isHp = matchPrefix(subCmd, ["hp"]) !== null;
+    const isAc = matchPrefix(subCmd, ["ac"]) !== null;
 
     if (isInit) {
       const targets = parts.slice(2);
@@ -1104,8 +1120,90 @@ function handleCommand(input: string): boolean {
       return true;
     }
 
+    if (isHp) {
+      const targets = parts.slice(2);
+
+      if (targets.length === 0) {
+        renderTable();
+        console.log(`${RED}Please specify targets or "all" to clear HP max (e.g., "clear hp all" or "clear hp Ajax").${RESET}\n`);
+        return true;
+      }
+
+      if (targets[0] === "all" || targets[0] === "*") {
+        withTurnPreservation(() => {
+          for (const c of creatures) {
+            c.hpMax = null;
+          }
+        });
+        renderTable();
+        console.log(`${GREEN}✓ Cleared HP max for all creatures.${RESET}\n`);
+        logActivity("Cleared HP max for all creatures");
+        return true;
+      }
+
+      const result = findCreatures(targets);
+      if (!result.ok) {
+        renderTable();
+        console.log(`${RED}${result.error}${RESET}\n`);
+        return true;
+      }
+
+      withTurnPreservation(() => {
+        for (const c of result.creatures) {
+          c.hpMax = null;
+        }
+      });
+
+      renderTable();
+      const names = result.creatures.map((c) => c.name).join(", ");
+      console.log(`${GREEN}✓ Cleared HP max for ${names}.${RESET}\n`);
+      logActivity(`Cleared HP max for ${names}`);
+      return true;
+    }
+
+    if (isAc) {
+      const targets = parts.slice(2);
+
+      if (targets.length === 0) {
+        renderTable();
+        console.log(`${RED}Please specify targets or "all" to clear AC (e.g., "clear ac all" or "clear ac Ajax").${RESET}\n`);
+        return true;
+      }
+
+      if (targets[0] === "all" || targets[0] === "*") {
+        withTurnPreservation(() => {
+          for (const c of creatures) {
+            c.ac = null;
+          }
+        });
+        renderTable();
+        console.log(`${GREEN}✓ Cleared AC for all creatures.${RESET}\n`);
+        logActivity("Cleared AC for all creatures");
+        return true;
+      }
+
+      const result = findCreatures(targets);
+      if (!result.ok) {
+        renderTable();
+        console.log(`${RED}${result.error}${RESET}\n`);
+        return true;
+      }
+
+      withTurnPreservation(() => {
+        for (const c of result.creatures) {
+          c.ac = null;
+        }
+      });
+
+      renderTable();
+      const names = result.creatures.map((c) => c.name).join(", ");
+      console.log(`${GREEN}✓ Cleared AC for ${names}.${RESET}\n`);
+      logActivity(`Cleared AC for ${names}`);
+      return true;
+    }
+
     renderTable();
-    console.log(`${RED}Usage: clear <init|dmg> <all | target1 target2 ...> (e.g., "clear init all" or "clear dmg Ajax")${RESET}\n`);
+    console.log(`${RED}Usage: clear <init|dmg|hp|ac> <all | target1 target2 ...> (e.g., "clear init all", "clear dmg Ajax", "clear hp Ajax", or "clear ac Ajax")${RESET}\n`);
     return true;
   }
 
@@ -1223,6 +1321,9 @@ function handleCommand(input: string): boolean {
     const subCmd = parts[1]?.toLowerCase() ?? "";
     const isCond = matchPrefix(subCmd, ["condition", "cond", "eff", "effect", "effects"]) !== null;
     const isInit = matchPrefix(subCmd, ["initiative", "init"]) !== null;
+    const isDmg = matchPrefix(subCmd, ["dmg", "damage"]) !== null;
+    const isHp = matchPrefix(subCmd, ["hp"]) !== null;
+    const isAc = matchPrefix(subCmd, ["ac"]) !== null;
 
     if (isInit) {
       const targets = parts.slice(2);
@@ -1260,6 +1361,156 @@ function handleCommand(input: string): boolean {
       renderTable();
       const names = result.creatures.map((c) => c.name).join(", ");
       console.log(`${GREEN}✓ Cleared initiative for ${names}.${RESET}\n`);
+      return true;
+    }
+
+    if (isDmg) {
+      const rawVal = parts[2];
+      const val = rawVal ? parseInt(rawVal, 10) : NaN;
+
+      if (!isNaN(val)) {
+        const targets = parts.slice(3);
+        if (targets.length === 0) {
+          renderTable();
+          console.log(`${RED}Please specify targets to heal (e.g., "remove dmg 10 Ajax").${RESET}\n`);
+          return true;
+        }
+
+        const result = findCreatures(targets);
+        if (!result.ok) {
+          renderTable();
+          console.log(`${RED}${result.error}${RESET}\n`);
+          return true;
+        }
+
+        withTurnPreservation(() => {
+          for (const c of result.creatures) {
+            c.dmg = Math.max(0, c.dmg - val);
+          }
+        });
+
+        renderTable();
+        const names = result.creatures.map((c) => c.name).join(", ");
+        console.log(`${GREEN}✓ ${names}: dmg -${val}${RESET}\n`);
+        logActivity(`Healed ${val} damage from ${names}`);
+        return true;
+      } else {
+        const targets = parts.slice(2);
+
+        if (targets.length === 0) {
+          renderTable();
+          console.log(`${RED}Please specify a value, targets, or "all" to remove/clear damage (e.g., "remove dmg 10 Ajax" or "remove dmg Ajax").${RESET}\n`);
+          return true;
+        }
+
+        if (targets[0] === "all" || targets[0] === "*") {
+          withTurnPreservation(() => {
+            for (const c of creatures) {
+              c.dmg = 0;
+            }
+          });
+          renderTable();
+          console.log(`${GREEN}✓ Cleared damage for all creatures.${RESET}\n`);
+          logActivity("Cleared damage for all creatures");
+          return true;
+        }
+
+        const result = findCreatures(targets);
+        if (!result.ok) {
+          renderTable();
+          console.log(`${RED}${result.error}${RESET}\n`);
+          return true;
+        }
+
+        withTurnPreservation(() => {
+          for (const c of result.creatures) {
+            c.dmg = 0;
+          }
+        });
+
+        renderTable();
+        const names = result.creatures.map((c) => c.name).join(", ");
+        console.log(`${GREEN}✓ Cleared damage for ${names}.${RESET}\n`);
+        logActivity(`Cleared damage for ${names}`);
+        return true;
+      }
+    }
+
+    if (isHp) {
+      const targets = parts.slice(2);
+
+      if (targets.length === 0) {
+        renderTable();
+        console.log(`${RED}Please specify targets or "all" to clear HP max (e.g., "remove hp all" or "remove hp Ajax").${RESET}\n`);
+        return true;
+      }
+
+      if (targets[0] === "all" || targets[0] === "*") {
+        withTurnPreservation(() => {
+          for (const c of creatures) {
+            c.hpMax = null;
+          }
+        });
+        renderTable();
+        console.log(`${GREEN}✓ Cleared HP max for all creatures.${RESET}\n`);
+        return true;
+      }
+
+      const result = findCreatures(targets);
+      if (!result.ok) {
+        renderTable();
+        console.log(`${RED}${result.error}${RESET}\n`);
+        return true;
+      }
+
+      withTurnPreservation(() => {
+        for (const c of result.creatures) {
+          c.hpMax = null;
+        }
+      });
+
+      renderTable();
+      const names = result.creatures.map((c) => c.name).join(", ");
+      console.log(`${GREEN}✓ Cleared HP max for ${names}.${RESET}\n`);
+      return true;
+    }
+
+    if (isAc) {
+      const targets = parts.slice(2);
+
+      if (targets.length === 0) {
+        renderTable();
+        console.log(`${RED}Please specify targets or "all" to clear AC (e.g., "remove ac all" or "remove ac Ajax").${RESET}\n`);
+        return true;
+      }
+
+      if (targets[0] === "all" || targets[0] === "*") {
+        withTurnPreservation(() => {
+          for (const c of creatures) {
+            c.ac = null;
+          }
+        });
+        renderTable();
+        console.log(`${GREEN}✓ Cleared AC for all creatures.${RESET}\n`);
+        return true;
+      }
+
+      const result = findCreatures(targets);
+      if (!result.ok) {
+        renderTable();
+        console.log(`${RED}${result.error}${RESET}\n`);
+        return true;
+      }
+
+      withTurnPreservation(() => {
+        for (const c of result.creatures) {
+          c.ac = null;
+        }
+      });
+
+      renderTable();
+      const names = result.creatures.map((c) => c.name).join(", ");
+      console.log(`${GREEN}✓ Cleared AC for ${names}.${RESET}\n`);
       return true;
     }
 
