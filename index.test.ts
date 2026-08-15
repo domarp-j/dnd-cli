@@ -16,6 +16,7 @@ import {
   processRenamePrompt,
   renameSession,
   deleteSave,
+  getHistoryStacks,
 } from "./index";
 
 const SAVES_DIR = path.join(process.cwd(), "saves");
@@ -548,6 +549,105 @@ describe("D&D CLI Tracker Test Suite", () => {
 
     test("show activity returns true when log is empty", () => {
       expect(handleCommand("show activity")).toBeTrue();
+    });
+  });
+
+  describe("Undo / Redo Functionality", () => {
+    test("tracks mutating command changes in undoStack", () => {
+      expect(getHistoryStacks().undoLength).toBe(0);
+      handleCommand("add pc TestHero");
+      expect(creatures.length).toBe(1);
+      expect(getHistoryStacks().undoLength).toBe(1);
+
+      handleCommand("undo");
+      expect(creatures.length).toBe(0);
+      expect(getHistoryStacks().undoLength).toBe(0);
+      expect(getHistoryStacks().redoLength).toBe(1);
+
+      handleCommand("redo");
+      expect(creatures.length).toBe(1);
+      expect(getHistoryStacks().undoLength).toBe(1);
+      expect(getHistoryStacks().redoLength).toBe(0);
+    });
+
+    test("rolls back activityLog on undo and restores on redo", () => {
+      handleCommand("add pc LoggedHero");
+      handleCommand("set hp 15 LoggedHero");
+      expect(getActivityLog().length).toBeGreaterThan(0);
+      const preUndoLength = getActivityLog().length;
+
+      handleCommand("undo"); // undo set hp
+      expect(getActivityLog().length).toBe(preUndoLength - 1);
+
+      handleCommand("redo"); // redo set hp
+      expect(getActivityLog().length).toBe(preUndoLength);
+    });
+
+    test("handles multiple undo/redo levels sequentially", () => {
+      handleCommand("add pc HeroA");
+      handleCommand("add pc HeroB");
+      handleCommand("add pc HeroC");
+      expect(creatures.length).toBe(3);
+
+      handleCommand("undo"); // removes HeroC
+      expect(creatures.length).toBe(2);
+      expect(creatures.map(c => c.name)).toEqual(["HeroA", "HeroB"]);
+
+      handleCommand("undo"); // removes HeroB
+      expect(creatures.length).toBe(1);
+      expect(creatures.map(c => c.name)).toEqual(["HeroA"]);
+
+      handleCommand("redo"); // restores HeroB
+      expect(creatures.length).toBe(2);
+      expect(creatures.map(c => c.name)).toEqual(["HeroA", "HeroB"]);
+
+      handleCommand("redo"); // restores HeroC
+      expect(creatures.length).toBe(3);
+    });
+
+    test("clears redo history on a new mutating action", () => {
+      handleCommand("add pc HeroA");
+      handleCommand("undo");
+      expect(getHistoryStacks().redoLength).toBe(1);
+
+      handleCommand("add pc HeroB"); // new mutating action clears redo stack
+      expect(getHistoryStacks().redoLength).toBe(0);
+    });
+
+    test("interactive prompt changes (e.g. combat confirmation) are tracked and undoable", () => {
+      handleCommand("add pc CombatHero");
+      handleCommand("set init 15 CombatHero");
+      handleCommand("combat"); // start combat
+      expect(getCombatState().inCombat).toBeTrue();
+
+      handleCommand("combat end"); // prompt set
+      expect(getCombatState().pendingConfirmation).not.toBeNull();
+
+      processConfirmation("y"); // confirms end combat (mutates state)
+      expect(getCombatState().inCombat).toBeFalse();
+      expect(creatures[0]?.initiative).toBeNull();
+
+      handleCommand("undo"); // undoes the combat end confirmation
+      expect(getCombatState().inCombat).toBeTrue();
+      expect(creatures[0]?.initiative).toBe(15);
+    });
+
+    test("supports count parameter to undo or redo multiple times at once", () => {
+      handleCommand("add pc HeroA");
+      handleCommand("add pc HeroB");
+      handleCommand("add pc HeroC");
+      expect(creatures.length).toBe(3);
+
+      handleCommand("undo 2"); // Reverts adding HeroC and HeroB
+      expect(creatures.length).toBe(1);
+      expect(creatures[0]?.name).toBe("HeroA");
+
+      handleCommand("redo 2"); // Restores HeroB and HeroC
+      expect(creatures.length).toBe(3);
+
+      // Verify that requesting more undos than available caps out gracefully
+      handleCommand("undo 10");
+      expect(creatures.length).toBe(0);
     });
   });
 });

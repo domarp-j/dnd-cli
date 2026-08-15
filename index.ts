@@ -51,6 +51,131 @@ let hasAddedCreature = false;
 let currentSessionName: string | null = null;
 const activityLog: ActivityEntry[] = [];
 
+interface Snapshot {
+  creatures: Creature[];
+  inCombat: boolean;
+  currentRound: number;
+  currentTurnIndex: number;
+  activityLog: ActivityEntry[];
+  hasAddedCreature: boolean;
+  currentSessionName: string | null;
+}
+
+interface HistoryEntry {
+  commandInput: string;
+  snapshot: Snapshot;
+  timestamp: string;
+}
+
+const undoStack: HistoryEntry[] = [];
+const redoStack: HistoryEntry[] = [];
+
+function captureSnapshot(): Snapshot {
+  return {
+    creatures: creatures.map((c) => ({
+      ...c,
+      statusEffects: [...c.statusEffects],
+    })),
+    inCombat,
+    currentRound,
+    currentTurnIndex,
+    activityLog: activityLog.map((e) => ({ ...e })),
+    hasAddedCreature,
+    currentSessionName,
+  };
+}
+
+function restoreSnapshot(snapshot: Snapshot): void {
+  creatures.length = 0;
+  creatures.push(
+    ...snapshot.creatures.map((c) => ({
+      ...c,
+      statusEffects: [...c.statusEffects],
+    }))
+  );
+  inCombat = snapshot.inCombat;
+  currentRound = snapshot.currentRound;
+  currentTurnIndex = snapshot.currentTurnIndex;
+  activityLog.length = 0;
+  activityLog.push(...snapshot.activityLog.map((e) => ({ ...e })));
+  hasAddedCreature = snapshot.hasAddedCreature;
+  currentSessionName = snapshot.currentSessionName;
+}
+
+function isUndoRedoCommand(input: string): boolean {
+  const parts = tokenize(input.trim());
+  const cmd = parts[0]?.toLowerCase();
+  return cmd === "undo" || cmd === "u" || cmd === "redo" || cmd === "r";
+}
+
+function executeWithUndoTracking<T>(action: () => T, commandInput: string): T {
+  if (isUndoRedoCommand(commandInput)) {
+    return action();
+  }
+
+  const pre = captureSnapshot();
+  const res = action();
+  const post = captureSnapshot();
+
+  if (JSON.stringify(pre) !== JSON.stringify(post)) {
+    undoStack.push({
+      commandInput,
+      snapshot: pre,
+      timestamp: new Date().toISOString(),
+    });
+    redoStack.length = 0; // Clear redo history on new action
+  }
+
+  return res;
+}
+
+export function executeUndo(): boolean {
+  if (undoStack.length === 0) {
+    return false;
+  }
+  const entry = undoStack.pop()!;
+  const current = captureSnapshot();
+  redoStack.push({
+    commandInput: entry.commandInput,
+    snapshot: current,
+    timestamp: new Date().toISOString(),
+  });
+  restoreSnapshot(entry.snapshot);
+
+  if (hasAddedCreature && currentSessionName) {
+    saveState(currentSessionName);
+  }
+  return true;
+}
+
+export function executeRedo(): boolean {
+  if (redoStack.length === 0) {
+    return false;
+  }
+  const entry = redoStack.pop()!;
+  const current = captureSnapshot();
+  undoStack.push({
+    commandInput: entry.commandInput,
+    snapshot: current,
+    timestamp: new Date().toISOString(),
+  });
+  restoreSnapshot(entry.snapshot);
+
+  if (hasAddedCreature && currentSessionName) {
+    saveState(currentSessionName);
+  }
+  return true;
+}
+
+export function getHistoryStacks() {
+  return {
+    undoLength: undoStack.length,
+    redoLength: redoStack.length,
+    undoStack: [...undoStack],
+    redoStack: [...redoStack],
+  };
+}
+
 function logActivity(message: string): void {
   activityLog.push({ timestamp: new Date().toISOString(), message });
 }
@@ -510,6 +635,78 @@ function handleCommand(input: string): boolean {
     return true; // empty input, just re-render
   }
 
+  if (cmd === "undo" || cmd === "u") {
+    let count = 1;
+    if (parts[1]) {
+      const parsed = parseInt(parts[1], 10);
+      if (!isNaN(parsed) && parsed > 0) {
+        count = parsed;
+      }
+    }
+
+    let undoneCount = 0;
+    const undoneActions: string[] = [];
+    for (let i = 0; i < count; i++) {
+      const lastUndoEntry = undoStack[undoStack.length - 1];
+      if (executeUndo()) {
+        undoneCount++;
+        if (lastUndoEntry) {
+          undoneActions.push(lastUndoEntry.commandInput);
+        }
+      } else {
+        break;
+      }
+    }
+
+    renderTable();
+    if (undoneCount > 0) {
+      if (undoneCount === 1) {
+        console.log(`${GREEN}✓ Undid command: "${undoneActions[0]}"${RESET}\n`);
+      } else {
+        console.log(`${GREEN}✓ Undid ${undoneCount} commands: ${undoneActions.map(a => `"${a}"`).join(", ")}${RESET}\n`);
+      }
+    } else {
+      console.log(`${YELLOW}Nothing to undo.${RESET}\n`);
+    }
+    return true;
+  }
+
+  if (cmd === "redo" || cmd === "r") {
+    let count = 1;
+    if (parts[1]) {
+      const parsed = parseInt(parts[1], 10);
+      if (!isNaN(parsed) && parsed > 0) {
+        count = parsed;
+      }
+    }
+
+    let redoneCount = 0;
+    const redoneActions: string[] = [];
+    for (let i = 0; i < count; i++) {
+      const lastRedoEntry = redoStack[redoStack.length - 1];
+      if (executeRedo()) {
+        redoneCount++;
+        if (lastRedoEntry) {
+          redoneActions.push(lastRedoEntry.commandInput);
+        }
+      } else {
+        break;
+      }
+    }
+
+    renderTable();
+    if (redoneCount > 0) {
+      if (redoneCount === 1) {
+        console.log(`${GREEN}✓ Redid command: "${redoneActions[0]}"${RESET}\n`);
+      } else {
+        console.log(`${GREEN}✓ Redid ${redoneCount} commands: ${redoneActions.map(a => `"${a}"`).join(", ")}${RESET}\n`);
+      }
+    } else {
+      console.log(`${YELLOW}Nothing to redo.${RESET}\n`);
+    }
+    return true;
+  }
+
   if (cmd === "quit" || cmd === "exit" || cmd === "q") {
     pendingQuitConfirmation = true;
     renderTable();
@@ -561,8 +758,10 @@ function handleCommand(input: string): boolean {
     console.log(`  ${BOLD}${MAGENTA}Utilities:${RESET}`);
     console.log(`    ${CYAN}${pad("(help | h)", 44)}${RESET} Show this POSIX / docopt help menu`);
     console.log(`    ${CYAN}${pad("(quit | q | exit)", 44)}${RESET} Exit the application`);
+    console.log(`    ${CYAN}${pad("redo | r [<count>]", 44)}${RESET} Re-apply the last 1 or <count> undone actions`);
     console.log(`    ${CYAN}${pad("show activity", 44)}${RESET} Show all actions logged in this session`);
-    console.log(`    ${CYAN}${pad("test [simple]", 44)}${RESET} Load test data encounter\n`);
+    console.log(`    ${CYAN}${pad("test [simple]", 44)}${RESET} Load test data encounter`);
+    console.log(`    ${CYAN}${pad("undo | u [<count>]", 44)}${RESET} Revert the last 1 or <count> mutating actions\n`);
     return true;
   }
 
@@ -1730,6 +1929,8 @@ export function resetState(): void {
   hasAddedCreature = false;
   currentSessionName = null;
   activityLog.length = 0;
+  undoStack.length = 0;
+  redoStack.length = 0;
 }
 
 export function getActivityLog(): ActivityEntry[] {
@@ -1765,124 +1966,132 @@ export function processQuitConfirmation(answer: string): boolean {
 }
 
 export function processConfirmation(answer: string): boolean {
-  if (pendingConfirmation?.type === "end_combat") {
-    pendingConfirmation = null;
-    const choice = answer.trim().toLowerCase();
-    if (choice === "y" || choice === "yes") {
-      inCombat = false;
-      currentRound = 1;
-      currentTurnIndex = 0;
-      for (const c of creatures) {
-        c.initiative = null;
-        c.dmg = 0;
+  return executeWithUndoTracking(() => {
+    if (pendingConfirmation?.type === "end_combat") {
+      pendingConfirmation = null;
+      const choice = answer.trim().toLowerCase();
+      if (choice === "y" || choice === "yes") {
+        inCombat = false;
+        currentRound = 1;
+        currentTurnIndex = 0;
+        for (const c of creatures) {
+          c.initiative = null;
+          c.dmg = 0;
+        }
+        if (currentSessionName) saveState(currentSessionName);
+        else saveState("current");
+        renderTable();
+        console.log(`${YELLOW}⚔ Combat ended. Initiative and damage cleared for all creatures.${RESET}\n`);
+        logActivity("⚔ Combat ended — initiative and damage cleared");
+        return true;
+      } else {
+        renderTable();
+        console.log(`${DIM}Combat end cancelled.${RESET}\n`);
+        return false;
       }
-      if (currentSessionName) saveState(currentSessionName);
-      else saveState("current");
-      renderTable();
-      console.log(`${YELLOW}⚔ Combat ended. Initiative and damage cleared for all creatures.${RESET}\n`);
-      logActivity("⚔ Combat ended — initiative and damage cleared");
-      return true;
-    } else {
-      renderTable();
-      console.log(`${DIM}Combat end cancelled.${RESET}\n`);
-      return false;
     }
-  }
-  return false;
+    return false;
+  }, `confirm end combat: ${answer}`);
 }
 
 export function processSaveNamePrompt(answer: string): boolean {
-  if (!pendingSaveNamePrompt) return false;
+  return executeWithUndoTracking(() => {
+    if (!pendingSaveNamePrompt) return false;
 
-  const defaultName = pendingSaveNamePrompt.defaultName;
-  pendingSaveNamePrompt = null;
+    const defaultName = pendingSaveNamePrompt.defaultName;
+    pendingSaveNamePrompt = null;
 
-  const trimmed = answer.trim();
-  if (trimmed.toLowerCase() === "c" || trimmed.toLowerCase() === "cancel") {
+    const trimmed = answer.trim();
+    if (trimmed.toLowerCase() === "c" || trimmed.toLowerCase() === "cancel") {
+      renderTable();
+      console.log(`${DIM}Save cancelled.${RESET}\n`);
+      return false;
+    }
+
+    const chosenName = trimmed || defaultName;
+    const res = saveState(chosenName);
     renderTable();
-    console.log(`${DIM}Save cancelled.${RESET}\n`);
-    return false;
-  }
-
-  const chosenName = trimmed || defaultName;
-  const res = saveState(chosenName);
-  renderTable();
-  const filepath = path.resolve(SAVES_DIR, `${res.name}.json`);
-  if (res.isNew) {
-    console.log(`${GREEN}✓ Created new save state "${res.name}" at "${filepath}".${RESET}\n`);
-  } else {
-    console.log(`${GREEN}✓ Saved game state to "${res.name}" at "${filepath}".${RESET}\n`);
-  }
-  return true;
+    const filepath = path.resolve(SAVES_DIR, `${res.name}.json`);
+    if (res.isNew) {
+      console.log(`${GREEN}✓ Created new save state "${res.name}" at "${filepath}".${RESET}\n`);
+    } else {
+      console.log(`${GREEN}✓ Saved game state to "${res.name}" at "${filepath}".${RESET}\n`);
+    }
+    return true;
+  }, `save game as: ${answer}`);
 }
 
 export function processRenamePrompt(answer: string): boolean {
-  if (!pendingRenamePrompt) return false;
+  return executeWithUndoTracking(() => {
+    if (!pendingRenamePrompt) return false;
 
-  const defaultName = pendingRenamePrompt.defaultName;
-  pendingRenamePrompt = null;
+    const defaultName = pendingRenamePrompt.defaultName;
+    pendingRenamePrompt = null;
 
-  const trimmed = answer.trim();
-  if (trimmed.toLowerCase() === "c" || trimmed.toLowerCase() === "cancel") {
+    const trimmed = answer.trim();
+    if (trimmed.toLowerCase() === "c" || trimmed.toLowerCase() === "cancel") {
+      renderTable();
+      console.log(`${DIM}Rename cancelled.${RESET}\n`);
+      return false;
+    }
+
+    const chosenName = trimmed || defaultName;
+    const res = renameSession(chosenName);
     renderTable();
-    console.log(`${DIM}Rename cancelled.${RESET}\n`);
-    return false;
-  }
-
-  const chosenName = trimmed || defaultName;
-  const res = renameSession(chosenName);
-  renderTable();
-  if (res.ok) {
-    const filepath = path.resolve(SAVES_DIR, `${res.newName}.json`);
-    console.log(`${GREEN}✓ Renamed game session to "${res.newName}" at "${filepath}".${RESET}\n`);
-    return true;
-  } else {
-    console.log(`${RED}${res.error}${RESET}\n`);
-    return false;
-  }
+    if (res.ok) {
+      const filepath = path.resolve(SAVES_DIR, `${res.newName}.json`);
+      console.log(`${GREEN}✓ Renamed game session to "${res.newName}" at "${filepath}".${RESET}\n`);
+      return true;
+    } else {
+      console.log(`${RED}${res.error}${RESET}\n`);
+      return false;
+    }
+  }, `rename session to: ${answer}`);
 }
 
 export function processSaveSelection(answer: string): boolean {
-  if (!pendingSaveSelection) return false;
+  return executeWithUndoTracking(() => {
+    if (!pendingSaveSelection) return false;
 
-  const saves = pendingSaveSelection.saves;
-  pendingSaveSelection = null;
+    const saves = pendingSaveSelection.saves;
+    pendingSaveSelection = null;
 
-  const choice = answer.trim();
-  if (choice.toLowerCase() === "c" || choice.toLowerCase() === "cancel") {
-    renderTable();
-    console.log(`${DIM}Load cancelled.${RESET}\n`);
-    return false;
-  }
-
-  const index = parseInt(choice, 10) - 1;
-  let targetSave: string | null = null;
-
-  if (!isNaN(index) && index >= 0 && index < saves.length) {
-    targetSave = saves[index]!.name;
-  } else {
-    const matched = saves.find((s) => s.name.toLowerCase() === choice.toLowerCase());
-    if (matched) {
-      targetSave = matched.name;
+    const choice = answer.trim();
+    if (choice.toLowerCase() === "c" || choice.toLowerCase() === "cancel") {
+      renderTable();
+      console.log(`${DIM}Load cancelled.${RESET}\n`);
+      return false;
     }
-  }
 
-  if (!targetSave) {
+    const index = parseInt(choice, 10) - 1;
+    let targetSave: string | null = null;
+
+    if (!isNaN(index) && index >= 0 && index < saves.length) {
+      targetSave = saves[index]!.name;
+    } else {
+      const matched = saves.find((s) => s.name.toLowerCase() === choice.toLowerCase());
+      if (matched) {
+        targetSave = matched.name;
+      }
+    }
+
+    if (!targetSave) {
+      renderTable();
+      console.log(`${RED}Invalid selection "${choice}". Load cancelled.${RESET}\n`);
+      return false;
+    }
+
+    const result = loadState(targetSave);
     renderTable();
-    console.log(`${RED}Invalid selection "${choice}". Load cancelled.${RESET}\n`);
-    return false;
-  }
-
-  const result = loadState(targetSave);
-  renderTable();
-  if (result.ok) {
-    const filepath = path.resolve(SAVES_DIR, `${result.name}.json`);
-    console.log(`${GREEN}✓ Loaded game state from "${result.name}" at "${filepath}" (${creatures.length} creatures).${RESET}\n`);
-    return true;
-  } else {
-    console.log(`${RED}${result.error}${RESET}\n`);
-    return false;
-  }
+    if (result.ok) {
+      const filepath = path.resolve(SAVES_DIR, `${result.name}.json`);
+      console.log(`${GREEN}✓ Loaded game state from "${result.name}" at "${filepath}" (${creatures.length} creatures).${RESET}\n`);
+      return true;
+    } else {
+      console.log(`${RED}${result.error}${RESET}\n`);
+      return false;
+    }
+  }, `load save: ${answer}`);
 }
 
 export function processSaveDeleteSelection(answer: string): boolean {
@@ -1953,15 +2162,17 @@ export function processSaveDeleteSelection(answer: string): boolean {
 // Wrap handleCommand to ensure auto-saving on every mutating command
 const originalHandleCommand = handleCommand;
 function handleCommandWithAutoSave(input: string): boolean {
-  const parts = tokenize(input.trim());
-  const cmd = parts[0]?.toLowerCase();
-  const res = originalHandleCommand(input);
+  return executeWithUndoTracking(() => {
+    const parts = tokenize(input.trim());
+    const cmd = parts[0]?.toLowerCase();
+    const res = originalHandleCommand(input);
 
-  const nonMutatingCmds = ["help", "saves", "delete", "del", "quit", "exit", "q", "rename"];
-  if (cmd && !nonMutatingCmds.includes(cmd) && hasAddedCreature && currentSessionName) {
-    saveState(currentSessionName);
-  }
-  return res;
+    const nonMutatingCmds = ["help", "saves", "delete", "del", "quit", "exit", "q", "rename", "undo", "u", "redo", "r"];
+    if (cmd && !nonMutatingCmds.includes(cmd) && hasAddedCreature && currentSessionName) {
+      saveState(currentSessionName);
+    }
+    return res;
+  }, input);
 }
 
 export { handleCommandWithAutoSave as handleCommand };
