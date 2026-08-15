@@ -157,11 +157,11 @@ describe("D&D CLI Tracker Test Suite", () => {
       expect(hero?.dmg).toBe(0);
     });
 
-    test("supports bulk setting of HP, AC, and initiative with alternating pairs", () => {
+    test("supports multiple value and target pairs for setting HP, AC, and initiative", () => {
       handleCommand("add pc HeroA HeroB");
-      handleCommand("set hp bulk HeroA 40 HeroB 35");
-      handleCommand("set ac bulk HeroA 18 HeroB 15");
-      handleCommand("set init bulk HeroA 14 HeroB 20");
+      handleCommand("set hp 40 HeroA 35 HeroB");
+      handleCommand("set ac 18 HeroA 15 HeroB");
+      handleCommand("set init 14 HeroA 20 HeroB");
 
       const heroA = creatures.find((c) => c.name === "HeroA");
       const heroB = creatures.find((c) => c.name === "HeroB");

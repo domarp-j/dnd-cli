@@ -34,11 +34,11 @@ Here is a sampling of useful commands to demonstrate the CLI's capabilities:
   add pc Ajax Kaelor
   add enemy "Goblin Warrior" Bugbear
   ```
-- **Bulk set HP, AC, and Initiative:**
+- **Set HP, AC, and Initiative (supports multiple value and target pairs):**
   ```text
-  set hp bulk Ajax 45 Kaelor 38
-  set ac bulk Ajax 18 Kaelor 15
-  set init bulk Ajax 14 Kaelor 18
+  set hp 45 Ajax 38 Kaelor
+  set ac 18 Ajax 15 Kaelor
+  set init 14 Ajax 18 Kaelor
   ```
 - **Clear stats (using `null`, `none`, `clear`, `-`, or `—`):**
   ```text

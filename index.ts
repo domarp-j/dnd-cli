@@ -757,12 +757,9 @@ function handleCommandInternal(input: string): boolean {
     console.log(`    ${CYAN}${pad("heal <value> <target>...", 44)}${RESET} Heal/subtract damage from target(s) (alias for remove dmg)`);
     console.log(`    ${CYAN}${pad("hurt <value> <target>...", 44)}${RESET} Add damage taken to target(s) (alias for add dmg)`);
     console.log(`    ${CYAN}${pad("remove (eff | cond) <effect> <target>...", 44)}${RESET} Remove status effect from target(s)`);
-    console.log(`    ${CYAN}${pad("set ac <value> <target>...", 44)}${RESET} Set AC for target(s)`);
-    console.log(`    ${CYAN}${pad("set ac bulk (<target> <value>)...", 44)}${RESET} Bulk set AC pairs`);
-    console.log(`    ${CYAN}${pad("set hp <value> <target>...", 44)}${RESET} Set HP max for target(s)`);
-    console.log(`    ${CYAN}${pad("set hp bulk (<target> <value>)...", 44)}${RESET} Bulk set HP max pairs`);
-    console.log(`    ${CYAN}${pad("set init <value> <target>...", 44)}${RESET} Set initiative for target(s)`);
-    console.log(`    ${CYAN}${pad("set init bulk (<target> <value>)...", 44)}${RESET} Bulk set initiative pairs\n`);
+    console.log(`    ${CYAN}${pad("set ac <val> <target> [<val> <target>...]", 44)}${RESET} Set AC pairs (e.g. 15 joe 18 jane)`);
+    console.log(`    ${CYAN}${pad("set hp <val> <target> [<val> <target>...]", 44)}${RESET} Set HP max pairs (e.g. 45 joe 50 jane)`);
+    console.log(`    ${CYAN}${pad("set init <val> <target> [<val> <target>...]", 44)}${RESET} Set initiative pairs (e.g. 15 joe 10 jane)\n`);
 
     console.log(`  ${BOLD}${MAGENTA}Game State & Storage:${RESET}`);
     console.log(`    ${CYAN}${pad("delete save [<name>...]", 44)}${RESET} Delete save file(s) (or list options)`);
@@ -1428,108 +1425,56 @@ function handleCommandInternal(input: string): boolean {
     const setOptions = ["hp", "ac", "init"];
     const field = matchPrefix(fieldInput, setOptions);
 
-    if (parts[2]?.toLowerCase() === "bulk") {
-      const bulkArgs = parts.slice(3);
-      if (!field || bulkArgs.length === 0 || bulkArgs.length % 2 !== 0) {
-        renderTable();
-        const msg = !field
-          ? `Unknown field "${fieldInput}". Use hp, ac, or init.`
-          : `Usage: set ${fieldInput} bulk <target1> <val1> <target2> <val2> ...`;
-        console.log(`${RED}${msg}${RESET}\n`);
-        return true;
-      }
+    const args = parts.slice(2);
 
-      const updates: { creatures: Creature[]; val: number | null; rawTarget: string; rawVal: string }[] = [];
-      for (let i = 0; i < bulkArgs.length; i += 2) {
-        const rawTarget = bulkArgs[i]!;
-        const rawVal = bulkArgs[i + 1]!;
-        const lowerVal = rawVal.toLowerCase();
-        const isNullVal = lowerVal === "null" || lowerVal === "none" || lowerVal === "clear" || lowerVal === "-" || lowerVal === "—";
-        const val = isNullVal ? null : parseInt(rawVal, 10);
-        if (!isNullVal && isNaN(val as number)) {
-          renderTable();
-          console.log(`${RED}"${rawVal}" is not a valid number for target "${rawTarget}".${RESET}\n`);
-          return true;
-        }
-
-        const result = findCreatures([rawTarget]);
-        if (!result.ok) {
-          renderTable();
-          console.log(`${RED}${result.error}${RESET}\n`);
-          return true;
-        }
-
-        updates.push({ creatures: result.creatures, val, rawTarget, rawVal });
-      }
-
-      const summaryItems: string[] = [];
-      withTurnPreservation(() => {
-        for (const update of updates) {
-          for (const c of update.creatures) {
-            if (field === "hp") c.hpMax = update.val;
-            else if (field === "ac") c.ac = update.val;
-            else if (field === "init") c.initiative = update.val;
-          }
-          const names = update.creatures.map((c) => c.name).join(", ");
-          summaryItems.push(`${names} → ${update.val === null ? "cleared" : update.val}`);
-        }
-      });
-
-      renderTable();
-      console.log(`${GREEN}✓ Bulk set ${field}: ${summaryItems.join("; ")}${RESET}\n`);
-      logActivity(`Bulk set ${field}: ${summaryItems.join("; ")}`);
-      return true;
-    }
-
-    const rawVal = parts[2];
-    const targets = parts.slice(3);
-
-    if (!field || rawVal === undefined || targets.length === 0) {
+    if (!field || args.length === 0 || args.length % 2 !== 0) {
       renderTable();
       const msg = fieldInput && !field
         ? `Unknown field "${fieldInput}". Use hp, ac, or init.`
-        : "Usage: set <hp|ac|init> <value> n1 n2";
+        : `Usage: set <hp|ac|init> <value1> <target1> [<value2> <target2> ...] (e.g. "set hp 13 joe 9 jane")`;
       console.log(`${RED}${msg}${RESET}\n`);
       return true;
     }
 
-    const lowerVal = rawVal.toLowerCase();
-    const isNullVal = lowerVal === "null" || lowerVal === "none" || lowerVal === "clear" || lowerVal === "-" || lowerVal === "—";
-    const val = isNullVal ? null : parseInt(rawVal, 10);
-    if (!isNullVal && isNaN(val as number)) {
-      renderTable();
-      console.log(`${RED}"${rawVal}" is not a valid number.${RESET}\n`);
-      return true;
+    const updates: { creatures: Creature[]; val: number | null; rawTarget: string; rawVal: string }[] = [];
+    for (let i = 0; i < args.length; i += 2) {
+      const rawVal = args[i]!;
+      const rawTarget = args[i + 1]!;
+      const lowerVal = rawVal.toLowerCase();
+      const isNullVal = lowerVal === "null" || lowerVal === "none" || lowerVal === "clear" || lowerVal === "-" || lowerVal === "—";
+      const val = isNullVal ? null : parseInt(rawVal, 10);
+      if (!isNullVal && isNaN(val as number)) {
+        renderTable();
+        console.log(`${RED}"${rawVal}" is not a valid number for target "${rawTarget}".${RESET}\n`);
+        return true;
+      }
+
+      const result = findCreatures([rawTarget]);
+      if (!result.ok) {
+        renderTable();
+        console.log(`${RED}${result.error}${RESET}\n`);
+        return true;
+      }
+
+      updates.push({ creatures: result.creatures, val, rawTarget, rawVal });
     }
 
-    const result = findCreatures(targets);
-    if (!result.ok) {
-      renderTable();
-      console.log(`${RED}${result.error}${RESET}\n`);
-      return true;
-    }
-
+    const summaryItems: string[] = [];
     withTurnPreservation(() => {
-      for (const creature of result.creatures) {
-        switch (field) {
-          case "hp":
-            creature.hpMax = val;
-            break;
-          case "ac":
-            creature.ac = val;
-            break;
-          case "init":
-          case "initiative":
-            creature.initiative = val;
-            break;
+      for (const update of updates) {
+        for (const c of update.creatures) {
+          if (field === "hp") c.hpMax = update.val;
+          else if (field === "ac") c.ac = update.val;
+          else if (field === "init") c.initiative = update.val;
         }
+        const names = update.creatures.map((c) => c.name).join(", ");
+        summaryItems.push(`${names} → ${update.val === null ? "cleared" : update.val}`);
       }
     });
 
     renderTable();
-    const names = result.creatures.map((c) => c.name).join(", ");
-    console.log(`${GREEN}✓ ${names}: ${field} → ${val === null ? "cleared" : val}${RESET}\n`);
-    logActivity(`Set ${field} for ${names} → ${val === null ? "cleared" : val}`);
+    console.log(`${GREEN}✓ Set ${field}: ${summaryItems.join("; ")}${RESET}\n`);
+    logActivity(`Set ${field}: ${summaryItems.join("; ")}`);
     return true;
   }
 
@@ -1866,9 +1811,9 @@ function handleCommandInternal(input: string): boolean {
     } else {
       // PCs
       handleCommand("add pc ajax \"kaelor stormstride\" \"lyra moonwhisper\" \"thorgan ironbreaker\" \"elaria shadowstep\" \"seraphina sunfire\" \"valerius frostweaver\"");
-      handleCommand("set hp bulk ajax 45 \"kaelor stormstride\" 38 \"lyra moonwhisper\" 32 \"thorgan ironbreaker\" 58 \"elaria shadowstep\" 30 \"seraphina sunfire\" 40 \"valerius frostweaver\" 28");
-      handleCommand("set ac bulk ajax 18 \"kaelor stormstride\" 15 \"lyra moonwhisper\" 12 \"thorgan ironbreaker\" 16 \"elaria shadowstep\" 14 \"seraphina sunfire\" 17 \"valerius frostweaver\" 13");
-      handleCommand("set init bulk ajax 14 \"kaelor stormstride\" 18 \"lyra moonwhisper\" 9 \"thorgan ironbreaker\" 12 \"elaria shadowstep\" 20 \"seraphina sunfire\" 10 \"valerius frostweaver\" 15");
+      handleCommand("set hp 45 ajax 38 \"kaelor stormstride\" 32 \"lyra moonwhisper\" 58 \"thorgan ironbreaker\" 30 \"elaria shadowstep\" 40 \"seraphina sunfire\" 28 \"valerius frostweaver\"");
+      handleCommand("set ac 18 ajax 15 \"kaelor stormstride\" 12 \"lyra moonwhisper\" 16 \"thorgan ironbreaker\" 14 \"elaria shadowstep\" 17 \"seraphina sunfire\" 13 \"valerius frostweaver\"");
+      handleCommand("set init 14 ajax 18 \"kaelor stormstride\" 9 \"lyra moonwhisper\" 12 \"thorgan ironbreaker\" 20 \"elaria shadowstep\" 10 \"seraphina sunfire\" 15 \"valerius frostweaver\"");
       handleCommand("add dmg 12 \"kaelor stormstride\"");
       handleCommand("add dmg 15 \"thorgan ironbreaker\"");
       handleCommand("add dmg 4 \"elaria shadowstep\"");
@@ -1879,9 +1824,9 @@ function handleCommandInternal(input: string): boolean {
 
       // Enemies
       handleCommand("add enemy \"goblin warrior 1\" \"goblin warrior 2\" \"goblin archer\" \"goblin shaman\" \"bugbear chieftain\" \"hobgoblin captain\" \"skeleton archer\" \"dark cultist\" \"young red dragon\"");
-      handleCommand("set hp bulk \"goblin warrior 1\" 12 \"goblin warrior 2\" 12 \"goblin archer\" 10 \"goblin shaman\" 18 \"bugbear chieftain\" 42 \"hobgoblin captain\" 39 \"skeleton archer\" 13 \"dark cultist\" 22 \"young red dragon\" 178");
-      handleCommand("set ac bulk \"goblin warrior 1\" 13 \"goblin warrior 2\" 13 \"goblin archer\" 12 \"goblin shaman\" 12 \"bugbear chieftain\" 15 \"hobgoblin captain\" 17 \"skeleton archer\" 11 \"dark cultist\" 12 \"young red dragon\" 18");
-      handleCommand("set init bulk \"goblin warrior 1\" 11 \"goblin warrior 2\" 8 \"goblin archer\" 16 \"goblin shaman\" 13 \"bugbear chieftain\" 7 \"hobgoblin captain\" 14 \"skeleton archer\" 15 \"dark cultist\" 11 \"young red dragon\" 10");
+      handleCommand("set hp 12 \"goblin warrior 1\" 12 \"goblin warrior 2\" 10 \"goblin archer\" 18 \"goblin shaman\" 42 \"bugbear chieftain\" 39 \"hobgoblin captain\" 13 \"skeleton archer\" 22 \"dark cultist\" 178 \"young red dragon\"");
+      handleCommand("set ac 13 \"goblin warrior 1\" 13 \"goblin warrior 2\" 12 \"goblin archer\" 12 \"goblin shaman\" 15 \"bugbear chieftain\" 17 \"hobgoblin captain\" 11 \"skeleton archer\" 12 \"dark cultist\" 18 \"young red dragon\"");
+      handleCommand("set init 11 \"goblin warrior 1\" 8 \"goblin warrior 2\" 16 \"goblin archer\" 13 \"goblin shaman\" 7 \"bugbear chieftain\" 14 \"hobgoblin captain\" 15 \"skeleton archer\" 11 \"dark cultist\" 10 \"young red dragon\"");
       handleCommand("add dmg 5 \"goblin warrior 1\"");
       handleCommand("add dmg 12 \"goblin warrior 2\"");
       handleCommand("add dmg 10 \"goblin archer\"");
@@ -1895,8 +1840,8 @@ function handleCommandInternal(input: string): boolean {
 
       // Neutrals
       handleCommand("add neutral \"captured merchant\" \"village elder\" \"tavern keeper\" \"mysterious traveler\"");
-      handleCommand("set hp bulk \"captured merchant\" 8 \"village elder\" 6 \"tavern keeper\" 12 \"mysterious traveler\" 25");
-      handleCommand("set ac bulk \"captured merchant\" 10 \"village elder\" 10 \"tavern keeper\" 11 \"mysterious traveler\" 14");
+      handleCommand("set hp 8 \"captured merchant\" 6 \"village elder\" 12 \"tavern keeper\" 25 \"mysterious traveler\"");
+      handleCommand("set ac 10 \"captured merchant\" 10 \"village elder\" 11 \"tavern keeper\" 14 \"mysterious traveler\"");
       handleCommand("set init 16 \"mysterious traveler\"");
       handleCommand("add dmg 3 \"captured merchant\"");
       handleCommand("add eff Restrained \"captured merchant\"");
