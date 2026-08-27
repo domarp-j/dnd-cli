@@ -24,7 +24,7 @@ bun run start
 
 ## Usage & Capabilities
 
-Once launched, `dnd-cli` presents an interactive terminal interface. You can access the full command reference menu inside the app at any time by typing `help` (or `h`).
+Once launched, `dnd-cli` presents an interactive terminal interface. You can access the full command reference menu inside the app at any time by typing `help` (or `h`), or search and highlight specific commands using `help <query>` (or `h <query>`).
 
 Here is a sampling of useful commands to demonstrate the CLI's capabilities:
 

@@ -937,5 +937,29 @@ describe("D&D CLI Tracker Test Suite", () => {
       const [resHits, _3] = completer("use res ");
       expect(resHits).toContain("use res spellslot");
     });
+
+    test("help command with filter highlights matching lines", () => {
+      const logs: string[] = [];
+      const originalLog = console.log;
+      console.log = (...args: any[]) => {
+        logs.push(args.join(" "));
+      };
+
+      try {
+        handleCommand("help res");
+        
+        const resLine = logs.find(l => l.includes("add/use res"));
+        const pcLine = logs.find(l => l.includes("add (pc | p)"));
+
+        expect(resLine).toBeDefined();
+        expect(resLine).toContain("\x1b[1m");
+        expect(resLine).toContain("\x1b[33m");
+
+        expect(pcLine).toBeDefined();
+        expect(pcLine).not.toContain("\x1b[33m");
+      } finally {
+        console.log = originalLog;
+      }
+    });
   });
 });

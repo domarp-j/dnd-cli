@@ -863,54 +863,93 @@ function handleCommandInternal(input: string): boolean {
     renderTable();
     console.log(`${BOLD}Available commands:${RESET}\n`);
 
-    console.log(`  ${BOLD}${MAGENTA}Creature Management:${RESET}`);
-    console.log(`    ${CYAN}${pad("add (enemy | e) <name>...", 44)}${RESET} Add enemy creature(s)`);
-    console.log(`    ${CYAN}${pad("add (neutral | n) <name>...", 44)}${RESET} Add neutral creature(s)`);
-    console.log(`    ${CYAN}${pad("add (pc | p) <name>...", 44)}${RESET} Add player character(s)`);
-    console.log(`    ${CYAN}${pad("add char <name>...", 44)}${RESET} Add creature(s) by prompting for type`);
-    console.log(`    ${CYAN}${pad("remove char <name>...", 44)}${RESET} Remove specific creature(s) by name`);
-    console.log(`    ${CYAN}${pad("remove (pcs | enemies | neutrals)", 44)}${RESET} Bulk remove creatures by type (or p | e | n)\n`);
+    const filter = parts.length > 1 ? parts.slice(1).join(" ").toLowerCase() : null;
 
-    console.log(`  ${BOLD}${MAGENTA}Combat & Turn Control:${RESET}`);
-    console.log(`    ${CYAN}${pad("combat | c [start]", 44)}${RESET} Start combat mode (resorts by initiative)`);
-    console.log(`    ${CYAN}${pad("combat | c end", 44)}${RESET} End combat mode (clears init & dmg)`);
-    console.log(`    ${CYAN}${pad("(next | n) [<count>]", 44)}${RESET} Advance 1 or <count> turns`);
-    console.log(`    ${CYAN}${pad("(prev | p) [<count>]", 44)}${RESET} Go back 1 or <count> turns`);
-    console.log(`    ${CYAN}${pad("add/set (rxn | reaction) <target>...", 44)}${RESET} Mark creature reaction as used`);
-    console.log(`    ${CYAN}${pad("remove (rxn | reaction) <target>...", 44)}${RESET} Restore creature reaction\n`);
+    interface HelpCategory {
+      title: string;
+      lines: { command: string; desc: string }[];
+    }
 
-    console.log(`  ${BOLD}${MAGENTA}Stats & Status Effects:${RESET}`);
-    console.log(`    ${CYAN}${pad("add/use res <name> <target>...", 44)}${RESET} Add/increment resource usage for target(s)`);
-    console.log(`    ${CYAN}${pad("add (eff | cond) <effect> <target>...", 44)}${RESET} Add status effect to target(s)`);
-    console.log(`    ${CYAN}${pad("add dmg <value> <target>...", 44)}${RESET} Add damage taken to target(s)`);
-    console.log(`    ${CYAN}${pad("clear ac (<all> | <target>...)", 44)}${RESET} Clear AC for target(s) or all`);
-    console.log(`    ${CYAN}${pad("clear dmg (<all> | <target>...)", 44)}${RESET} Clear damage for target(s) or all`);
-    console.log(`    ${CYAN}${pad("clear hp (<all> | <target>...)", 44)}${RESET} Clear HP max for target(s) or all`);
-    console.log(`    ${CYAN}${pad("clear init (<all> | <target>...)", 44)}${RESET} Clear initiative for target(s) or all`);
-    console.log(`    ${CYAN}${pad("clear res (<all> | <target>...)", 44)}${RESET} Clear resource usage for target(s) or all`);
-    console.log(`    ${CYAN}${pad("heal <value> <target>...", 44)}${RESET} Heal/subtract damage from target(s) (alias for remove dmg)`);
-    console.log(`    ${CYAN}${pad("hurt <value> <target>...", 44)}${RESET} Add damage taken to target(s) (alias for add dmg)`);
-    console.log(`    ${CYAN}${pad("remove (eff | cond) <effect> <target>...", 44)}${RESET} Remove status effect from target(s)`);
-    console.log(`    ${CYAN}${pad("remove res <name> <target>...", 44)}${RESET} Remove/decrement resource usage from target(s)`);
-    console.log(`    ${CYAN}${pad("set ac <val> <target> [<val> <target>...]", 44)}${RESET} Set AC pairs (e.g. 15 joe 18 jane)`);
-    console.log(`    ${CYAN}${pad("set hp <val> <target> [<val> <target>...]", 44)}${RESET} Set HP max pairs (e.g. 45 joe 50 jane)`);
-    console.log(`    ${CYAN}${pad("set init <val> <target> [<val> <target>...]", 44)}${RESET} Set initiative pairs (e.g. 15 joe 10 jane)\n`);
+    const HELP_DATA: HelpCategory[] = [
+      {
+        title: "Creature Management",
+        lines: [
+          { command: "add (enemy | e) <name>...", desc: "Add enemy creature(s)" },
+          { command: "add (neutral | n) <name>...", desc: "Add neutral creature(s)" },
+          { command: "add (pc | p) <name>...", desc: "Add player character(s)" },
+          { command: "add char <name>...", desc: "Add creature(s) by prompting for type" },
+          { command: "remove char <name>...", desc: "Remove specific creature(s) by name" },
+          { command: "remove (pcs | enemies | neutrals)", desc: "Bulk remove creatures by type (or p | e | n)" },
+        ]
+      },
+      {
+        title: "Combat & Turn Control",
+        lines: [
+          { command: "combat | c [start]", desc: "Start combat mode (resorts by initiative)" },
+          { command: "combat | c end", desc: "End combat mode (clears init & dmg)" },
+          { command: "(next | n) [<count>]", desc: "Advance 1 or <count> turns" },
+          { command: "(prev | p) [<count>]", desc: "Go back 1 or <count> turns" },
+          { command: "add/set (rxn | reaction) <target>...", desc: "Mark creature reaction as used" },
+          { command: "remove (rxn | reaction) <target>...", desc: "Restore creature reaction" },
+        ]
+      },
+      {
+        title: "Stats & Status Effects",
+        lines: [
+          { command: "add/use res <name> <target>...", desc: "Add/increment resource usage for target(s)" },
+          { command: "add (eff | cond) <effect> <target>...", desc: "Add status effect to target(s)" },
+          { command: "add dmg <value> <target>...", desc: "Add damage taken to target(s)" },
+          { command: "clear ac (<all> | <target>...)", desc: "Clear AC for target(s) or all" },
+          { command: "clear dmg (<all> | <target>...)", desc: "Clear damage for target(s) or all" },
+          { command: "clear hp (<all> | <target>...)", desc: "Clear HP max for target(s) or all" },
+          { command: "clear init (<all> | <target>...)", desc: "Clear initiative for target(s) or all" },
+          { command: "clear res (<all> | <target>...)", desc: "Clear resource usage for target(s) or all" },
+          { command: "heal <value> <target>...", desc: "Heal/subtract damage from target(s) (alias for remove dmg)" },
+          { command: "hurt <value> <target>...", desc: "Add damage taken to target(s) (alias for add dmg)" },
+          { command: "remove (eff | cond) <effect> <target>...", desc: "Remove status effect from target(s)" },
+          { command: "remove res <name> <target>...", desc: "Remove/decrement resource usage from target(s)" },
+          { command: "set ac <val> <target> [<val> <target>...]", desc: "Set AC pairs (e.g. 15 joe 18 jane)" },
+          { command: "set hp <val> <target> [<val> <target>...]", desc: "Set HP max pairs (e.g. 45 joe 50 jane)" },
+          { command: "set init <val> <target> [<val> <target>...]", desc: "Set initiative pairs (e.g. 15 joe 10 jane)" },
+        ]
+      },
+      {
+        title: "Game State & Storage",
+        lines: [
+          { command: "delete save [<name>...]", desc: "Delete save file(s) (or list options)" },
+          { command: "load save [<name>]", desc: "Load saved game state (or list options)" },
+          { command: "new game", desc: "Start a fresh new game session" },
+          { command: "rename save [<new_name>]", desc: "Rename current game session" },
+          { command: "save [<name>]", desc: "Save game session snapshot (or prompt)" },
+          { command: "saves", desc: "List all saved game files with paths" },
+        ]
+      },
+      {
+        title: "Utilities",
+        lines: [
+          { command: "(help | h) [<filter>]", desc: "Show this POSIX / docopt help menu (supports optional filter)" },
+          { command: "(quit | q | exit)", desc: "Exit the application" },
+          { command: "redo | r [<count>]", desc: "Re-apply the last 1 or <count> undone actions" },
+          { command: "show activity", desc: "Show all actions logged in this session" },
+          { command: "test [simple]", desc: "Load test data encounter" },
+          { command: "undo | u [<count>]", desc: "Revert the last 1 or <count> mutating actions" },
+        ]
+      }
+    ];
 
-    console.log(`  ${BOLD}${MAGENTA}Game State & Storage:${RESET}`);
-    console.log(`    ${CYAN}${pad("delete save [<name>...]", 44)}${RESET} Delete save file(s) (or list options)`);
-    console.log(`    ${CYAN}${pad("load save [<name>]", 44)}${RESET} Load saved game state (or list options)`);
-    console.log(`    ${CYAN}${pad("new game", 44)}${RESET} Start a fresh new game session`);
-    console.log(`    ${CYAN}${pad("rename save [<new_name>]", 44)}${RESET} Rename current game session`);
-    console.log(`    ${CYAN}${pad("save [<name>]", 44)}${RESET} Save game session snapshot (or prompt)`);
-    console.log(`    ${CYAN}${pad("saves", 44)}${RESET} List all saved game files with paths\n`);
+    HELP_DATA.forEach(cat => {
+      console.log(`  ${BOLD}${MAGENTA}${cat.title}:${RESET}`);
+      cat.lines.forEach(line => {
+        const isMatch = filter ? (line.command.toLowerCase().includes(filter) || line.desc.toLowerCase().includes(filter)) : false;
+        if (isMatch) {
+          console.log(`${BOLD}${YELLOW}    ${pad(line.command, 44)} ${line.desc}${RESET}`);
+        } else {
+          console.log(`    ${CYAN}${pad(line.command, 44)}${RESET} ${line.desc}`);
+        }
+      });
+      console.log();
+    });
 
-    console.log(`  ${BOLD}${MAGENTA}Utilities:${RESET}`);
-    console.log(`    ${CYAN}${pad("(help | h)", 44)}${RESET} Show this POSIX / docopt help menu`);
-    console.log(`    ${CYAN}${pad("(quit | q | exit)", 44)}${RESET} Exit the application`);
-    console.log(`    ${CYAN}${pad("redo | r [<count>]", 44)}${RESET} Re-apply the last 1 or <count> undone actions`);
-    console.log(`    ${CYAN}${pad("show activity", 44)}${RESET} Show all actions logged in this session`);
-    console.log(`    ${CYAN}${pad("test [simple]", 44)}${RESET} Load test data encounter`);
-    console.log(`    ${CYAN}${pad("undo | u [<count>]", 44)}${RESET} Revert the last 1 or <count> mutating actions\n`);
     return true;
   }
 
