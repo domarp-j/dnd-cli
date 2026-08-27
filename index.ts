@@ -880,18 +880,18 @@ function handleCommandInternal(input: string): boolean {
     console.log(`    ${CYAN}${pad("remove (rxn | reaction) <target>...", 44)}${RESET} Restore creature reaction\n`);
 
     console.log(`  ${BOLD}${MAGENTA}Stats & Status Effects:${RESET}`);
-    console.log(`    ${CYAN}${pad("add/use (resource | res) <name> <target>...", 44)}${RESET} Add/increment resource usage for target(s)`);
+    console.log(`    ${CYAN}${pad("add/use res <name> <target>...", 44)}${RESET} Add/increment resource usage for target(s)`);
     console.log(`    ${CYAN}${pad("add (eff | cond) <effect> <target>...", 44)}${RESET} Add status effect to target(s)`);
     console.log(`    ${CYAN}${pad("add dmg <value> <target>...", 44)}${RESET} Add damage taken to target(s)`);
     console.log(`    ${CYAN}${pad("clear ac (<all> | <target>...)", 44)}${RESET} Clear AC for target(s) or all`);
     console.log(`    ${CYAN}${pad("clear dmg (<all> | <target>...)", 44)}${RESET} Clear damage for target(s) or all`);
     console.log(`    ${CYAN}${pad("clear hp (<all> | <target>...)", 44)}${RESET} Clear HP max for target(s) or all`);
     console.log(`    ${CYAN}${pad("clear init (<all> | <target>...)", 44)}${RESET} Clear initiative for target(s) or all`);
-    console.log(`    ${CYAN}${pad("clear (resource | res) (<all> | <target>...)", 44)}${RESET} Clear resource usage for target(s) or all`);
+    console.log(`    ${CYAN}${pad("clear res (<all> | <target>...)", 44)}${RESET} Clear resource usage for target(s) or all`);
     console.log(`    ${CYAN}${pad("heal <value> <target>...", 44)}${RESET} Heal/subtract damage from target(s) (alias for remove dmg)`);
     console.log(`    ${CYAN}${pad("hurt <value> <target>...", 44)}${RESET} Add damage taken to target(s) (alias for add dmg)`);
     console.log(`    ${CYAN}${pad("remove (eff | cond) <effect> <target>...", 44)}${RESET} Remove status effect from target(s)`);
-    console.log(`    ${CYAN}${pad("remove (resource | res) <name> <target>...", 44)}${RESET} Remove/decrement resource usage from target(s)`);
+    console.log(`    ${CYAN}${pad("remove res <name> <target>...", 44)}${RESET} Remove/decrement resource usage from target(s)`);
     console.log(`    ${CYAN}${pad("set ac <val> <target> [<val> <target>...]", 44)}${RESET} Set AC pairs (e.g. 15 joe 18 jane)`);
     console.log(`    ${CYAN}${pad("set hp <val> <target> [<val> <target>...]", 44)}${RESET} Set HP max pairs (e.g. 45 joe 50 jane)`);
     console.log(`    ${CYAN}${pad("set init <val> <target> [<val> <target>...]", 44)}${RESET} Set initiative pairs (e.g. 15 joe 10 jane)\n`);
@@ -1273,9 +1273,9 @@ function handleCommandInternal(input: string): boolean {
     if (rawSub === "e" || rawSub === "enemies") rawSub = "enemy";
     if (rawSub === "n" || rawSub === "neutrals") rawSub = "neutral";
     if (rawSub === "rxn" || rawSub === "reaction") rawSub = "rxn";
-    if (rawSub === "res" || rawSub === "resource" || rawSub === "resources") rawSub = "resource";
+    if (rawSub === "res") rawSub = "res";
     const subCmd = rawSub;
-    const addOptions = ["pc", "char", "enemy", "neutral", "dmg", "cond", "condition", "eff", "effect", "effects", "rxn", "resource"];
+    const addOptions = ["pc", "char", "enemy", "neutral", "dmg", "cond", "condition", "eff", "effect", "effects", "rxn", "res"];
     const matched = matchPrefix(subCmd, addOptions);
 
     // --- add rxn <target>... ---
@@ -1305,14 +1305,14 @@ function handleCommandInternal(input: string): boolean {
       return true;
     }
 
-    // --- add/use resource <name> <target>... ---
-    if (matched === "resource") {
+    // --- add/use res <name> <target>... ---
+    if (matched === "res") {
       const resNameInput = parts[2];
       const targets = parts.slice(3);
 
       if (!resNameInput || targets.length === 0) {
         renderTable();
-        console.log(`${RED}Usage: add|use resource <name> <target>...${RESET}\n`);
+        console.log(`${RED}Usage: add|use res <name> <target>...${RESET}\n`);
         return true;
       }
 
@@ -1495,14 +1495,14 @@ function handleCommandInternal(input: string): boolean {
     const isDmg = matchPrefix(subCmd, ["dmg", "damage"]) !== null;
     const isHp = matchPrefix(subCmd, ["hp"]) !== null;
     const isAc = matchPrefix(subCmd, ["ac"]) !== null;
-    const isResource = matchPrefix(subCmd, ["resource", "res", "resources"]) !== null;
+    const isResource = matchPrefix(subCmd, ["res"]) !== null;
 
     if (isResource) {
       const targets = parts.slice(2);
 
       if (targets.length === 0) {
         renderTable();
-        console.log(`${RED}Please specify targets or "all" to clear resource usage (e.g., "clear resource all" or "clear resource Ajax").${RESET}\n`);
+        console.log(`${RED}Please specify targets or "all" to clear resource usage (e.g., "clear res all" or "clear res Ajax").${RESET}\n`);
         return true;
       }
 
@@ -1799,7 +1799,7 @@ function handleCommandInternal(input: string): boolean {
     const isHp = matchPrefix(subCmd, ["hp"]) !== null;
     const isAc = matchPrefix(subCmd, ["ac"]) !== null;
     const isRxn = matchPrefix(subCmd, ["reaction", "rxn"]) !== null;
-    const isResource = matchPrefix(subCmd, ["resource", "res", "resources"]) !== null;
+    const isResource = matchPrefix(subCmd, ["res"]) !== null;
 
     if (isResource) {
       const resNameInput = parts[2];
@@ -1807,7 +1807,7 @@ function handleCommandInternal(input: string): boolean {
 
       if (!resNameInput || targets.length === 0) {
         renderTable();
-        console.log(`${RED}Usage: remove resource <name> <target>...${RESET}\n`);
+        console.log(`${RED}Usage: remove res <name> <target>...${RESET}\n`);
         return true;
       }
 
@@ -2606,9 +2606,9 @@ export function completer(line: string): [string[], string] {
   } else if (cmd === "add" || cmd === "use") {
     if (baseParts.length === 1) {
       if (cmd === "use") {
-        completions = ["resource", "res"].map(s => `use ${s}`);
+        completions = ["res"].map(s => `use ${s}`);
       } else {
-        const addSubs = ["pc", "enemy", "neutral", "char", "eff", "dmg", "condition", "effect", "rxn", "reaction", "resource", "res"];
+        const addSubs = ["pc", "enemy", "neutral", "char", "eff", "dmg", "condition", "effect", "rxn", "reaction", "res"];
         completions = addSubs.map(s => `add ${s}`);
       }
     } else if (subCmd === "rxn" || subCmd === "reaction") {
@@ -2628,7 +2628,7 @@ export function completer(line: string): [string[], string] {
           return `${baseParts.join(" ")} ${formatted}`;
         });
       }
-    } else if (subCmd === "res" || subCmd === "resource") {
+    } else if (subCmd === "res") {
       if (baseParts.length === 2) {
         const existingResources = new Set<string>();
         for (const c of creatures) {
@@ -2659,7 +2659,7 @@ export function completer(line: string): [string[], string] {
   } else if (cmd === "remove" || cmd === "rm") {
     const rmPrefix = cmd;
     if (baseParts.length === 1) {
-      const rmSubs = ["char", "pcs", "enemies", "neutrals", "eff", "dmg", "rxn", "reaction", "resource", "res"];
+      const rmSubs = ["char", "pcs", "enemies", "neutrals", "eff", "dmg", "rxn", "reaction", "res"];
       completions = rmSubs.map(s => `${rmPrefix} ${s}`);
     } else if (subCmd === "rxn" || subCmd === "reaction") {
       completions = creatures.map(c => {
@@ -2678,7 +2678,7 @@ export function completer(line: string): [string[], string] {
           return `${baseParts.join(" ")} ${formatted}`;
         });
       }
-    } else if (subCmd === "res" || subCmd === "resource") {
+    } else if (subCmd === "res") {
       if (baseParts.length === 2) {
         const existingResources = new Set<string>();
         for (const c of creatures) {
@@ -2713,7 +2713,7 @@ export function completer(line: string): [string[], string] {
     }
   } else if (cmd === "clear") {
     if (baseParts.length === 1) {
-      const clearSubs = ["init", "dmg", "hp", "ac", "resource", "res"];
+      const clearSubs = ["init", "dmg", "hp", "ac", "res"];
       completions = clearSubs.map(s => `clear ${s}`);
     } else {
       completions = ["all", ...creatures.map(c => c.name.includes(" ") ? `"${c.name}"` : c.name)].map(target => {

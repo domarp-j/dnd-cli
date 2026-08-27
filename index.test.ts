@@ -886,11 +886,11 @@ describe("D&D CLI Tracker Test Suite", () => {
       expect(joe.resourceUsage).toEqual({});
 
       // Increment legaction
-      handleCommand("add resource legaction Joe");
+      handleCommand("add res legaction Joe");
       expect(joe.resourceUsage?.["legaction"]).toBe(1);
 
       // Increment again
-      handleCommand("add resource legaction Joe");
+      handleCommand("add res legaction Joe");
       expect(joe.resourceUsage?.["legaction"]).toBe(2);
 
       // Partial matching with "use res" alias
@@ -902,7 +902,7 @@ describe("D&D CLI Tracker Test Suite", () => {
       expect(joe.resourceUsage?.["legaction"]).toBe(4);
 
       // Decrementing/removing resource
-      handleCommand("remove resource leg Joe");
+      handleCommand("remove res leg Joe");
       expect(joe.resourceUsage?.["legaction"]).toBe(3);
 
       // Verify it is removed completely when reaching 0
@@ -912,25 +912,25 @@ describe("D&D CLI Tracker Test Suite", () => {
       expect(joe.resourceUsage?.["legaction"]).toBeUndefined();
 
       // Test clearing resource usage
-      handleCommand("add resource spellslot Joe");
+      handleCommand("add res spellslot Joe");
       expect(joe.resourceUsage?.["spellslot"]).toBe(1);
-      handleCommand("clear resource Joe");
+      handleCommand("clear res Joe");
       expect(joe.resourceUsage?.["spellslot"]).toBeUndefined();
     });
 
     test("resource command autocompletions", () => {
       handleCommand("new game");
       handleCommand("add pc Joe");
-      handleCommand("add resource spellslot Joe");
+      handleCommand("add res spellslot Joe");
 
       // Autocomplete "add "
       const [addHits, _] = completer("add ");
-      expect(addHits).toContain("add resource");
+      expect(addHits).not.toContain("add resource");
       expect(addHits).toContain("add res");
 
       // Autocomplete "use "
       const [useHits, _2] = completer("use ");
-      expect(useHits).toContain("use resource");
+      expect(useHits).not.toContain("use resource");
       expect(useHits).toContain("use res");
 
       // Autocomplete existing resources

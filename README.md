@@ -58,9 +58,9 @@ Here is a sampling of useful commands to demonstrate the CLI's capabilities:
   remove cond Poisoned Kaelor
   ```
   *(Standard D&D 5.5e conditions, statuses, defenses, and advantage/disadvantage modifiers are defined in `statusEffects.ts`)*
-- **Track resource usages (supports alias `res`, `use` command, and partial matching):**
+- **Track resource usages (supports `res`, `use res` commands, and partial matching):**
   ```text
-  add resource legaction Joe     # Adds legaction=1 under Resource Usage
+  add res legaction Joe          # Adds legaction=1 under Resource Usage
   use res lega Joe               # Increments legaction to 2 (via partial match)
   remove res leg Joe             # Decrements legaction back to 1 (removes completely when 0)
   clear res Joe                  # Clears all resource usages for Joe
