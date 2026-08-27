@@ -16,6 +16,7 @@ interface Creature {
   initiative: number | null;
   statusEffects: string[];
   reactionUsed?: boolean;
+  resourceUsage?: Record<string, number>;
 }
 
 interface ActivityEntry {
@@ -78,6 +79,7 @@ function captureSnapshot(): Snapshot {
     creatures: creatures.map((c) => ({
       ...c,
       statusEffects: [...c.statusEffects],
+      resourceUsage: c.resourceUsage ? { ...c.resourceUsage } : {},
     })),
     inCombat,
     currentRound,
@@ -94,6 +96,7 @@ function restoreSnapshot(snapshot: Snapshot): void {
     ...snapshot.creatures.map((c) => ({
       ...c,
       statusEffects: [...c.statusEffects],
+      resourceUsage: c.resourceUsage ? { ...c.resourceUsage } : {},
     }))
   );
   inCombat = snapshot.inCombat;
@@ -286,6 +289,7 @@ export function loadState(saveName: string = "current"): { ok: true; name: strin
     if (Array.isArray(data.creatures)) {
       const mapped = data.creatures.map((c: any) => {
         const statusEffects = c.statusEffects ?? c.conditions ?? [];
+        const resourceUsage = c.resourceUsage ?? {};
         return {
           name: c.name,
           type: c.type,
@@ -295,6 +299,7 @@ export function loadState(saveName: string = "current"): { ok: true; name: strin
           initiative: c.initiative,
           statusEffects,
           reactionUsed: c.reactionUsed ?? false,
+          resourceUsage,
         };
       });
       creatures.push(...mapped);
@@ -560,20 +565,20 @@ function renderTable(): void {
 
   const leftVisLen = visibleLength(titleLeft);
   const rightVisLen = visibleLength(sessionRight);
-  const padding = Math.max(2, 80 - leftVisLen - rightVisLen);
+  const padding = Math.max(2, 100 - leftVisLen - rightVisLen);
 
   console.log(`${titleLeft}${" ".repeat(padding)}${sessionRight}`);
-  console.log(`${DIM}${"─".repeat(80)}${RESET}`);
+  console.log(`${DIM}${"─".repeat(100)}${RESET}`);
 
   if (creatures.length === 0) {
     console.log(`${DIM}  No creatures yet. Use "add pc n1 n2" to begin.${RESET}`);
   } else {
     // Header
     const hdr = inCombat
-      ? `  ${pad("Name", 22)}${pad("Type", 10)}${pad("HP Max", 8)}${pad("Dmg", 6)}${pad("AC", 6)}${pad("Init", 6)}${pad("Rxn", 6)}${"Status Effects"}`
-      : `  ${pad("Name", 22)}${pad("Type", 10)}${pad("HP Max", 8)}${pad("Dmg", 6)}${pad("AC", 6)}${pad("Init", 6)}${"Status Effects"}`;
+      ? `  ${pad("Name", 22)}${pad("Type", 10)}${pad("HP Max", 8)}${pad("Dmg", 6)}${pad("AC", 6)}${pad("Init", 6)}${pad("Rxn", 6)}${pad("Resource Usage", 18)}${"Status Effects"}`
+      : `  ${pad("Name", 22)}${pad("Type", 10)}${pad("HP Max", 8)}${pad("Dmg", 6)}${pad("AC", 6)}${pad("Init", 6)}${pad("Resource Usage", 18)}${"Status Effects"}`;
     console.log(`${BOLD}${CYAN}${hdr}${RESET}`);
-    console.log(`${DIM}  ${"─".repeat(inCombat ? 82 : 76)}${RESET}`);
+    console.log(`${DIM}  ${"─".repeat(inCombat ? 100 : 94)}${RESET}`);
 
     sorted.forEach((c, idx) => {
       const isTurn = inCombat && idx === currentTurnIndex;
@@ -589,13 +594,25 @@ function renderTable(): void {
       const init = pad(fmt(c.initiative), 6);
       const rxn = inCombat ? pad(c.reactionUsed ? "✓" : "—", 6) : "";
 
-      const prefixWidth = inCombat ? 66 : 60;
-      const statusWidth = Math.max(15, 80 - prefixWidth);
-      const effectLines = wrapStatusEffects(c.statusEffects, statusWidth);
+      const resourceStrings = Object.entries(c.resourceUsage ?? {})
+        .filter(([_, val]) => val !== 0)
+        .map(([rname, val]) => `${rname}=${val}`);
 
-      effectLines.forEach((effectLine, lineIdx) => {
+      const prefixWidthBeforeRes = inCombat ? 66 : 60;
+      const prefixWidth = prefixWidthBeforeRes + 18;
+      const statusWidth = Math.max(15, 100 - prefixWidth);
+
+      const resLines = wrapStatusEffects(resourceStrings, 16);
+      const effectLines = wrapStatusEffects(c.statusEffects, statusWidth);
+      const maxLines = Math.max(resLines.length, effectLines.length);
+
+      for (let lineIdx = 0; lineIdx < maxLines; lineIdx++) {
+        const resLine = resLines[lineIdx] ?? "";
+        const effectLine = effectLines[lineIdx] ?? "";
+        const resPart = pad(resLine, 18);
+
         if (lineIdx === 0) {
-          const rowContent = `${name}${type}${hpMax}${dmg}${ac}${init}${rxn}${effectLine}`;
+          const rowContent = `${name}${type}${hpMax}${dmg}${ac}${init}${rxn}${resPart}${effectLine}`;
           if (isDead) {
             if (isTurn) {
               const prefix = `${BOLD}${MAGENTA}▶ ${RESET}`;
@@ -606,14 +623,14 @@ function renderTable(): void {
           } else {
             if (isTurn) {
               const prefix = `${BOLD}${MAGENTA}▶ ${RESET}`;
-              console.log(`${prefix}${BOLD}${CYAN}${name}${RESET}${color}${type}${RESET}${BOLD}${CYAN}${hpMax}${dmg}${ac}${init}${rxn}${effectLine}${RESET}`);
+              console.log(`${prefix}${BOLD}${CYAN}${name}${RESET}${color}${type}${RESET}${BOLD}${CYAN}${hpMax}${dmg}${ac}${init}${rxn}${resPart}${effectLine}${RESET}`);
             } else {
-              console.log(`  ${BOLD}${name}${RESET}${color}${type}${RESET}${hpMax}${dmg}${ac}${init}${rxn}${effectLine}`);
+              console.log(`  ${BOLD}${name}${RESET}${color}${type}${RESET}${hpMax}${dmg}${ac}${init}${rxn}${resPart}${effectLine}`);
             }
           }
         } else {
-          const indent = " ".repeat(prefixWidth - 2);
-          const subRowContent = `${indent}${effectLine}`;
+          const indentBeforeRes = " ".repeat(prefixWidthBeforeRes - 2);
+          const subRowContent = `${indentBeforeRes}${resPart}${effectLine}`;
           if (isDead) {
             console.log(`  ${RED}${DIM}${subRowContent}${RESET}`);
           } else {
@@ -624,11 +641,11 @@ function renderTable(): void {
             }
           }
         }
-      });
+      }
     });
   }
 
-  console.log(`${DIM}${"─".repeat(80)}${RESET}`);
+  console.log(`${DIM}${"─".repeat(100)}${RESET}`);
   console.log(`${DIM}  help (h) · quit (q) · <command> <field> <value> <target>${RESET}\n`);
 }
 
@@ -640,7 +657,7 @@ export function wrapStatusEffects(effects: string[], width: number): string[] {
   let currentLine = "";
 
   for (let i = 0; i < effects.length; i++) {
-    const effect = effects[i];
+    const effect = effects[i]!;
     const nextWord = currentLine === "" ? effect : ", " + effect;
     if (currentLine.length + nextWord.length <= width) {
       currentLine += nextWord;
@@ -755,6 +772,9 @@ function handleCommandInternal(input: string): boolean {
     parts[0] = "remove";
     parts.splice(1, 0, "dmg");
     cmd = "remove";
+  } else if (cmd === "use") {
+    parts[0] = "add";
+    cmd = "add";
   }
 
   if (!cmd) {
@@ -860,15 +880,18 @@ function handleCommandInternal(input: string): boolean {
     console.log(`    ${CYAN}${pad("remove (rxn | reaction) <target>...", 44)}${RESET} Restore creature reaction\n`);
 
     console.log(`  ${BOLD}${MAGENTA}Stats & Status Effects:${RESET}`);
+    console.log(`    ${CYAN}${pad("add/use (resource | res) <name> <target>...", 44)}${RESET} Add/increment resource usage for target(s)`);
     console.log(`    ${CYAN}${pad("add (eff | cond) <effect> <target>...", 44)}${RESET} Add status effect to target(s)`);
     console.log(`    ${CYAN}${pad("add dmg <value> <target>...", 44)}${RESET} Add damage taken to target(s)`);
     console.log(`    ${CYAN}${pad("clear ac (<all> | <target>...)", 44)}${RESET} Clear AC for target(s) or all`);
     console.log(`    ${CYAN}${pad("clear dmg (<all> | <target>...)", 44)}${RESET} Clear damage for target(s) or all`);
     console.log(`    ${CYAN}${pad("clear hp (<all> | <target>...)", 44)}${RESET} Clear HP max for target(s) or all`);
     console.log(`    ${CYAN}${pad("clear init (<all> | <target>...)", 44)}${RESET} Clear initiative for target(s) or all`);
+    console.log(`    ${CYAN}${pad("clear (resource | res) (<all> | <target>...)", 44)}${RESET} Clear resource usage for target(s) or all`);
     console.log(`    ${CYAN}${pad("heal <value> <target>...", 44)}${RESET} Heal/subtract damage from target(s) (alias for remove dmg)`);
     console.log(`    ${CYAN}${pad("hurt <value> <target>...", 44)}${RESET} Add damage taken to target(s) (alias for add dmg)`);
     console.log(`    ${CYAN}${pad("remove (eff | cond) <effect> <target>...", 44)}${RESET} Remove status effect from target(s)`);
+    console.log(`    ${CYAN}${pad("remove (resource | res) <name> <target>...", 44)}${RESET} Remove/decrement resource usage from target(s)`);
     console.log(`    ${CYAN}${pad("set ac <val> <target> [<val> <target>...]", 44)}${RESET} Set AC pairs (e.g. 15 joe 18 jane)`);
     console.log(`    ${CYAN}${pad("set hp <val> <target> [<val> <target>...]", 44)}${RESET} Set HP max pairs (e.g. 45 joe 50 jane)`);
     console.log(`    ${CYAN}${pad("set init <val> <target> [<val> <target>...]", 44)}${RESET} Set initiative pairs (e.g. 15 joe 10 jane)\n`);
@@ -1250,8 +1273,9 @@ function handleCommandInternal(input: string): boolean {
     if (rawSub === "e" || rawSub === "enemies") rawSub = "enemy";
     if (rawSub === "n" || rawSub === "neutrals") rawSub = "neutral";
     if (rawSub === "rxn" || rawSub === "reaction") rawSub = "rxn";
+    if (rawSub === "res" || rawSub === "resource" || rawSub === "resources") rawSub = "resource";
     const subCmd = rawSub;
-    const addOptions = ["pc", "char", "enemy", "neutral", "dmg", "cond", "condition", "eff", "effect", "effects", "rxn"];
+    const addOptions = ["pc", "char", "enemy", "neutral", "dmg", "cond", "condition", "eff", "effect", "effects", "rxn", "resource"];
     const matched = matchPrefix(subCmd, addOptions);
 
     // --- add rxn <target>... ---
@@ -1278,6 +1302,61 @@ function handleCommandInternal(input: string): boolean {
       const names = result.creatures.map((c) => c.name).join(", ");
       console.log(`${GREEN}✓ Reaction marked as used for ${names}.${RESET}\n`);
       logActivity(`Reaction marked as used for ${names}`);
+      return true;
+    }
+
+    // --- add/use resource <name> <target>... ---
+    if (matched === "resource") {
+      const resNameInput = parts[2];
+      const targets = parts.slice(3);
+
+      if (!resNameInput || targets.length === 0) {
+        renderTable();
+        console.log(`${RED}Usage: add|use resource <name> <target>...${RESET}\n`);
+        return true;
+      }
+
+      const result = findCreatures(targets);
+      if (!result.ok) {
+        renderTable();
+        console.log(`${RED}${result.error}${RESET}\n`);
+        return true;
+      }
+
+      for (const creature of result.creatures) {
+        if (!creature.resourceUsage) {
+          creature.resourceUsage = {};
+        }
+
+        const keys = Object.keys(creature.resourceUsage);
+        const lowerInput = resNameInput.toLowerCase();
+        const exactKey = keys.find(k => k.toLowerCase() === lowerInput);
+        let targetKey = exactKey;
+
+        if (!targetKey) {
+          const matchingKeys = keys.filter(k => k.toLowerCase().startsWith(lowerInput));
+          if (matchingKeys.length > 0) {
+            targetKey = matchingKeys[0]!;
+          }
+        }
+
+        if (targetKey) {
+          creature.resourceUsage[targetKey] = (creature.resourceUsage[targetKey] ?? 0) + 1;
+        } else {
+          creature.resourceUsage[resNameInput] = 1;
+        }
+      }
+
+      renderTable();
+      const updates = result.creatures.map(c => {
+        const keys = Object.keys(c.resourceUsage ?? {});
+        const lowerInput = resNameInput.toLowerCase();
+        const targetKey = keys.find(k => k.toLowerCase() === lowerInput) || keys.find(k => k.toLowerCase().startsWith(lowerInput)) || resNameInput;
+        return `${c.name}: ${targetKey}=${c.resourceUsage![targetKey]}`;
+      }).join(", ");
+
+      console.log(`${GREEN}✓ ${updates}${RESET}\n`);
+      logActivity(`Incremented resource "${resNameInput}" for ${result.creatures.map(c => c.name).join(", ")}`);
       return true;
     }
 
@@ -1384,7 +1463,7 @@ function handleCommandInternal(input: string): boolean {
 
     withTurnPreservation(() => {
       for (const name of targets) {
-        creatures.push({ name, type, hpMax: null, dmg: 0, ac: null, initiative: null, statusEffects: [] });
+        creatures.push({ name, type, hpMax: null, dmg: 0, ac: null, initiative: null, statusEffects: [], resourceUsage: {} });
       }
     });
     hasAddedCreature = true;
@@ -1416,6 +1495,48 @@ function handleCommandInternal(input: string): boolean {
     const isDmg = matchPrefix(subCmd, ["dmg", "damage"]) !== null;
     const isHp = matchPrefix(subCmd, ["hp"]) !== null;
     const isAc = matchPrefix(subCmd, ["ac"]) !== null;
+    const isResource = matchPrefix(subCmd, ["resource", "res", "resources"]) !== null;
+
+    if (isResource) {
+      const targets = parts.slice(2);
+
+      if (targets.length === 0) {
+        renderTable();
+        console.log(`${RED}Please specify targets or "all" to clear resource usage (e.g., "clear resource all" or "clear resource Ajax").${RESET}\n`);
+        return true;
+      }
+
+      if (targets[0] === "all" || targets[0] === "*") {
+        withTurnPreservation(() => {
+          for (const c of creatures) {
+            c.resourceUsage = {};
+          }
+        });
+        renderTable();
+        console.log(`${GREEN}✓ Cleared all resource usages for all creatures.${RESET}\n`);
+        logActivity("Cleared all resource usages for all creatures");
+        return true;
+      }
+
+      const result = findCreatures(targets);
+      if (!result.ok) {
+        renderTable();
+        console.log(`${RED}${result.error}${RESET}\n`);
+        return true;
+      }
+
+      withTurnPreservation(() => {
+        for (const c of result.creatures) {
+          c.resourceUsage = {};
+        }
+      });
+
+      renderTable();
+      const names = result.creatures.map((c) => c.name).join(", ");
+      console.log(`${GREEN}✓ Cleared all resource usages for ${names}.${RESET}\n`);
+      logActivity(`Cleared all resource usages for ${names}`);
+      return true;
+    }
 
     if (isInit) {
       const targets = parts.slice(2);
@@ -1678,6 +1799,60 @@ function handleCommandInternal(input: string): boolean {
     const isHp = matchPrefix(subCmd, ["hp"]) !== null;
     const isAc = matchPrefix(subCmd, ["ac"]) !== null;
     const isRxn = matchPrefix(subCmd, ["reaction", "rxn"]) !== null;
+    const isResource = matchPrefix(subCmd, ["resource", "res", "resources"]) !== null;
+
+    if (isResource) {
+      const resNameInput = parts[2];
+      const targets = parts.slice(3);
+
+      if (!resNameInput || targets.length === 0) {
+        renderTable();
+        console.log(`${RED}Usage: remove resource <name> <target>...${RESET}\n`);
+        return true;
+      }
+
+      const result = findCreatures(targets);
+      if (!result.ok) {
+        renderTable();
+        console.log(`${RED}${result.error}${RESET}\n`);
+        return true;
+      }
+
+      let matchedAny = false;
+      const updates: string[] = [];
+
+      for (const creature of result.creatures) {
+        if (!creature.resourceUsage) continue;
+        const resUsage = creature.resourceUsage;
+        const keys = Object.keys(resUsage);
+        const lowerInput = resNameInput.toLowerCase();
+        const targetKey = keys.find(k => k.toLowerCase() === lowerInput) || keys.find(k => k.toLowerCase().startsWith(lowerInput));
+
+        if (targetKey) {
+          const currentVal = resUsage[targetKey];
+          if (currentVal !== undefined) {
+            const newVal = currentVal - 1;
+            if (newVal <= 0) {
+              delete resUsage[targetKey];
+              updates.push(`${creature.name}: removed "${targetKey}"`);
+            } else {
+              resUsage[targetKey] = newVal;
+              updates.push(`${creature.name}: "${targetKey}" decremented to ${newVal}`);
+            }
+            matchedAny = true;
+          }
+        }
+      }
+
+      renderTable();
+      if (matchedAny) {
+        console.log(`${GREEN}✓ ${updates.join(", ")}${RESET}\n`);
+        logActivity(`Removed/decremented resource "${resNameInput}" for ${result.creatures.map(c => c.name).join(", ")}`);
+      } else {
+        console.log(`${YELLOW}No resource matching "${resNameInput}" found on ${result.creatures.map(c => c.name).join(", ")}.${RESET}\n`);
+      }
+      return true;
+    }
 
     if (isRxn) {
       const targets = parts.slice(2);
@@ -1967,7 +2142,8 @@ function handleCommandInternal(input: string): boolean {
         let removedCount = 0;
         withTurnPreservation(() => {
           for (let i = creatures.length - 1; i >= 0; i--) {
-            if (creatures[i].type === category) {
+            const c = creatures[i];
+            if (c && c.type === category) {
               creatures.splice(i, 1);
               removedCount++;
             }
@@ -2253,7 +2429,7 @@ export function processCharTypePrompt(answer: string): boolean {
 
     withTurnPreservation(() => {
       for (const name of names) {
-        creatures.push({ name, type: type!, hpMax: null, dmg: 0, ac: null, initiative: null, statusEffects: [] });
+        creatures.push({ name, type: type!, hpMax: null, dmg: 0, ac: null, initiative: null, statusEffects: [], resourceUsage: {} });
       }
     });
     hasAddedCreature = true;
@@ -2423,14 +2599,18 @@ export function completer(line: string): [string[], string] {
   
   if (lineTrimmed === "" || (rawParts.length === 1 && !endsWithSpace)) {
     const mainCommands = [
-      "add", "remove", "rm", "clear", "set", "combat", "next", "n", "prev", "p",
+      "add", "use", "remove", "rm", "clear", "set", "combat", "next", "n", "prev", "p",
       "undo", "u", "redo", "r", "save", "saves", "load save", "rename save", "delete save", "show activity", "help", "h", "quit", "exit", "q", "test"
     ];
     completions = mainCommands;
-  } else if (cmd === "add") {
+  } else if (cmd === "add" || cmd === "use") {
     if (baseParts.length === 1) {
-      const addSubs = ["pc", "enemy", "neutral", "char", "eff", "dmg", "condition", "effect", "rxn", "reaction"];
-      completions = addSubs.map(s => `add ${s}`);
+      if (cmd === "use") {
+        completions = ["resource", "res"].map(s => `use ${s}`);
+      } else {
+        const addSubs = ["pc", "enemy", "neutral", "char", "eff", "dmg", "condition", "effect", "rxn", "reaction", "resource", "res"];
+        completions = addSubs.map(s => `add ${s}`);
+      }
     } else if (subCmd === "rxn" || subCmd === "reaction") {
       completions = creatures.map(c => {
         const formatted = c.name.includes(" ") ? `"${c.name}"` : c.name;
@@ -2440,7 +2620,27 @@ export function completer(line: string): [string[], string] {
       if (baseParts.length === 2) {
         completions = ALL_STATUS_EFFECTS.map(eff => {
           const formatted = eff.includes(" ") ? `"${eff}"` : eff;
-          return `add ${baseParts[1]} ${formatted}`;
+          return `${cmd} ${baseParts[1]} ${formatted}`;
+        });
+      } else {
+        completions = creatures.map(c => {
+          const formatted = c.name.includes(" ") ? `"${c.name}"` : c.name;
+          return `${baseParts.join(" ")} ${formatted}`;
+        });
+      }
+    } else if (subCmd === "res" || subCmd === "resource") {
+      if (baseParts.length === 2) {
+        const existingResources = new Set<string>();
+        for (const c of creatures) {
+          if (c.resourceUsage) {
+            for (const r of Object.keys(c.resourceUsage)) {
+              existingResources.add(r);
+            }
+          }
+        }
+        completions = Array.from(existingResources).map(r => {
+          const formatted = r.includes(" ") ? `"${r}"` : r;
+          return `${baseParts.join(" ")} ${formatted}`;
         });
       } else {
         completions = creatures.map(c => {
@@ -2459,7 +2659,7 @@ export function completer(line: string): [string[], string] {
   } else if (cmd === "remove" || cmd === "rm") {
     const rmPrefix = cmd;
     if (baseParts.length === 1) {
-      const rmSubs = ["char", "pcs", "enemies", "neutrals", "eff", "dmg", "rxn", "reaction"];
+      const rmSubs = ["char", "pcs", "enemies", "neutrals", "eff", "dmg", "rxn", "reaction", "resource", "res"];
       completions = rmSubs.map(s => `${rmPrefix} ${s}`);
     } else if (subCmd === "rxn" || subCmd === "reaction") {
       completions = creatures.map(c => {
@@ -2471,6 +2671,26 @@ export function completer(line: string): [string[], string] {
         completions = ALL_STATUS_EFFECTS.map(eff => {
           const formatted = eff.includes(" ") ? `"${eff}"` : eff;
           return `${rmPrefix} ${baseParts[1]} ${formatted}`;
+        });
+      } else {
+        completions = creatures.map(c => {
+          const formatted = c.name.includes(" ") ? `"${c.name}"` : c.name;
+          return `${baseParts.join(" ")} ${formatted}`;
+        });
+      }
+    } else if (subCmd === "res" || subCmd === "resource") {
+      if (baseParts.length === 2) {
+        const existingResources = new Set<string>();
+        for (const c of creatures) {
+          if (c.resourceUsage) {
+            for (const r of Object.keys(c.resourceUsage)) {
+              existingResources.add(r);
+            }
+          }
+        }
+        completions = Array.from(existingResources).map(r => {
+          const formatted = r.includes(" ") ? `"${r}"` : r;
+          return `${baseParts.join(" ")} ${formatted}`;
         });
       } else {
         completions = creatures.map(c => {
@@ -2493,7 +2713,7 @@ export function completer(line: string): [string[], string] {
     }
   } else if (cmd === "clear") {
     if (baseParts.length === 1) {
-      const clearSubs = ["init", "dmg", "hp", "ac"];
+      const clearSubs = ["init", "dmg", "hp", "ac", "resource", "res"];
       completions = clearSubs.map(s => `clear ${s}`);
     } else {
       completions = ["all", ...creatures.map(c => c.name.includes(" ") ? `"${c.name}"` : c.name)].map(target => {

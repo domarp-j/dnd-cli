@@ -876,5 +876,66 @@ describe("D&D CLI Tracker Test Suite", () => {
       const wrappedLong = wrapStatusEffects(singleLong, 10);
       expect(wrappedLong).toEqual(["SuperLongEffectNameThatIsWayMoreThanTenCharacters"]);
     });
+
+    test("supports Resource Usage column, incrementing/decrementing, alias res, and partial matching", () => {
+      handleCommand("new game");
+      handleCommand("add pc Joe");
+
+      // Verify initial state
+      const joe = creatures.find(c => c.name === "Joe")!;
+      expect(joe.resourceUsage).toEqual({});
+
+      // Increment legaction
+      handleCommand("add resource legaction Joe");
+      expect(joe.resourceUsage?.["legaction"]).toBe(1);
+
+      // Increment again
+      handleCommand("add resource legaction Joe");
+      expect(joe.resourceUsage?.["legaction"]).toBe(2);
+
+      // Partial matching with "use res" alias
+      handleCommand("use res lega Joe");
+      expect(joe.resourceUsage?.["legaction"]).toBe(3);
+
+      // Partial matching is case-insensitive
+      handleCommand("use res LEGA Joe");
+      expect(joe.resourceUsage?.["legaction"]).toBe(4);
+
+      // Decrementing/removing resource
+      handleCommand("remove resource leg Joe");
+      expect(joe.resourceUsage?.["legaction"]).toBe(3);
+
+      // Verify it is removed completely when reaching 0
+      handleCommand("remove res leg Joe"); // 2
+      handleCommand("remove res leg Joe"); // 1
+      handleCommand("remove res leg Joe"); // 0 -> deleted
+      expect(joe.resourceUsage?.["legaction"]).toBeUndefined();
+
+      // Test clearing resource usage
+      handleCommand("add resource spellslot Joe");
+      expect(joe.resourceUsage?.["spellslot"]).toBe(1);
+      handleCommand("clear resource Joe");
+      expect(joe.resourceUsage?.["spellslot"]).toBeUndefined();
+    });
+
+    test("resource command autocompletions", () => {
+      handleCommand("new game");
+      handleCommand("add pc Joe");
+      handleCommand("add resource spellslot Joe");
+
+      // Autocomplete "add "
+      const [addHits, _] = completer("add ");
+      expect(addHits).toContain("add resource");
+      expect(addHits).toContain("add res");
+
+      // Autocomplete "use "
+      const [useHits, _2] = completer("use ");
+      expect(useHits).toContain("use resource");
+      expect(useHits).toContain("use res");
+
+      // Autocomplete existing resources
+      const [resHits, _3] = completer("use res ");
+      expect(resHits).toContain("use res spellslot");
+    });
   });
 });

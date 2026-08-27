@@ -46,7 +46,7 @@ Here is a sampling of useful commands to demonstrate the CLI's capabilities:
   clear init all
   ```
 
-### Damage & Status Conditions
+### Damage, Status Conditions & Resource Usage
 - **Apply damage or clear it:**
   ```text
   add dmg 12 Kaelor
@@ -58,6 +58,13 @@ Here is a sampling of useful commands to demonstrate the CLI's capabilities:
   remove cond Poisoned Kaelor
   ```
   *(Standard D&D 5.5e conditions, statuses, defenses, and advantage/disadvantage modifiers are defined in `statusEffects.ts`)*
+- **Track resource usages (supports alias `res`, `use` command, and partial matching):**
+  ```text
+  add resource legaction Joe     # Adds legaction=1 under Resource Usage
+  use res lega Joe               # Increments legaction to 2 (via partial match)
+  remove res leg Joe             # Decrements legaction back to 1 (removes completely when 0)
+  clear res Joe                  # Clears all resource usages for Joe
+  ```
 
 ### Combat Mode
 - **Activate combat mode (automatically sorts by descending initiative):**
