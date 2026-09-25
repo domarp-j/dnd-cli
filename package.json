@@ -3,8 +3,12 @@
   "module": "index.ts",
   "type": "module",
   "private": true,
+  "bin": {
+    "dnd": "./index.ts"
+  },
   "scripts": {
     "start": "bun run index.ts",
+    "dnd": "bun run index.ts",
     "test": "bun test"
   },
   "devDependencies": {

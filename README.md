@@ -16,10 +16,18 @@ bun install
 
 ## Running the Tracker
 
-Start the interactive CLI:
+Start the interactive CLI directly with the `dnd` alias:
+
+```bash
+dnd
+```
+
+Alternatively, run via Bun:
 
 ```bash
 bun run start
+# or
+bun run dnd
 ```
 
 ## Usage & Capabilities
