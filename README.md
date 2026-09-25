@@ -40,6 +40,13 @@ Here is a sampling of useful commands to demonstrate the CLI's capabilities:
   set ac 18 Ajax 15 Kaelor
   set init 14 Ajax 18 Kaelor
   ```
+- **Change creature type (supports shorthand `p`, `e`, `n`, multiple targets, or aliases `change type` and `type`):**
+  ```text
+  set type enemy Ajax
+  set type pc Legolas Gimli
+  set type neutral "Goblin Warrior"
+  change type Ajax pc
+  ```
 - **Clear stats (using `null`, `none`, `clear`, `-`, or `—`):**
   ```text
   set ac null Ajax

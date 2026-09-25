@@ -529,6 +529,14 @@ function typeLabel(type: CreatureType): string {
   }
 }
 
+export function parseCreatureType(str: string): CreatureType | null {
+  const s = str.toLowerCase();
+  if (s === "pcs" || s === "pc" || s === "p" || s === "player") return "pc";
+  if (s === "enemies" || s === "enemy" || s === "e") return "enemy";
+  if (s === "neutrals" || s === "neutral" || s === "n") return "neutral";
+  return null;
+}
+
 function pad(str: string, len: number): string {
   return str.length >= len ? str.slice(0, len) : str + " ".repeat(len - str.length);
 }
@@ -775,6 +783,14 @@ function handleCommandInternal(input: string): boolean {
   } else if (cmd === "use") {
     parts[0] = "add";
     cmd = "add";
+  } else if (cmd === "change") {
+    if (parts[1]?.toLowerCase() === "type") {
+      parts[0] = "set";
+      cmd = "set";
+    }
+  } else if (cmd === "type") {
+    parts.splice(0, 0, "set");
+    cmd = "set";
   }
 
   if (!cmd) {
@@ -880,6 +896,7 @@ function handleCommandInternal(input: string): boolean {
           { command: "add char <name>...", desc: "Add creature(s) by prompting for type" },
           { command: "remove char <name>...", desc: "Remove specific creature(s) by name" },
           { command: "remove (pcs | enemies | neutrals)", desc: "Bulk remove creatures by type (or p | e | n)" },
+          { command: "set type (pc | enemy | neutral) <target>...", desc: "Change character type (or set type <target> <type>)" },
         ]
       },
       {
@@ -1774,6 +1791,112 @@ function handleCommandInternal(input: string): boolean {
       return true;
     }
 
+    if (fieldInput === "type") {
+      const args = parts.slice(2);
+      if (args.length === 0) {
+        renderTable();
+        console.log(`${RED}Usage: set type <pc|enemy|neutral> <target>... (or "set type <target> <pc|enemy|neutral>")${RESET}\n`);
+        return true;
+      }
+
+      type TypeUpdateItem = { type: CreatureType; rawTarget: string };
+      const parsedItems: TypeUpdateItem[] = [];
+
+      const firstType = parseCreatureType(args[0]!);
+      const lastType = parseCreatureType(args[args.length - 1]!);
+
+      // Check if alternating pairs: even length, every even index is a valid type
+      let isPairs = args.length >= 2 && args.length % 2 === 0;
+      if (isPairs) {
+        for (let i = 0; i < args.length; i += 2) {
+          if (!parseCreatureType(args[i]!)) {
+            isPairs = false;
+            break;
+          }
+        }
+      }
+
+      if (isPairs) {
+        for (let i = 0; i < args.length; i += 2) {
+          parsedItems.push({
+            type: parseCreatureType(args[i]!)!,
+            rawTarget: args[i + 1]!,
+          });
+        }
+      } else if (firstType) {
+        const targets = args.slice(1);
+        if (targets.length === 0) {
+          renderTable();
+          console.log(`${RED}Usage: set type <pc|enemy|neutral> <target>...${RESET}\n`);
+          return true;
+        }
+        for (const t of targets) {
+          parsedItems.push({ type: firstType, rawTarget: t });
+        }
+      } else if (lastType) {
+        const targets = args.slice(0, -1);
+        if (targets.length === 0) {
+          renderTable();
+          console.log(`${RED}Usage: set type <target>... <pc|enemy|neutral>${RESET}\n`);
+          return true;
+        }
+        for (const t of targets) {
+          parsedItems.push({ type: lastType, rawTarget: t });
+        }
+      } else {
+        renderTable();
+        console.log(`${RED}Invalid creature type. Please specify pc, enemy, or neutral (e.g. "set type pc Ajax" or "set type Ajax pc").${RESET}\n`);
+        return true;
+      }
+
+      const updates: { creatures: Creature[]; type: CreatureType; rawTarget: string }[] = [];
+      for (const item of parsedItems) {
+        const result = findCreatures([item.rawTarget]);
+        if (!result.ok) {
+          renderTable();
+          console.log(`${RED}${result.error}${RESET}\n`);
+          return true;
+        }
+        updates.push({ creatures: result.creatures, type: item.type, rawTarget: item.rawTarget });
+      }
+
+      const summaryItems: string[] = [];
+      let becamePcInBlankSession = false;
+
+      withTurnPreservation(() => {
+        for (const update of updates) {
+          for (const c of update.creatures) {
+            c.type = update.type;
+            if (update.type === "pc" && !currentSessionName) {
+              becamePcInBlankSession = true;
+            }
+          }
+          const names = update.creatures.map((c) => c.name).join(", ");
+          summaryItems.push(`${names} → ${typeLabel(update.type)}`);
+        }
+      });
+
+      let createdSaveMsg: string | null = null;
+      if (becamePcInBlankSession) {
+        const generatedName = generateRandomSaveName();
+        currentSessionName = generatedName;
+        const res = saveState(generatedName);
+        const filepath = path.resolve(SAVES_DIR, `${res.name}.json`);
+        if (res.isNew) {
+          createdSaveMsg = `✓ Created new save state "${res.name}" at "${filepath}".`;
+        }
+      }
+
+      renderTable();
+      console.log(`${GREEN}✓ Set type: ${summaryItems.join("; ")}${RESET}`);
+      if (createdSaveMsg) {
+        console.log(`${GREEN}${createdSaveMsg}${RESET}`);
+      }
+      console.log();
+      logActivity(`Set type: ${summaryItems.join("; ")}`);
+      return true;
+    }
+
     const setOptions = ["hp", "ac", "init"];
     const field = matchPrefix(fieldInput, setOptions);
 
@@ -1782,7 +1905,7 @@ function handleCommandInternal(input: string): boolean {
     if (!field || args.length === 0 || args.length % 2 !== 0) {
       renderTable();
       const msg = fieldInput && !field
-        ? `Unknown field "${fieldInput}". Use hp, ac, or init.`
+        ? `Unknown field "${fieldInput}". Use hp, ac, init, or type.`
         : `Usage: set <hp|ac|init> <value1> <target1> [<value2> <target2> ...] (e.g. "set hp 13 joe 9 jane")`;
       console.log(`${RED}${msg}${RESET}\n`);
       return true;
@@ -2638,7 +2761,7 @@ export function completer(line: string): [string[], string] {
   
   if (lineTrimmed === "" || (rawParts.length === 1 && !endsWithSpace)) {
     const mainCommands = [
-      "add", "use", "remove", "rm", "clear", "set", "combat", "next", "n", "prev", "p",
+      "add", "use", "remove", "rm", "clear", "set", "change", "combat", "next", "n", "prev", "p",
       "undo", "u", "redo", "r", "save", "saves", "load save", "rename save", "delete save", "show activity", "help", "h", "quit", "exit", "q", "test"
     ];
     completions = mainCommands;
@@ -2759,10 +2882,21 @@ export function completer(line: string): [string[], string] {
         return `clear ${baseParts[1]} ${target}`;
       });
     }
-  } else if (cmd === "set") {
+  } else if (cmd === "set" || cmd === "change") {
     if (baseParts.length === 1) {
-      const setSubs = ["hp", "ac", "init", "rxn", "reaction"];
-      completions = setSubs.map(s => `set ${s}`);
+      if (cmd === "change") {
+        completions = ["change type"];
+      } else {
+        const setSubs = ["hp", "ac", "init", "type", "rxn", "reaction"];
+        completions = setSubs.map(s => `set ${s}`);
+      }
+    } else if (subCmd === "type") {
+      const typeOptions = ["pc", "enemy", "neutral"].map(t => `${baseParts.join(" ")} ${t}`);
+      const creatureOptions = creatures.map(c => {
+        const formatted = c.name.includes(" ") ? `"${c.name}"` : c.name;
+        return `${baseParts.join(" ")} ${formatted}`;
+      });
+      completions = [...typeOptions, ...creatureOptions];
     } else if (subCmd === "rxn" || subCmd === "reaction") {
       completions = creatures.map(c => {
         const formatted = c.name.includes(" ") ? `"${c.name}"` : c.name;

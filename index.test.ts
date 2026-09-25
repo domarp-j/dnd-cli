@@ -962,4 +962,117 @@ describe("D&D CLI Tracker Test Suite", () => {
       }
     });
   });
+
+  describe("Changing Creature Type", () => {
+    test("changes creature type using 'set type <type> <target>' and shorthands", () => {
+      handleCommand("add pc Aragorn");
+      const aragorn = creatures.find((c) => c.name === "Aragorn");
+      expect(aragorn?.type).toBe("pc");
+
+      handleCommand("set type enemy Aragorn");
+      expect(aragorn?.type).toBe("enemy");
+
+      handleCommand("set type neutral Aragorn");
+      expect(aragorn?.type).toBe("neutral");
+
+      handleCommand("set type p Aragorn");
+      expect(aragorn?.type).toBe("pc");
+
+      handleCommand("set type e Aragorn");
+      expect(aragorn?.type).toBe("enemy");
+
+      handleCommand("set type n Aragorn");
+      expect(aragorn?.type).toBe("neutral");
+    });
+
+    test("supports multiple targets with one type: 'set type <type> <t1> <t2>'", () => {
+      handleCommand("add pc Aragorn Legolas Gimli");
+      handleCommand("set type enemy Aragorn Legolas");
+
+      expect(creatures.find((c) => c.name === "Aragorn")?.type).toBe("enemy");
+      expect(creatures.find((c) => c.name === "Legolas")?.type).toBe("enemy");
+      expect(creatures.find((c) => c.name === "Gimli")?.type).toBe("pc");
+    });
+
+    test("supports alternating pairs: 'set type <type1> <t1> <type2> <t2>'", () => {
+      handleCommand("add pc Aragorn Legolas");
+      handleCommand("set type enemy Aragorn neutral Legolas");
+
+      expect(creatures.find((c) => c.name === "Aragorn")?.type).toBe("enemy");
+      expect(creatures.find((c) => c.name === "Legolas")?.type).toBe("neutral");
+    });
+
+    test("supports target-first syntax: 'set type <target> <type>'", () => {
+      handleCommand("add pc Aragorn Legolas");
+      handleCommand("set type Aragorn enemy");
+      expect(creatures.find((c) => c.name === "Aragorn")?.type).toBe("enemy");
+
+      handleCommand("set type Aragorn Legolas neutral");
+      expect(creatures.find((c) => c.name === "Aragorn")?.type).toBe("neutral");
+      expect(creatures.find((c) => c.name === "Legolas")?.type).toBe("neutral");
+    });
+
+    test("supports 'change type' and 'type' command aliases", () => {
+      handleCommand("add pc Aragorn");
+      handleCommand("change type enemy Aragorn");
+      expect(creatures.find((c) => c.name === "Aragorn")?.type).toBe("enemy");
+
+      handleCommand("change type Aragorn pc");
+      expect(creatures.find((c) => c.name === "Aragorn")?.type).toBe("pc");
+
+      handleCommand("type neutral Aragorn");
+      expect(creatures.find((c) => c.name === "Aragorn")?.type).toBe("neutral");
+
+      handleCommand("type Aragorn enemy");
+      expect(creatures.find((c) => c.name === "Aragorn")?.type).toBe("enemy");
+    });
+
+    test("validates invalid types and nonexistent targets", () => {
+      handleCommand("add pc Aragorn");
+      
+      // Invalid type
+      expect(handleCommand("set type dragon Aragorn")).toBeTrue();
+      expect(creatures.find((c) => c.name === "Aragorn")?.type).toBe("pc");
+
+      // Nonexistent target
+      expect(handleCommand("set type enemy Nonexistent")).toBeTrue();
+      expect(creatures.find((c) => c.name === "Aragorn")?.type).toBe("pc");
+
+      // Missing arguments
+      expect(handleCommand("set type")).toBeTrue();
+      expect(handleCommand("set type pc")).toBeTrue();
+    });
+
+    test("is undoable and redoable", () => {
+      handleCommand("add pc Aragorn");
+      const aragorn = creatures.find((c) => c.name === "Aragorn");
+      expect(aragorn?.type).toBe("pc");
+
+      handleCommand("set type enemy Aragorn");
+      expect(aragorn?.type).toBe("enemy");
+
+      handleCommand("undo");
+      expect(creatures.find((c) => c.name === "Aragorn")?.type).toBe("pc");
+
+      handleCommand("redo");
+      expect(creatures.find((c) => c.name === "Aragorn")?.type).toBe("enemy");
+    });
+
+    test("set type autocompletions", () => {
+      handleCommand("new game");
+      handleCommand("add pc Aragorn");
+
+      const [setHits, _] = completer("set ");
+      expect(setHits).toContain("set type");
+
+      const [changeHits, _2] = completer("change ");
+      expect(changeHits).toContain("change type");
+
+      const [typeHits, _3] = completer("set type ");
+      expect(typeHits).toContain("set type pc");
+      expect(typeHits).toContain("set type enemy");
+      expect(typeHits).toContain("set type neutral");
+      expect(typeHits).toContain("set type Aragorn");
+    });
+  });
 });
