@@ -21,6 +21,7 @@ import {
   getPendingCharTypePrompt,
   completer,
   wrapStatusEffects,
+  highlightMatch,
 } from "./index";
 
 const SAVES_DIR = path.join(process.cwd(), "saves");
@@ -798,6 +799,44 @@ describe("D&D CLI Tracker Test Suite", () => {
       const [hitsSet, lineSet] = completer("set hp 10 L");
       expect(hitsSet).toContain("set hp 10 Legolas");
       expect(lineSet).toBe("set hp 10 L");
+
+      // 5. Match string anywhere in command body
+      const [hitsStatAny] = completer("stat");
+      expect(hitsStatAny).toContain("add stat");
+      expect(hitsStatAny).toContain("remove stat");
+      expect(hitsStatAny).toContain("rm stat");
+
+      const [hitsEffAll] = completer("eff");
+      expect(hitsEffAll).toContain("add eff");
+      expect(hitsEffAll).toContain("remove eff");
+      expect(hitsEffAll).toContain("rm eff");
+
+      const [hitsHp] = completer("hp");
+      expect(hitsHp).toContain("clear hp");
+      expect(hitsHp).toContain("set hp");
+
+      const [hitsSave] = completer("save");
+      expect(hitsSave).toContain("save");
+      expect(hitsSave).toContain("saves");
+      expect(hitsSave).toContain("load save");
+      expect(hitsSave).toContain("rename save");
+      expect(hitsSave).toContain("delete save");
+    });
+
+    test("highlightMatch colors matching substring within options", () => {
+      const highlighted = highlightMatch("add stat", "stat");
+      expect(highlighted).toContain("stat");
+      // Check that ANSI styling wraps the matched text
+      expect(highlighted).toContain("\x1b[33mstat\x1b[0m");
+
+      // Case insensitive match preserves original casing
+      const casePreserved = highlightMatch("add eff Poisoned", "pois");
+      expect(casePreserved).toContain("\x1b[33mPois\x1b[0m");
+
+      // Empty query or no match returns base string
+      const noMatch = highlightMatch("clear ac", "xyz");
+      expect(noMatch).toContain("clear ac");
+      expect(noMatch).not.toContain("\x1b[33m");
     });
 
     test("reaction state is set, cleared on turn start, manually restored, and undoable", () => {

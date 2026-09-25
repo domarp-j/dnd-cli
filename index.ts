@@ -2749,6 +2749,41 @@ export function handleCommand(input: string): boolean {
   }, input);
 }
 
+export const ALL_COMMAND_TEMPLATES: string[] = [
+  "add", "add pc", "add enemy", "add neutral", "add char", "add eff", "add cond", "add stat", "add status",
+  "add dmg", "add rxn", "add reaction", "add res",
+  "use", "use res",
+  "remove", "remove char", "remove pcs", "remove enemies", "remove neutrals", "remove eff", "remove cond", "remove stat", "remove status",
+  "remove dmg", "remove rxn", "remove reaction", "remove res",
+  "rm", "rm char", "rm pcs", "rm enemies", "rm neutrals", "rm eff", "rm cond", "rm stat", "rm status",
+  "rm dmg", "rm rxn", "rm reaction", "rm res",
+  "clear", "clear ac", "clear dmg", "clear hp", "clear init", "clear res",
+  "set", "set ac", "set hp", "set init", "set type", "set type pc", "set type enemy", "set type neutral",
+  "change", "change type",
+  "combat", "combat start", "combat end", "c", "c start", "c end",
+  "next", "n", "prev", "p",
+  "heal", "hurt",
+  "undo", "u", "redo", "r",
+  "save", "saves", "load save", "new game", "rename save", "delete save",
+  "show activity", "help", "h", "quit", "exit", "q",
+  "test", "test simple"
+];
+
+export function highlightMatch(
+  text: string,
+  query: string,
+  matchColor = `${BOLD}${YELLOW}`,
+  baseColor = `${CYAN}`
+): string {
+  if (!query) return `${baseColor}${text}${RESET}`;
+  const idx = text.toLowerCase().indexOf(query.toLowerCase());
+  if (idx === -1) return `${baseColor}${text}${RESET}`;
+  const before = text.slice(0, idx);
+  const match = text.slice(idx, idx + query.length);
+  const after = text.slice(idx + query.length);
+  return `${baseColor}${before}${RESET}${matchColor}${match}${RESET}${baseColor}${after}${RESET}`;
+}
+
 export function completer(line: string): [string[], string] {
   const lineTrimmed = line.trimStart();
   const endsWithSpace = line.endsWith(" ");
@@ -2766,11 +2801,7 @@ export function completer(line: string): [string[], string] {
   let completions: string[] = [];
   
   if (lineTrimmed === "" || (rawParts.length === 1 && !endsWithSpace)) {
-    const mainCommands = [
-      "add", "use", "remove", "rm", "clear", "set", "change", "combat", "next", "n", "prev", "p",
-      "undo", "u", "redo", "r", "save", "saves", "load save", "rename save", "delete save", "show activity", "help", "h", "quit", "exit", "q", "test"
-    ];
-    completions = mainCommands;
+    completions = ALL_COMMAND_TEMPLATES;
   } else if (cmd === "add" || cmd === "use") {
     if (baseParts.length === 1) {
       if (cmd === "use") {
@@ -2945,8 +2976,24 @@ export function completer(line: string): [string[], string] {
   }
 
   const fullTyped = baseParts.length > 0 ? baseParts.join(" ") + " " : "";
-  const searchPrefix = (fullTyped + lastPart).toLowerCase();
-  const hits = completions.filter(c => c.toLowerCase().startsWith(searchPrefix));
+  const searchPrefix = (fullTyped + lastPart).toLowerCase().trim();
+  const search = searchPrefix.length > 0 ? searchPrefix : lineTrimmed.toLowerCase();
+  
+  let hits = Array.from(new Set(completions)).filter(c => c.toLowerCase().includes(search));
+  if (hits.length === 0 && search.length > 0) {
+    hits = ALL_COMMAND_TEMPLATES.filter(c => c.toLowerCase().includes(search));
+  }
+
+  // Sort: prefix matches first, followed by substring matches, then alphabetical
+  hits.sort((a, b) => {
+    const aLower = a.toLowerCase();
+    const bLower = b.toLowerCase();
+    const aStarts = aLower.startsWith(search);
+    const bStarts = bLower.startsWith(search);
+    if (aStarts && !bStarts) return -1;
+    if (!aStarts && bStarts) return 1;
+    return a.localeCompare(b);
+  });
   
   return [hits, line];
 }
@@ -2962,6 +3009,156 @@ if (import.meta.main) {
 
   resetState();
   renderTable();
+
+  function isAtMainPrompt(): boolean {
+    return (
+      !pendingConfirmation &&
+      !pendingQuitConfirmation &&
+      !pendingSaveSelection &&
+      !pendingSaveDeleteSelection &&
+      !pendingSaveNamePrompt &&
+      !pendingRenamePrompt &&
+      !pendingCharTypePrompt
+    );
+  }
+
+  let typeaheadActive = false;
+  let typeaheadMatches: string[] = [];
+  let typeaheadIndex = 0;
+  let typeaheadSavedQuery = "";
+  let typeaheadRenderedLines = 0;
+
+  function clearTypeaheadMenu(): void {
+    if (typeaheadRenderedLines > 0) {
+      process.stdout.write("\x1b7");
+      process.stdout.write("\n\x1b[J");
+      process.stdout.write("\x1b8");
+      typeaheadRenderedLines = 0;
+    }
+  }
+
+  function renderTypeaheadMenu(): void {
+    clearTypeaheadMenu();
+
+    const total = typeaheadMatches.length;
+    if (total === 0) return;
+
+    const MAX_VISIBLE = 8;
+    let startIdx = 0;
+    if (total > MAX_VISIBLE) {
+      startIdx = Math.max(0, Math.min(typeaheadIndex - Math.floor(MAX_VISIBLE / 2), total - MAX_VISIBLE));
+    }
+    const visibleSlice = typeaheadMatches.slice(startIdx, startIdx + MAX_VISIBLE);
+
+    let output = "\x1b7\n\x1b[J";
+    let count = 1;
+
+    const header = total > MAX_VISIBLE
+      ? `${DIM}  Typeahead matches (${startIdx + 1}-${startIdx + visibleSlice.length} of ${total}) [↑/↓ to select, Enter to choose, Esc to cancel]:${RESET}\n`
+      : `${DIM}  Typeahead matches (${total} found) [↑/↓ to select, Enter to choose, Esc to cancel]:${RESET}\n`;
+    output += header;
+
+    if (startIdx > 0) {
+      output += `${DIM}  ▲ (${startIdx} more above)${RESET}\n`;
+      count++;
+    }
+
+    visibleSlice.forEach((item, sliceIdx) => {
+      const actualIdx = startIdx + sliceIdx;
+      const isSelected = actualIdx === typeaheadIndex;
+      const pointer = isSelected ? `${BOLD}${GREEN}▶ ${RESET}` : "  ";
+      const baseColor = isSelected ? `${BOLD}${CYAN}` : `${CYAN}`;
+      const highlighted = highlightMatch(item, typeaheadSavedQuery.trim(), `${BOLD}${YELLOW}`, baseColor);
+      output += `${pointer}${highlighted}\n`;
+      count++;
+    });
+
+    if (startIdx + visibleSlice.length < total) {
+      output += `${DIM}  ▼ (${total - startIdx - visibleSlice.length} more below)${RESET}\n`;
+      count++;
+    }
+
+    output += "\x1b8";
+    process.stdout.write(output);
+    typeaheadRenderedLines = count;
+  }
+
+  if (process.stdin.isTTY && typeof (rl as any)._ttyWrite === "function") {
+    const origTtyWrite = (rl as any)._ttyWrite.bind(rl);
+
+    (rl as any)._ttyWrite = (s: string, key: any) => {
+      if (!isAtMainPrompt()) {
+        origTtyWrite(s, key);
+        return;
+      }
+
+      if (key && key.name === "tab") {
+        if (!typeaheadActive) {
+          const currentInput = (((rl as any).line || "") as string);
+          const [matches] = completer(currentInput);
+          if (matches && matches.length > 0) {
+            typeaheadActive = true;
+            typeaheadMatches = matches;
+            typeaheadIndex = 0;
+            typeaheadSavedQuery = currentInput;
+            renderTypeaheadMenu();
+            return;
+          }
+        } else {
+          typeaheadIndex = (typeaheadIndex + 1) % typeaheadMatches.length;
+          renderTypeaheadMenu();
+          return;
+        }
+      }
+
+      if (typeaheadActive) {
+        if (key && key.name === "down") {
+          typeaheadIndex = (typeaheadIndex + 1) % typeaheadMatches.length;
+          renderTypeaheadMenu();
+          return;
+        }
+
+        if (key && key.name === "up") {
+          typeaheadIndex = (typeaheadIndex - 1 + typeaheadMatches.length) % typeaheadMatches.length;
+          renderTypeaheadMenu();
+          return;
+        }
+
+        if (key && (key.name === "return" || key.name === "enter")) {
+          const selected = typeaheadMatches[typeaheadIndex];
+          clearTypeaheadMenu();
+          typeaheadActive = false;
+
+          const noArgCmds = [
+            "combat", "c", "combat start", "combat end", "c start", "c end",
+            "next", "n", "prev", "p",
+            "undo", "u", "redo", "r",
+            "new game", "saves", "help", "h", "quit", "exit", "q",
+            "test", "test simple", "show activity"
+          ];
+          const needsSpace = !noArgCmds.includes(selected.trim());
+          (rl as any).line = selected + (needsSpace ? " " : "");
+          (rl as any).cursor = (rl as any).line.length;
+          (rl as any)._refreshLine();
+          return;
+        }
+
+        if (key && (key.name === "escape" || (key.ctrl && key.name === "c"))) {
+          clearTypeaheadMenu();
+          typeaheadActive = false;
+          (rl as any).line = typeaheadSavedQuery;
+          (rl as any).cursor = (rl as any).line.length;
+          (rl as any)._refreshLine();
+          return;
+        }
+
+        clearTypeaheadMenu();
+        typeaheadActive = false;
+      }
+
+      origTtyWrite(s, key);
+    };
+  }
 
   function prompt() {
     const promptStr = pendingConfirmation
@@ -2981,6 +3178,8 @@ if (import.meta.main) {
       : `${MAGENTA}> ${RESET}`;
 
     rl.question(promptStr, (answer) => {
+      clearTypeaheadMenu();
+      typeaheadActive = false;
       if (pendingQuitConfirmation) {
         const confirmedQuit = processQuitConfirmation(answer);
         if (confirmedQuit) {
