@@ -197,6 +197,24 @@ describe("D&D CLI Tracker Test Suite", () => {
       handleCommand("remove cond Poisoned Hero");
       hero = creatures.find((c) => c.name === "Hero");
       expect(hero?.statusEffects).not.toContain("Poisoned");
+
+      // Verify that "stat" alias works
+      handleCommand("add stat Blinded Hero");
+      hero = creatures.find((c) => c.name === "Hero");
+      expect(hero?.statusEffects).toContain("Blinded");
+
+      handleCommand("remove stat Blinded Hero");
+      hero = creatures.find((c) => c.name === "Hero");
+      expect(hero?.statusEffects).not.toContain("Blinded");
+
+      // Verify that "status" alias works (with rm)
+      handleCommand("add status Invisible Hero");
+      hero = creatures.find((c) => c.name === "Hero");
+      expect(hero?.statusEffects).toContain("Invisible");
+
+      handleCommand("rm status Invisible Hero");
+      hero = creatures.find((c) => c.name === "Hero");
+      expect(hero?.statusEffects).not.toContain("Invisible");
     });
   });
 
@@ -760,6 +778,18 @@ describe("D&D CLI Tracker Test Suite", () => {
       // 3. Match status effects
       const [hitsEff, lineEff] = completer("add eff Pois");
       expect(hitsEff).toContain("add eff Poisoned");
+
+      const [hitsStat, _stat] = completer("add stat Pois");
+      expect(hitsStat).toContain("add stat Poisoned");
+
+      const [hitsStatus, _status] = completer("add status Pois");
+      expect(hitsStatus).toContain("add status Poisoned");
+
+      const [hitsRmStat, _rmStat] = completer("remove stat Pois");
+      expect(hitsRmStat).toContain("remove stat Poisoned");
+
+      const [hitsRmStatus, _rmStatus] = completer("remove status Pois");
+      expect(hitsRmStatus).toContain("remove status Poisoned");
 
       // 4. Match target names when setting stats
       handleCommand("new game");

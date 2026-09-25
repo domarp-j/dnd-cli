@@ -59,10 +59,12 @@ Here is a sampling of useful commands to demonstrate the CLI's capabilities:
   add dmg 12 Kaelor
   clear dmg all
   ```
-- **Track status conditions (supports aliases `eff` / `effect` / `cond` / `condition`):**
+- **Track status conditions (supports aliases `eff` / `effect` / `cond` / `condition` / `stat` / `status`):**
   ```text
   add eff Poisoned Kaelor
-  remove cond Poisoned Kaelor
+  add stat Blinded Ajax
+  remove status Poisoned Kaelor
+  remove cond Blinded Ajax
   ```
   *(Standard D&D 5.5e conditions, statuses, defenses, and advantage/disadvantage modifiers are defined in `statusEffects.ts`)*
 - **Track resource usages (supports `res`, `use res` commands, and partial matching):**

@@ -917,7 +917,7 @@ function handleCommandInternal(input: string): boolean {
         title: "Stats & Status Effects",
         lines: [
           { command: "add/use res <name> <target>...", desc: "Add/increment resource usage for target(s)" },
-          { command: "add (eff | cond) <effect> <target>...", desc: "Add status effect to target(s)" },
+          { command: "add (eff | cond | stat | status) <eff> <t>...", desc: "Add status effect to target(s)" },
           { command: "add dmg <value> <target>...", desc: "Add damage taken to target(s)" },
           { command: "clear ac (<all> | <target>...)", desc: "Clear AC for target(s) or all" },
           { command: "clear dmg (<all> | <target>...)", desc: "Clear damage for target(s) or all" },
@@ -926,7 +926,7 @@ function handleCommandInternal(input: string): boolean {
           { command: "clear res (<all> | <target>...)", desc: "Clear resource usage for target(s) or all" },
           { command: "heal <value> <target>...", desc: "Heal/subtract damage from target(s) (alias for remove dmg)" },
           { command: "hurt <value> <target>...", desc: "Add damage taken to target(s) (alias for add dmg)" },
-          { command: "remove (eff | cond) <effect> <target>...", desc: "Remove status effect from target(s)" },
+          { command: "remove (eff | cond | stat | status) <eff> <t>", desc: "Remove status effect from target(s)" },
           { command: "remove res <name> <target>...", desc: "Remove/decrement resource usage from target(s)" },
           { command: "set ac <val> <target> [<val> <target>...]", desc: "Set AC pairs (e.g. 15 joe 18 jane)" },
           { command: "set hp <val> <target> [<val> <target>...]", desc: "Set HP max pairs (e.g. 45 joe 50 jane)" },
@@ -1334,8 +1334,9 @@ function handleCommandInternal(input: string): boolean {
     if (rawSub === "n" || rawSub === "neutrals") rawSub = "neutral";
     if (rawSub === "rxn" || rawSub === "reaction") rawSub = "rxn";
     if (rawSub === "res") rawSub = "res";
+    if (rawSub === "stat" || rawSub === "status" || rawSub === "stats") rawSub = "eff";
     const subCmd = rawSub;
-    const addOptions = ["pc", "char", "enemy", "neutral", "dmg", "cond", "condition", "eff", "effect", "effects", "rxn", "res"];
+    const addOptions = ["pc", "char", "enemy", "neutral", "dmg", "cond", "condition", "eff", "effect", "effects", "rxn", "res", "stat", "status", "stats"];
     const matched = matchPrefix(subCmd, addOptions);
 
     // --- add rxn <target>... ---
@@ -1420,8 +1421,8 @@ function handleCommandInternal(input: string): boolean {
       return true;
     }
 
-    // --- add eff/cond <str> n1 n2 ---
-    if (matched === "cond" || matched === "condition" || matched === "eff" || matched === "effect" || matched === "effects") {
+    // --- add eff/cond/stat/status <str> n1 n2 ---
+    if (matched === "cond" || matched === "condition" || matched === "eff" || matched === "effect" || matched === "effects" || matched === "stat" || matched === "status" || matched === "stats") {
       const cond = parts[2];
       const targets = parts.slice(3);
 
@@ -1959,7 +1960,7 @@ function handleCommandInternal(input: string): boolean {
 
   if (cmd === "remove" || cmd === "rm") {
     const subCmd = parts[1]?.toLowerCase() ?? "";
-    const isCond = matchPrefix(subCmd, ["condition", "cond", "eff", "effect", "effects"]) !== null;
+    const isCond = matchPrefix(subCmd, ["condition", "cond", "eff", "effect", "effects", "stat", "status", "stats"]) !== null;
     const isInit = matchPrefix(subCmd, ["initiative", "init"]) !== null;
     const isDmg = matchPrefix(subCmd, ["dmg", "damage"]) !== null;
     const isHp = matchPrefix(subCmd, ["hp"]) !== null;
@@ -2774,7 +2775,7 @@ export function completer(line: string): [string[], string] {
       if (cmd === "use") {
         completions = ["res"].map(s => `use ${s}`);
       } else {
-        const addSubs = ["pc", "enemy", "neutral", "char", "eff", "dmg", "condition", "effect", "rxn", "reaction", "res"];
+        const addSubs = ["pc", "enemy", "neutral", "char", "eff", "cond", "stat", "status", "dmg", "condition", "effect", "rxn", "reaction", "res"];
         completions = addSubs.map(s => `add ${s}`);
       }
     } else if (subCmd === "rxn" || subCmd === "reaction") {
@@ -2782,7 +2783,7 @@ export function completer(line: string): [string[], string] {
         const formatted = c.name.includes(" ") ? `"${c.name}"` : c.name;
         return `${baseParts.join(" ")} ${formatted}`;
       });
-    } else if (subCmd === "eff" || subCmd === "cond" || subCmd === "effect" || subCmd === "condition") {
+    } else if (subCmd === "eff" || subCmd === "cond" || subCmd === "effect" || subCmd === "condition" || subCmd === "stat" || subCmd === "status") {
       if (baseParts.length === 2) {
         completions = ALL_STATUS_EFFECTS.map(eff => {
           const formatted = eff.includes(" ") ? `"${eff}"` : eff;
@@ -2825,14 +2826,14 @@ export function completer(line: string): [string[], string] {
   } else if (cmd === "remove" || cmd === "rm") {
     const rmPrefix = cmd;
     if (baseParts.length === 1) {
-      const rmSubs = ["char", "pcs", "enemies", "neutrals", "eff", "dmg", "rxn", "reaction", "res"];
+      const rmSubs = ["char", "pcs", "enemies", "neutrals", "eff", "cond", "stat", "status", "dmg", "rxn", "reaction", "res"];
       completions = rmSubs.map(s => `${rmPrefix} ${s}`);
     } else if (subCmd === "rxn" || subCmd === "reaction") {
       completions = creatures.map(c => {
         const formatted = c.name.includes(" ") ? `"${c.name}"` : c.name;
         return `${baseParts.join(" ")} ${formatted}`;
       });
-    } else if (subCmd === "eff" || subCmd === "cond" || subCmd === "effect" || subCmd === "condition") {
+    } else if (subCmd === "eff" || subCmd === "cond" || subCmd === "effect" || subCmd === "condition" || subCmd === "stat" || subCmd === "status") {
       if (baseParts.length === 2) {
         completions = ALL_STATUS_EFFECTS.map(eff => {
           const formatted = eff.includes(" ") ? `"${eff}"` : eff;
