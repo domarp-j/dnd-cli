@@ -1,5 +1,5 @@
 # TODOs
 
-- Store resource usage for enemies
-- Add confirmation check to destructive commands
+- Store rxn used boolean
+- Clean up commands and aliases in help text
 
