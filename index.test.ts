@@ -1030,6 +1030,68 @@ describe("D&D CLI Tracker Test Suite", () => {
         console.log = originalLog;
       }
     });
+
+    test("help menu lists aliases cleanly with identical descriptions without explicit alias notes", () => {
+      const logs: string[] = [];
+      const originalLog = console.log;
+      console.log = (...args: any[]) => {
+        logs.push(args.join(" "));
+      };
+
+      try {
+        handleCommand("help");
+        const fullOutput = logs.join("\n");
+
+        // remove (pcs | enemies | neutrals) and remove (p | e | n)
+        expect(fullOutput).toContain("remove (pcs | enemies | neutrals)");
+        expect(fullOutput).toContain("remove (p | e | n)");
+        const rmFullLine = logs.find(l => l.includes("remove (pcs | enemies | neutrals)"));
+        const rmShortLine = logs.find(l => l.includes("remove (p | e | n)"));
+        expect(rmFullLine).toContain("Bulk remove creatures by type");
+        expect(rmShortLine).toContain("Bulk remove creatures by type");
+        expect(rmFullLine).not.toContain("(or p | e | n)");
+
+        // set type and change type
+        const setTypeLine = logs.find(l => l.includes("set type (pc | enemy | neutral)"));
+        const setTypeRevLine = logs.find(l => l.includes("set type <target>... (pc | enemy | neutral)"));
+        expect(setTypeLine).toContain("Change character type");
+        expect(setTypeRevLine).toContain("Change character type");
+        expect(setTypeLine).not.toContain("(or set type");
+
+        // damage and healing
+        const addDmgLine = logs.find(l => l.includes("add dmg <value> <target>..."));
+        const hurtLine = logs.find(l => l.includes("hurt <value> <target>..."));
+        const rmDmgLine = logs.find(l => l.includes("remove dmg <value> <target>..."));
+        const healLine = logs.find(l => l.includes("heal <value> <target>..."));
+        expect(addDmgLine).toContain("Add damage taken to target(s)");
+        expect(hurtLine).toContain("Add damage taken to target(s)");
+        expect(hurtLine).not.toContain("(alias for");
+        expect(rmDmgLine).toContain("Heal/subtract damage from target(s)");
+        expect(healLine).toContain("Heal/subtract damage from target(s)");
+        expect(healLine).not.toContain("(alias for");
+
+        // delete and del save
+        const deleteSaveLine = logs.find(l => l.includes("delete save [<name>...]"));
+        const delSaveLine = logs.find(l => l.includes("del save [<name>...]"));
+        expect(deleteSaveLine).toContain("Delete save file(s)");
+        expect(delSaveLine).toContain("Delete save file(s)");
+
+        // No alias callouts in descriptions
+        expect(fullOutput).not.toContain("(alias for");
+      } finally {
+        console.log = originalLog;
+      }
+    });
+
+    test("completer includes remove p/e/n and del save aliases", () => {
+      const [rmHits] = completer("remove ");
+      expect(rmHits).toContain("remove p");
+      expect(rmHits).toContain("remove e");
+      expect(rmHits).toContain("remove n");
+
+      const [delHits] = completer("del ");
+      expect(delHits).toContain("del save");
+    });
   });
 
   describe("Changing Creature Type", () => {

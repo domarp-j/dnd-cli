@@ -62,11 +62,24 @@ Here is a sampling of useful commands to demonstrate the CLI's capabilities:
   set ac null Ajax
   clear init all
   ```
+- **Remove creatures (individually by name or bulk by type, with shorthand aliases `p`, `e`, `n`):**
+  ```text
+  remove char Ajax
+  remove enemies
+  remove pcs
+  remove neutrals
+  remove e
+  remove p
+  remove n
+  ```
 
 ### Damage, Status Conditions & Resource Usage
-- **Apply damage or clear it:**
+- **Apply damage, heal, or clear damage:**
   ```text
   add dmg 12 Kaelor
+  hurt 8 Ajax              # Alias for add dmg
+  remove dmg 6 Kaelor      # Subtract damage taken / heal
+  heal 4 Ajax              # Alias for remove dmg
   clear dmg all
   ```
 - **Track status conditions (supports aliases `eff` / `effect` / `cond` / `condition` / `stat` / `status`):**
@@ -116,7 +129,8 @@ Here is a sampling of useful commands to demonstrate the CLI's capabilities:
   rename save dungeon_room2
   load save               # Lists saves interactively
   load save dungeon_room2  # Loads specific save
-  saves                   # View all saved game files
+  saves                   # View all saved game files (alias 'list saves')
+  delete save dungeon_room1 # Delete save file (alias 'del save')
   ```
 
 ### Undo and Redo History

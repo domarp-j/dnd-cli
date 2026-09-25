@@ -899,8 +899,11 @@ function handleCommandInternal(input: string): boolean {
           { command: "add (pc | p) <name>...", desc: "Add player character(s)" },
           { command: "add char <name>...", desc: "Add creature(s) by prompting for type" },
           { command: "remove char <name>...", desc: "Remove specific creature(s) by name" },
-          { command: "remove (pcs | enemies | neutrals)", desc: "Bulk remove creatures by type (or p | e | n)" },
-          { command: "set type (pc | enemy | neutral) <target>...", desc: "Change character type (or set type <target> <type>)" },
+          { command: "remove (pcs | enemies | neutrals)", desc: "Bulk remove creatures by type" },
+          { command: "remove (p | e | n)", desc: "Bulk remove creatures by type" },
+          { command: "set type (pc | enemy | neutral) <target>...", desc: "Change character type" },
+          { command: "set type <target>... (pc | enemy | neutral)", desc: "Change character type" },
+          { command: "change type <target> <type>", desc: "Change character type" },
         ]
       },
       {
@@ -920,13 +923,14 @@ function handleCommandInternal(input: string): boolean {
           { command: "add/use res <name> <target>...", desc: "Add/increment resource usage for target(s)" },
           { command: "add (eff | cond | stat) <eff> <t>...", desc: "Add status effect to target(s)" },
           { command: "add dmg <value> <target>...", desc: "Add damage taken to target(s)" },
+          { command: "hurt <value> <target>...", desc: "Add damage taken to target(s)" },
           { command: "clear ac (<all> | <target>...)", desc: "Clear AC for target(s) or all" },
           { command: "clear dmg (<all> | <target>...)", desc: "Clear damage for target(s) or all" },
           { command: "clear hp (<all> | <target>...)", desc: "Clear HP max for target(s) or all" },
           { command: "clear init (<all> | <target>...)", desc: "Clear initiative for target(s) or all" },
           { command: "clear res (<all> | <target>...)", desc: "Clear resource usage for target(s) or all" },
-          { command: "heal <value> <target>...", desc: "Heal/subtract damage from target(s) (alias for remove dmg)" },
-          { command: "hurt <value> <target>...", desc: "Add damage taken to target(s) (alias for add dmg)" },
+          { command: "remove dmg <value> <target>...", desc: "Heal/subtract damage from target(s)" },
+          { command: "heal <value> <target>...", desc: "Heal/subtract damage from target(s)" },
           { command: "remove (eff | cond | stat) <eff> <t>", desc: "Remove status effect from target(s)" },
           { command: "remove res <name> <target>...", desc: "Remove/decrement resource usage from target(s)" },
           { command: "set ac <val> <target> [<val> <target>...]", desc: "Set AC pairs (e.g. 15 joe 18 jane)" },
@@ -938,11 +942,13 @@ function handleCommandInternal(input: string): boolean {
         title: "Game State & Storage",
         lines: [
           { command: "delete save [<name>...]", desc: "Delete save file(s) (or list options)" },
+          { command: "del save [<name>...]", desc: "Delete save file(s) (or list options)" },
           { command: "load save [<name>]", desc: "Load saved game state (or list options)" },
           { command: "new game", desc: "Start a fresh new game session" },
           { command: "rename save [<new_name>]", desc: "Rename current game session" },
           { command: "save [<name>]", desc: "Save game session snapshot (or prompt)" },
           { command: "saves", desc: "List all saved game files with paths" },
+          { command: "list saves", desc: "List all saved game files with paths" },
         ]
       },
       {
@@ -2753,9 +2759,11 @@ export const ALL_COMMAND_TEMPLATES: string[] = [
   "add", "add pc", "add enemy", "add neutral", "add char", "add eff", "add cond", "add stat", "add status",
   "add dmg", "add rxn", "add reaction", "add res",
   "use", "use res",
-  "remove", "remove char", "remove pcs", "remove enemies", "remove neutrals", "remove eff", "remove cond", "remove stat", "remove status",
+  "remove", "remove char", "remove pcs", "remove enemies", "remove neutrals", "remove p", "remove e", "remove n",
+  "remove eff", "remove cond", "remove stat", "remove status",
   "remove dmg", "remove rxn", "remove reaction", "remove res",
-  "rm", "rm char", "rm pcs", "rm enemies", "rm neutrals", "rm eff", "rm cond", "rm stat", "rm status",
+  "rm", "rm char", "rm pcs", "rm enemies", "rm neutrals", "rm p", "rm e", "rm n",
+  "rm eff", "rm cond", "rm stat", "rm status",
   "rm dmg", "rm rxn", "rm reaction", "rm res",
   "clear", "clear ac", "clear dmg", "clear hp", "clear init", "clear res",
   "set", "set ac", "set hp", "set init", "set type", "set type pc", "set type enemy", "set type neutral",
@@ -2764,7 +2772,7 @@ export const ALL_COMMAND_TEMPLATES: string[] = [
   "next", "n", "prev", "p",
   "heal", "hurt",
   "undo", "u", "redo", "r",
-  "save", "saves", "load save", "new game", "rename save", "delete save",
+  "save", "saves", "list saves", "load save", "new game", "rename save", "delete save", "del", "del save",
   "show activity", "help", "h", "quit", "exit", "q",
   "test", "test simple"
 ];
@@ -2858,7 +2866,7 @@ export function completer(line: string): [string[], string] {
   } else if (cmd === "remove" || cmd === "rm") {
     const rmPrefix = cmd;
     if (baseParts.length === 1) {
-      const rmSubs = ["char", "pcs", "enemies", "neutrals", "eff", "cond", "stat", "status", "dmg", "rxn", "reaction", "res"];
+      const rmSubs = ["char", "pcs", "enemies", "neutrals", "p", "e", "n", "eff", "cond", "stat", "status", "dmg", "rxn", "reaction", "res"];
       completions = rmSubs.map(s => `${rmPrefix} ${s}`);
     } else if (subCmd === "rxn" || subCmd === "reaction") {
       completions = creatures.map(c => {
@@ -2953,7 +2961,7 @@ export function completer(line: string): [string[], string] {
     if (baseParts.length === 1) {
       completions = ["show activity"];
     }
-  } else if (cmd === "load" || cmd === "rename" || cmd === "delete") {
+  } else if (cmd === "load" || cmd === "rename" || cmd === "delete" || cmd === "del") {
     if (baseParts.length === 1) {
       completions = [`${cmd} save`];
     } else if (subCmd === "save" && baseParts.length === 2) {
