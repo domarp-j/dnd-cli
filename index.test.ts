@@ -1075,4 +1075,83 @@ describe("D&D CLI Tracker Test Suite", () => {
       expect(typeHits).toContain("set type Aragorn");
     });
   });
+
+  describe("Death States & HP Thresholds", () => {
+    test("marks creature Dead immediately when dmg matches HP for PC, enemy, and neutral", () => {
+      handleCommand("new game");
+      handleCommand("add pc Hero");
+      handleCommand("add enemy Goblin");
+      handleCommand("add neutral Merchant");
+
+      handleCommand("set hp 20 Hero 12 Goblin 8 Merchant");
+
+      handleCommand("add dmg 20 Hero");
+      expect(creatures.find(c => c.name === "Hero")?.statusEffects).toContain("Dead");
+
+      handleCommand("add dmg 12 Goblin");
+      expect(creatures.find(c => c.name === "Goblin")?.statusEffects).toContain("Dead");
+
+      handleCommand("add dmg 8 Merchant");
+      expect(creatures.find(c => c.name === "Merchant")?.statusEffects).toContain("Dead");
+    });
+
+    test("marks creature Dead immediately when dmg exceeds HP for neutral and other characters", () => {
+      handleCommand("new game");
+      handleCommand("add pc Hero");
+      handleCommand("add enemy Goblin");
+      handleCommand("add neutral Villager");
+
+      handleCommand("set hp 15 Hero 10 Goblin 6 Villager");
+
+      handleCommand("add dmg 20 Hero");
+      expect(creatures.find(c => c.name === "Hero")?.statusEffects).toContain("Dead");
+
+      handleCommand("add dmg 15 Goblin");
+      expect(creatures.find(c => c.name === "Goblin")?.statusEffects).toContain("Dead");
+
+      handleCommand("add dmg 12 Villager");
+      expect(creatures.find(c => c.name === "Villager")?.statusEffects).toContain("Dead");
+    });
+
+    test("marks creature Dead when set hp sets HP max at or below current damage", () => {
+      handleCommand("new game");
+      handleCommand("add neutral Villager");
+      handleCommand("add dmg 10 Villager");
+      expect(creatures.find(c => c.name === "Villager")?.statusEffects).not.toContain("Dead");
+
+      // Setting HP equal to existing damage
+      handleCommand("set hp 10 Villager");
+      expect(creatures.find(c => c.name === "Villager")?.statusEffects).toContain("Dead");
+
+      // Setting HP lower than existing damage
+      handleCommand("set hp 5 Villager");
+      expect(creatures.find(c => c.name === "Villager")?.statusEffects).toContain("Dead");
+
+      // Setting HP above damage restores alive state
+      handleCommand("set hp 20 Villager");
+      expect(creatures.find(c => c.name === "Villager")?.statusEffects).not.toContain("Dead");
+    });
+
+    test("removes Dead state when healed below max HP", () => {
+      handleCommand("new game");
+      handleCommand("add neutral Villager");
+      handleCommand("set hp 10 Villager");
+      handleCommand("add dmg 10 Villager");
+      expect(creatures.find(c => c.name === "Villager")?.statusEffects).toContain("Dead");
+
+      handleCommand("heal 1 Villager");
+      expect(creatures.find(c => c.name === "Villager")?.statusEffects).not.toContain("Dead");
+    });
+
+    test("preserves manual Dead effect on creatures without hpMax", () => {
+      handleCommand("new game");
+      handleCommand("add neutral Ghost");
+      handleCommand("add eff Dead Ghost");
+      expect(creatures.find(c => c.name === "Ghost")?.statusEffects).toContain("Dead");
+
+      // Running a command should not clear manual Dead on null hpMax creature
+      handleCommand("add neutral Skeleton");
+      expect(creatures.find(c => c.name === "Ghost")?.statusEffects).toContain("Dead");
+    });
+  });
 });

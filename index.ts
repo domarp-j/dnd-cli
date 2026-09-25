@@ -159,7 +159,7 @@ export function checkDeathStates(): void {
       if (!hasDead) {
         c.statusEffects.push("Dead");
       }
-    } else {
+    } else if (c.hpMax !== null && c.dmg < c.hpMax) {
       c.statusEffects = c.statusEffects.filter(e => e.toLowerCase() !== "dead");
     }
   }
@@ -443,6 +443,7 @@ function withTurnPreservation(fn: () => void): void {
 
 function nextTurn(count = 1): void {
   if (!inCombat || creatures.length === 0) return;
+  checkDeathStates();
   const sorted = getSortedCreatures();
   const allDead = sorted.every(c => c.statusEffects.some(e => e.toLowerCase() === "dead"));
   if (allDead) return;
@@ -468,6 +469,7 @@ function nextTurn(count = 1): void {
 
 function prevTurn(count = 1): void {
   if (!inCombat || creatures.length === 0) return;
+  checkDeathStates();
   const sorted = getSortedCreatures();
   const allDead = sorted.every(c => c.statusEffects.some(e => e.toLowerCase() === "dead"));
   if (allDead) return;
@@ -550,6 +552,7 @@ function visibleLength(str: string): number {
 }
 
 function renderTable(): void {
+  checkDeathStates();
   console.clear();
 
   const sorted = getSortedCreatures();
@@ -1243,6 +1246,7 @@ function handleCommandInternal(input: string): boolean {
     inCombat = true;
     currentRound = 1;
     currentTurnIndex = 0;
+    checkDeathStates();
     const sorted = getSortedCreatures();
     
     const allDead = sorted.every(c => c.statusEffects.some(e => e.toLowerCase() === "dead"));
