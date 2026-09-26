@@ -80,6 +80,10 @@ Here is a sampling of useful commands to demonstrate the CLI's capabilities:
   ac clear all
   init clear all
   ```
+- **Rename an existing creature:**
+  ```text
+  char rename Ajax "Ajax the Great"
+  ```
 - **Remove creatures (individually by name with multiple targets, or bulk by type):**
   ```text
   char remove Ajax Kaelor

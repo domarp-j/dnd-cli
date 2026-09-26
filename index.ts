@@ -168,6 +168,9 @@ export function normalizeCommandTokens(parts: string[]): string[] {
       }
       return ["remove", "char", ...parts.slice(2)];
     }
+    if (second === "rename") {
+      return ["char", "rename", ...parts.slice(2)];
+    }
     return parts;
   }
 
@@ -1165,6 +1168,7 @@ function handleCommandInternal(input: string): boolean {
           { command: "(pc | enemy | neutral) add <name>...", desc: "Add creature(s) of specified type" },
           { command: "char remove <target>...", desc: "Remove specific creature(s) by name" },
           { command: "(pc | enemy | neutral) remove", desc: "Bulk remove creatures by type" },
+          { command: "char rename <target> <new_name>", desc: "Rename an existing character" },
           { command: "type set (pc | enemy | neutral) <target>...", desc: "Change character type" },
         ]
       },
@@ -1285,6 +1289,78 @@ function handleCommandInternal(input: string): boolean {
       console.log(`${RED}${res.error}${RESET}\n`);
     }
     return true;
+  }
+
+  if (cmd === "char" || cmd === "creature") {
+    const subCmd = parts[1]?.toLowerCase();
+    if (subCmd === "rename") {
+      const args = parts.slice(2);
+      if (args.length !== 2) {
+        renderTable();
+        console.log(`${RED}Usage: char rename <target> <new_name>${RESET}\n`);
+        return true;
+      }
+
+      const arg1 = args[0]!;
+      const arg2 = args[1]!;
+
+      const res1 = findCreaturesForIdentifier(arg1);
+      const res2 = findCreaturesForIdentifier(arg2);
+
+      let targetCreature: Creature;
+      let newName: string;
+
+      if (res1.ok && !res2.ok) {
+        targetCreature = res1.creatures[0]!;
+        newName = arg2;
+      } else if (!res1.ok && res2.ok) {
+        targetCreature = res2.creatures[0]!;
+        newName = arg1;
+      } else if (res1.ok && res2.ok) {
+        if (res1.creatures[0] === res2.creatures[0]) {
+          renderTable();
+          console.log(`${YELLOW}Creature is already named "${res1.creatures[0]!.name}".${RESET}\n`);
+          return true;
+        }
+        renderTable();
+        console.log(`${RED}A creature named "${res2.creatures[0]!.name}" already exists.${RESET}\n`);
+        return true;
+      } else {
+        renderTable();
+        if (res1.error.startsWith("Ambiguous")) {
+          console.log(`${RED}${res1.error}${RESET}\n`);
+        } else if (res2.error.startsWith("Ambiguous")) {
+          console.log(`${RED}${res2.error}${RESET}\n`);
+        } else {
+          console.log(`${RED}${res1.error}${RESET}\n`);
+        }
+        return true;
+      }
+
+      const trimmedNewName = newName.trim();
+      if (!trimmedNewName) {
+        renderTable();
+        console.log(`${RED}New name cannot be empty.${RESET}\n`);
+        return true;
+      }
+
+      const duplicate = creatures.find(
+        (c) => c !== targetCreature && c.name.toLowerCase() === trimmedNewName.toLowerCase()
+      );
+      if (duplicate) {
+        renderTable();
+        console.log(`${RED}A creature named "${duplicate.name}" already exists.${RESET}\n`);
+        return true;
+      }
+
+      const oldName = targetCreature.name;
+      targetCreature.name = trimmedNewName;
+
+      renderTable();
+      console.log(`${GREEN}✓ Renamed creature "${oldName}" to "${targetCreature.name}".${RESET}\n`);
+      logActivity(`Renamed creature "${oldName}" to "${targetCreature.name}"`);
+      return true;
+    }
   }
 
   if (cmd === "save" || cmd === "savegame") {
@@ -3048,7 +3124,7 @@ export const ALL_COMMAND_TEMPLATES: string[] = [
   // Primary syntax: <field|entity> <command> ...
   "save list", "save delete", "save load", "save rename", "save",
   "game new", "game load", "game save", "game list", "game delete",
-  "char add", "char add pc", "char add enemy", "char add neutral", "char remove",
+  "char add", "char add pc", "char add enemy", "char add neutral", "char remove", "char rename",
   "pc add", "pc remove",
   "enemy add", "enemy remove",
   "neutral add", "neutral remove",
@@ -3110,11 +3186,16 @@ export function completer(line: string): [string[], string] {
     completions = ALL_COMMAND_TEMPLATES;
   } else if (cmd === "char") {
     if (baseParts.length === 1) {
-      completions = ["char add", "char remove"];
+      completions = ["char add", "char remove", "char rename"];
     } else if (subCmd === "add") {
       if (baseParts.length === 2) {
         completions = ["char add pc", "char add enemy", "char add neutral"];
       }
+    } else if (subCmd === "rename") {
+      completions = creatures.map(c => {
+        const formatted = c.name.includes(" ") ? `"${c.name}"` : c.name;
+        return `char rename ${formatted}`;
+      });
     } else if (subCmd === "remove") {
       if (baseParts.length === 2) {
         const typeSubs = ["pcs", "enemies", "neutrals"];

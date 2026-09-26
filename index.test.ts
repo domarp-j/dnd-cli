@@ -1042,6 +1042,7 @@ describe("D&D CLI Tracker Test Suite", () => {
         expect(fullOutput).not.toContain("type set <target>...");
         expect(fullOutput).toContain("char add [pc | enemy | neutral] <name>...");
         expect(fullOutput).toContain("char remove <target>...");
+        expect(fullOutput).toContain("char rename <target> <new_name>");
         expect(fullOutput).toContain("(combat | c) [start]");
         expect(fullOutput).toContain("(combat | c) end");
         expect(fullOutput).toContain("(undo | u) [<count>]");
@@ -1536,6 +1537,7 @@ describe("D&D CLI Tracker Test Suite", () => {
       expect(normalizeCommandTokens(["char", "add", "G1"])).toEqual(["add", "char", "G1"]);
       expect(normalizeCommandTokens(["char", "remove", "G1"])).toEqual(["remove", "char", "G1"]);
       expect(normalizeCommandTokens(["char", "remove", "pcs"])).toEqual(["remove", "pcs"]);
+      expect(normalizeCommandTokens(["char", "rename", "Hero", "NewHero"])).toEqual(["char", "rename", "Hero", "NewHero"]);
       expect(normalizeCommandTokens(["pc", "add", "P1"])).toEqual(["add", "pc", "P1"]);
       expect(normalizeCommandTokens(["enemy", "add", "E1"])).toEqual(["add", "enemy", "E1"]);
       expect(normalizeCommandTokens(["neutral", "add", "N1"])).toEqual(["add", "neutral", "N1"]);
@@ -1678,6 +1680,62 @@ describe("D&D CLI Tracker Test Suite", () => {
 
       handleCommand("undo");
       expect(creatures.length).toBe(2);
+    });
+
+    test("char rename renames a character and is undoable and redoable", () => {
+      handleCommand("game new");
+      handleCommand("char add pc Aragorn Legolas");
+      expect(creatures[0]?.name).toBe("Aragorn");
+
+      const initUndoLen = getHistoryStacks().undoLength;
+
+      // 1. Standard syntax: char rename <target> <new_name>
+      handleCommand("char rename Aragorn Strider");
+      expect(creatures.some((c) => c.name === "Strider")).toBeTrue();
+      expect(getActivityLog().some((e) => e.message === 'Renamed creature "Aragorn" to "Strider"')).toBeTrue();
+      expect(getHistoryStacks().undoLength).toBe(initUndoLen + 1);
+
+      // Undo
+      handleCommand("undo");
+      expect(creatures.some((c) => c.name === "Aragorn")).toBeTrue();
+      expect(getHistoryStacks().undoLength).toBe(initUndoLen);
+
+      // Redo
+      handleCommand("redo");
+      expect(creatures.some((c) => c.name === "Strider")).toBeTrue();
+      expect(getHistoryStacks().undoLength).toBe(initUndoLen + 1);
+
+      // 2. Value-first syntax: char rename <new_name> <target>
+      handleCommand("char rename Elessar Strider");
+      expect(creatures.some((c) => c.name === "Elessar")).toBeTrue();
+
+      handleCommand("undo");
+      expect(creatures.some((c) => c.name === "Strider")).toBeTrue();
+
+      // 3. Quoted multi-word names
+      handleCommand('char rename "Strider" "King Elessar"');
+      expect(creatures.some((c) => c.name === "King Elessar")).toBeTrue();
+
+      handleCommand("undo");
+      expect(creatures.some((c) => c.name === "Strider")).toBeTrue();
+
+      // 4. Duplicate name prevention
+      handleCommand("char rename Strider Legolas");
+      expect(creatures.some((c) => c.name === "Strider")).toBeTrue();
+      expect(getHistoryStacks().undoLength).toBe(initUndoLen + 1); // no extra undo pushed
+
+      // 5. Same name warning
+      handleCommand("char rename Strider Strider");
+      expect(creatures.some((c) => c.name === "Strider")).toBeTrue();
+
+      // 6. Nonexistent target
+      handleCommand("char rename Nonexistent NewName");
+      expect(creatures.some((c) => c.name === "Strider")).toBeTrue();
+
+      // 7. Invalid argument count
+      handleCommand("char rename Strider");
+      handleCommand("char rename Strider Name1 Name2");
+      expect(creatures.some((c) => c.name === "Strider")).toBeTrue();
     });
 
     test("type set is undoable and redoable", () => {
@@ -2065,6 +2123,11 @@ describe("D&D CLI Tracker Test Suite", () => {
       const [charHits] = completer("char ");
       expect(charHits).toContain("char add");
       expect(charHits).toContain("char remove");
+      expect(charHits).toContain("char rename");
+
+      // char rename
+      const [charRenameHits] = completer("char rename ");
+      expect(charRenameHits).toContain("char rename HeroA");
 
       // pc
       const [pcHits] = completer("pc ");
