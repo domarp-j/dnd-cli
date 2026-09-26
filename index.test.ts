@@ -1039,6 +1039,7 @@ describe("D&D CLI Tracker Test Suite", () => {
 
         expect(fullOutput).toContain("(pc | enemy | neutral) remove");
         expect(fullOutput).toContain("type set (pc | enemy | neutral)");
+        expect(fullOutput).not.toContain("type set <target>...");
         expect(fullOutput).toContain("dmg add <value> <target>...");
         expect(fullOutput).toContain("dmg remove <value> <target>...");
         expect(fullOutput).toContain("save delete [<name>...]");
@@ -1112,14 +1113,14 @@ describe("D&D CLI Tracker Test Suite", () => {
       expect(creatures.find((c) => c.name === "Legolas")?.type).toBe("neutral");
     });
 
-    test("supports target-first syntax: 'type set <target> <type>'", () => {
+    test("rejects target-first syntax: 'type set <target> <type>'", () => {
       handleCommand("char add pc Aragorn Legolas");
       handleCommand("type set Aragorn enemy");
-      expect(creatures.find((c) => c.name === "Aragorn")?.type).toBe("enemy");
+      expect(creatures.find((c) => c.name === "Aragorn")?.type).toBe("pc");
 
       handleCommand("type set Aragorn Legolas neutral");
-      expect(creatures.find((c) => c.name === "Aragorn")?.type).toBe("neutral");
-      expect(creatures.find((c) => c.name === "Legolas")?.type).toBe("neutral");
+      expect(creatures.find((c) => c.name === "Aragorn")?.type).toBe("pc");
+      expect(creatures.find((c) => c.name === "Legolas")?.type).toBe("pc");
     });
 
     test("supports 'type set' and 'type' command shortcuts", () => {
@@ -1127,14 +1128,11 @@ describe("D&D CLI Tracker Test Suite", () => {
       handleCommand("type set enemy Aragorn");
       expect(creatures.find((c) => c.name === "Aragorn")?.type).toBe("enemy");
 
-      handleCommand("type set Aragorn pc");
+      handleCommand("type set pc Aragorn");
       expect(creatures.find((c) => c.name === "Aragorn")?.type).toBe("pc");
 
       handleCommand("type neutral Aragorn");
       expect(creatures.find((c) => c.name === "Aragorn")?.type).toBe("neutral");
-
-      handleCommand("type Aragorn enemy");
-      expect(creatures.find((c) => c.name === "Aragorn")?.type).toBe("enemy");
     });
 
     test("validates invalid types and nonexistent targets", () => {
@@ -1179,7 +1177,10 @@ describe("D&D CLI Tracker Test Suite", () => {
       expect(typeSetHits).toContain("type set pc");
       expect(typeSetHits).toContain("type set enemy");
       expect(typeSetHits).toContain("type set neutral");
-      expect(typeSetHits).toContain("type set Aragorn");
+      expect(typeSetHits).not.toContain("type set Aragorn");
+
+      const [typeSetPcHits] = completer("type set pc ");
+      expect(typeSetPcHits).toContain("type set pc Aragorn");
     });
   });
 
@@ -1525,7 +1526,7 @@ describe("D&D CLI Tracker Test Suite", () => {
       expect(normalizeCommandTokens(["neutral", "add", "N1"])).toEqual(["add", "neutral", "N1"]);
       expect(normalizeCommandTokens(["pc", "remove", "P1"])).toEqual(["remove", "pc", "P1"]);
       expect(normalizeCommandTokens(["type", "set", "enemy", "Hero"])).toEqual(["set", "type", "enemy", "Hero"]);
-      expect(normalizeCommandTokens(["type", "change", "Hero", "enemy"])).toEqual(["set", "type", "Hero", "enemy"]);
+      expect(normalizeCommandTokens(["type", "set", "pc", "Hero"])).toEqual(["set", "type", "pc", "Hero"]);
       expect(normalizeCommandTokens(["hp", "set", "40", "Hero"])).toEqual(["set", "hp", "40", "Hero"]);
       expect(normalizeCommandTokens(["hp", "clear", "Hero"])).toEqual(["clear", "hp", "Hero"]);
       expect(normalizeCommandTokens(["ac", "set", "16", "Hero"])).toEqual(["set", "ac", "16", "Hero"]);
@@ -1680,8 +1681,8 @@ describe("D&D CLI Tracker Test Suite", () => {
       expect(creatures[0]?.type).toBe("enemy");
       expect(creatures[1]?.type).toBe("enemy");
 
-      // Target first syntax: type set HeroA pc
-      handleCommand("type set HeroA pc");
+      // Update one target: type set pc HeroA
+      handleCommand("type set pc HeroA");
       expect(creatures[0]?.type).toBe("pc");
       handleCommand("undo");
       expect(creatures[0]?.type).toBe("enemy");

@@ -1166,7 +1166,6 @@ function handleCommandInternal(input: string): boolean {
           { command: "char remove <name>...", desc: "Remove specific creature(s) by name" },
           { command: "(pc | enemy | neutral) remove", desc: "Bulk remove creatures by type" },
           { command: "type set (pc | enemy | neutral) <t>...", desc: "Change character type" },
-          { command: "type set <target>... (pc | enemy | neutral)", desc: "Change character type" },
         ]
       },
       {
@@ -2068,7 +2067,7 @@ function handleCommandInternal(input: string): boolean {
       const args = parts.slice(2);
       if (args.length === 0) {
         renderTable();
-        console.log(`${RED}Usage: set type <pc|enemy|neutral> <target>... (or "set type <target> <pc|enemy|neutral>")${RESET}\n`);
+        console.log(`${RED}Usage: type set <pc|enemy|neutral> <target>...${RESET}\n`);
         return true;
       }
 
@@ -2076,7 +2075,6 @@ function handleCommandInternal(input: string): boolean {
       const parsedItems: TypeUpdateItem[] = [];
 
       const firstType = parseCreatureType(args[0]!);
-      const lastType = parseCreatureType(args[args.length - 1]!);
 
       // Check if alternating pairs: even length, every even index is a valid type
       let isPairs = args.length >= 2 && args.length % 2 === 0;
@@ -2100,25 +2098,15 @@ function handleCommandInternal(input: string): boolean {
         const targets = args.slice(1);
         if (targets.length === 0) {
           renderTable();
-          console.log(`${RED}Usage: set type <pc|enemy|neutral> <target>...${RESET}\n`);
+          console.log(`${RED}Usage: type set <pc|enemy|neutral> <target>...${RESET}\n`);
           return true;
         }
         for (const t of targets) {
           parsedItems.push({ type: firstType, rawTarget: t });
         }
-      } else if (lastType) {
-        const targets = args.slice(0, -1);
-        if (targets.length === 0) {
-          renderTable();
-          console.log(`${RED}Usage: set type <target>... <pc|enemy|neutral>${RESET}\n`);
-          return true;
-        }
-        for (const t of targets) {
-          parsedItems.push({ type: lastType, rawTarget: t });
-        }
       } else {
         renderTable();
-        console.log(`${RED}Invalid creature type. Please specify pc, enemy, or neutral (e.g. "set type pc Ajax" or "set type Ajax pc").${RESET}\n`);
+        console.log(`${RED}Invalid creature type. Please specify pc, enemy, or neutral (e.g. "type set pc Ajax").${RESET}\n`);
         return true;
       }
 
@@ -3234,7 +3222,7 @@ export function completer(line: string): [string[], string] {
       completions = ["type set"];
     } else if (subCmd === "set") {
       if (baseParts.length === 2) {
-        completions = ["type set pc", "type set enemy", "type set neutral", ...creatures.map(c => `type set ${c.name.includes(" ") ? `"${c.name}"` : c.name}`)];
+        completions = ["type set pc", "type set enemy", "type set neutral"];
       } else {
         completions = creatures.map(c => {
           const formatted = c.name.includes(" ") ? `"${c.name}"` : c.name;
