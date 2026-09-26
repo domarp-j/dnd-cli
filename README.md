@@ -44,7 +44,7 @@ bun run dnd
 
 ## Usage & Capabilities
 
-Once launched, `dnd-cli` presents an interactive terminal interface. Commands follow the unified `<field|entity> <command> <value> <target...>` convention (e.g. `save delete`, `hp set 40 Ajax`, `dmg add 10 Ajax`). You can access the full command reference menu inside the app at any time by typing `help` (or `h`), or search and highlight specific commands using `help <query>` (or `h <query>`).
+Once launched, `dnd-cli` presents an interactive terminal interface. Commands follow the unified `<field|entity> <command> <value> <target>...` convention (e.g. `save delete`, `hp set 40 Ajax`, `dmg add 10 Ajax`). You can access the full command reference menu inside the app at any time by typing `help` (or `h`), or search and highlight specific commands using `help <query>` (or `h <query>`).
 
 Press `Tab` at any time to activate **interactive typeahead**: it searches all commands that contain your current string anywhere in their body, highlights the matching characters within the options, and lets you use the `↑` / `↓` arrow keys to select a command.
 

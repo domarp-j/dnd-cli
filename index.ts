@@ -919,7 +919,7 @@ function renderTable(): void {
   }
 
   console.log(`${DIM}${"─".repeat(100)}${RESET}`);
-  console.log(`${DIM}  help (h) · quit (q) · <field|entity> <command> <value> <target...>${RESET}\n`);
+  console.log(`${DIM}  help (h) · quit (q) · <field|entity> <command> <value> <target>...${RESET}\n`);
 }
 
 // --- Helpers ---
@@ -1161,18 +1161,18 @@ function handleCommandInternal(input: string): boolean {
       {
         title: "Creature Management",
         lines: [
-          { command: "char add [type] <name>...", desc: "Add creature(s) by type (pc, enemy, neutral) or prompt" },
+          { command: "char add [pc | enemy | neutral] <name>...", desc: "Add creature(s) by type or prompt" },
           { command: "(pc | enemy | neutral) add <name>...", desc: "Add creature(s) of specified type" },
-          { command: "char remove <name>...", desc: "Remove specific creature(s) by name" },
+          { command: "char remove <target>...", desc: "Remove specific creature(s) by name" },
           { command: "(pc | enemy | neutral) remove", desc: "Bulk remove creatures by type" },
-          { command: "type set (pc | enemy | neutral) <t>...", desc: "Change character type" },
+          { command: "type set (pc | enemy | neutral) <target>...", desc: "Change character type" },
         ]
       },
       {
         title: "Combat & Turn Control",
         lines: [
-          { command: "combat | c [start]", desc: "Start combat mode (resorts by initiative)" },
-          { command: "combat | c end", desc: "End combat mode (clears init & dmg)" },
+          { command: "(combat | c) [start]", desc: "Start combat mode (resorts by initiative)" },
+          { command: "(combat | c) end", desc: "End combat mode (clears init & dmg)" },
           { command: "turn (next | prev) [<count>]", desc: "Advance or rewind 1 or <count> turns" },
           { command: "rxn set <target>...", desc: "Mark creature reaction as used" },
           { command: "rxn remove <target>...", desc: "Restore creature reaction" },
@@ -1181,20 +1181,20 @@ function handleCommandInternal(input: string): boolean {
       {
         title: "Stats & Status Effects",
         lines: [
-          { command: "hp set <val> <target>...", desc: "Set HP max (supports multiple targets or pairs)" },
-          { command: "hp clear (<all> | <target>...)", desc: "Clear HP max for target(s) or all" },
-          { command: "ac set <val> <target>...", desc: "Set AC (supports multiple targets or pairs)" },
-          { command: "ac clear (<all> | <target>...)", desc: "Clear AC for target(s) or all" },
-          { command: "init set <val> <target>...", desc: "Set initiative (supports multiple targets or pairs)" },
-          { command: "init clear (<all> | <target>...)", desc: "Clear initiative for target(s) or all" },
+          { command: "hp set <value> <target>...", desc: "Set HP max (supports multiple targets or pairs)" },
+          { command: "hp clear (all | <target>...)", desc: "Clear HP max for target(s) or all" },
+          { command: "ac set <value> <target>...", desc: "Set AC (supports multiple targets or pairs)" },
+          { command: "ac clear (all | <target>...)", desc: "Clear AC for target(s) or all" },
+          { command: "init set <value> <target>...", desc: "Set initiative (supports multiple targets or pairs)" },
+          { command: "init clear (all | <target>...)", desc: "Clear initiative for target(s) or all" },
           { command: "dmg add <value> <target>...", desc: "Add damage taken to target(s)" },
           { command: "dmg remove <value> <target>...", desc: "Heal/subtract damage from target(s)" },
-          { command: "dmg clear (<all> | <target>...)", desc: "Clear damage for target(s) or all" },
-          { command: "eff add <eff> <target>...", desc: "Add status effect to target(s)" },
-          { command: "eff remove <eff> <target>...", desc: "Remove status effect from target(s)" },
-          { command: "res (add | use) <name> <target>...", desc: "Add/increment resource usage for target(s)" },
-          { command: "res remove <name> <target>...", desc: "Remove/decrement resource usage from target(s)" },
-          { command: "res clear (<all> | <target>...)", desc: "Clear resource usage for target(s) or all" },
+          { command: "dmg clear (all | <target>...)", desc: "Clear damage for target(s) or all" },
+          { command: "eff add <effect> <target>...", desc: "Add status effect to target(s)" },
+          { command: "eff remove <effect> <target>...", desc: "Remove status effect from target(s)" },
+          { command: "res (add | use) <resource> <target>...", desc: "Add/increment resource usage for target(s)" },
+          { command: "res remove <resource> <target>...", desc: "Remove/decrement resource usage from target(s)" },
+          { command: "res clear (all | <target>...)", desc: "Clear resource usage for target(s) or all" },
         ]
       },
       {
@@ -1206,8 +1206,10 @@ function handleCommandInternal(input: string): boolean {
           { command: "save rename [<new_name>]", desc: "Rename current game session" },
           { command: "save [<name>]", desc: "Save game session snapshot (or prompt)" },
           { command: "game new", desc: "Start a fresh new game session" },
+          { command: "game list", desc: "List all saved game files" },
           { command: "game load [<name>]", desc: "Load saved game session snapshot" },
           { command: "game save [<name>]", desc: "Save game session snapshot" },
+          { command: "game rename [<new_name>]", desc: "Rename current game session" },
           { command: "game delete [<name>...]", desc: "Delete saved game file(s)" },
         ]
       },
@@ -1215,9 +1217,9 @@ function handleCommandInternal(input: string): boolean {
         title: "Utilities",
         lines: [
           { command: "activity show", desc: "Show all actions logged in this session" },
-          { command: "(help | h) [<filter>]", desc: "Show this POSIX / docopt help menu (supports optional filter)" },
-          { command: "undo | u [<count>]", desc: "Revert the last 1 or <count> mutating actions" },
-          { command: "redo | r [<count>]", desc: "Re-apply the last 1 or <count> undone actions" },
+          { command: "(help | h) [<filter>]", desc: "Show this help menu (supports optional filter)" },
+          { command: "(undo | u) [<count>]", desc: "Revert the last 1 or <count> mutating actions" },
+          { command: "(redo | r) [<count>]", desc: "Re-apply the last 1 or <count> undone actions" },
           { command: "test [simple]", desc: "Load test data encounter" },
           { command: "(quit | q | exit)", desc: "Exit the application" },
         ]
@@ -1606,12 +1608,12 @@ function handleCommandInternal(input: string): boolean {
     const addOptions = ["pc", "char", "enemy", "neutral", "dmg", "cond", "condition", "eff", "effect", "effects", "rxn", "res", "stat", "status", "stats"];
     const matched = matchPrefix(subCmd, addOptions);
 
-    // --- add rxn <target>... ---
+    // --- rxn set <target>... ---
     if (matched === "rxn") {
       const targets = parts.slice(2);
       if (targets.length === 0) {
         renderTable();
-        console.log(`${RED}Usage: add rxn <target>...${RESET}\n`);
+        console.log(`${RED}Usage: rxn set <target>...${RESET}\n`);
         return true;
       }
 
@@ -1633,14 +1635,14 @@ function handleCommandInternal(input: string): boolean {
       return true;
     }
 
-    // --- add/use res <name> <target>... ---
+    // --- res (add | use) <resource> <target>... ---
     if (matched === "res") {
       const resNameInput = parts[2];
       const targets = parts.slice(3);
 
       if (!resNameInput || targets.length === 0) {
         renderTable();
-        console.log(`${RED}Usage: add|use res <name> <target>...${RESET}\n`);
+        console.log(`${RED}Usage: res (add | use) <resource> <target>...${RESET}\n`);
         return true;
       }
 
@@ -1688,14 +1690,14 @@ function handleCommandInternal(input: string): boolean {
       return true;
     }
 
-    // --- add eff/cond/stat/status <str> n1 n2 ---
+    // --- eff add <effect> <target>... ---
     if (matched === "cond" || matched === "condition" || matched === "eff" || matched === "effect" || matched === "effects" || matched === "stat" || matched === "status" || matched === "stats") {
       const cond = parts[2];
       const targets = parts.slice(3);
 
       if (!cond || targets.length === 0) {
         renderTable();
-        console.log(`${RED}Usage: add eff <str> n1 n2${RESET}\n`);
+        console.log(`${RED}Usage: eff add <effect> <target>...${RESET}\n`);
         return true;
       }
 
@@ -1719,14 +1721,14 @@ function handleCommandInternal(input: string): boolean {
       return true;
     }
 
-    // --- add dmg <val> n1 n2 ---
+    // --- dmg add <value> <target>... ---
     if (matched === "dmg") {
       const rawVal = parts[2];
       const targets = parts.slice(3);
 
       if (!rawVal || targets.length === 0) {
         renderTable();
-        console.log(`${RED}Usage: add dmg <value> n1 n2${RESET}\n`);
+        console.log(`${RED}Usage: dmg add <value> <target>...${RESET}\n`);
         return true;
       }
 
@@ -1755,12 +1757,12 @@ function handleCommandInternal(input: string): boolean {
       return true;
     }
 
-    // --- add char/enemy/neutral n1 n2 ---
+    // --- char add [pc | enemy | neutral] <name>... ---
     const targets = parts.slice(2);
 
     if (targets.length === 0) {
       renderTable();
-      console.log(`${RED}Usage: add <pc|enemy|neutral> n1 n2${RESET}\n`);
+      console.log(`${RED}Usage: char add [pc | enemy | neutral] <name>...${RESET}\n`);
       return true;
     }
 
@@ -2031,7 +2033,7 @@ function handleCommandInternal(input: string): boolean {
     }
 
     renderTable();
-    console.log(`${RED}Usage: clear <init|dmg|hp|ac> <all | target1 target2 ...> (e.g., "clear init all", "clear dmg Ajax", "clear hp Ajax", or "clear ac Ajax")${RESET}\n`);
+    console.log(`${RED}Usage: (hp | ac | init | dmg | res) clear (all | <target>...)${RESET}\n`);
     return true;
   }
 
@@ -2041,7 +2043,7 @@ function handleCommandInternal(input: string): boolean {
       const targets = parts.slice(2);
       if (targets.length === 0) {
         renderTable();
-        console.log(`${RED}Usage: set rxn <target>...${RESET}\n`);
+        console.log(`${RED}Usage: rxn set <target>...${RESET}\n`);
         return true;
       }
 
@@ -2167,7 +2169,7 @@ function handleCommandInternal(input: string): boolean {
       renderTable();
       const msg = fieldInput && !field
         ? `Unknown field "${fieldInput}". Use hp, ac, init, or type.`
-        : `Usage: set <hp|ac|init> <value> <target>... (e.g. "set hp 40 joe jane")`;
+        : `Usage: (hp | ac | init) set <value> <target>... (e.g. "hp set 40 Ajax")`;
       console.log(`${RED}${msg}${RESET}\n`);
       return true;
     }
@@ -2217,7 +2219,7 @@ function handleCommandInternal(input: string): boolean {
       const val = parseVal(rawVal);
       if (val === undefined) {
         renderTable();
-        console.log(`${RED}"${rawVal}" is not a valid number. Usage: set <hp|ac|init> <value> <target>...${RESET}\n`);
+        console.log(`${RED}"${rawVal}" is not a valid number. Usage: (hp | ac | init) set <value> <target>...${RESET}\n`);
         return true;
       }
 
@@ -2267,7 +2269,7 @@ function handleCommandInternal(input: string): boolean {
 
       if (!resNameInput || targets.length === 0) {
         renderTable();
-        console.log(`${RED}Usage: remove res <name> <target>...${RESET}\n`);
+        console.log(`${RED}Usage: res remove <resource> <target>...${RESET}\n`);
         return true;
       }
 
@@ -2535,7 +2537,7 @@ function handleCommandInternal(input: string): boolean {
 
       if (!condPattern || targets.length === 0) {
         renderTable();
-        console.log(`${RED}Usage: remove eff <str> n1 n2${RESET}\n`);
+        console.log(`${RED}Usage: eff remove <effect> <target>...${RESET}\n`);
         return true;
       }
 
@@ -2623,7 +2625,7 @@ function handleCommandInternal(input: string): boolean {
 
     if (targetArgs.length === 0) {
       renderTable();
-      console.log(`${RED}Usage: remove <pc|enemy|neutral|char> [target1 target2 ...] (e.g. "remove enemy" or "remove pc Ajax")${RESET}\n`);
+      console.log(`${RED}Usage: char remove <target>... or (pc | enemy | neutral) remove${RESET}\n`);
       return true;
     }
 
@@ -3294,10 +3296,14 @@ if (import.meta.main) {
 ${BOLD}${MAGENTA}⚔  dnd-cli — D&D Combat State Tracker${RESET}
 
 ${BOLD}Usage:${RESET}
-  dnd                Start tracker (loads the last session by default)
-  dnd --new, -n      Start a fresh, unsaved game session
-  dnd <session_name> Start tracker loading a specific saved session
-  dnd --help, -h     Show this help message
+  dnd [<options>] [<session_name>]
+
+${BOLD}Options:${RESET}
+  -n, --new, --fresh     Start a fresh, unsaved game session
+  -h, --help             Show this help message
+
+${BOLD}Arguments:${RESET}
+  <session_name>         Name of a saved session to load (loads last session by default)
 `);
     process.exit(0);
   }
