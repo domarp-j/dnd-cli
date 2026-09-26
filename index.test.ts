@@ -24,6 +24,8 @@ import {
   highlightMatch,
   getLatestSave,
   initializeSession,
+  normalizeCommandTokens,
+  tokenize,
 } from "./index";
 
 const SAVES_DIR = path.join(process.cwd(), "saves");
@@ -1525,22 +1527,582 @@ describe("D&D CLI Tracker Test Suite", () => {
       expect(creatures.length).toBe(3);
       expect(creatures.map(c => c.name)).toEqual(["HeroA", "HeroB", "HeroC"]);
     });
+  });
 
-    test("add and remove status effects support multiple targets as last args and are undoable", () => {
-      handleCommand("new game");
-      handleCommand("add pc HeroA HeroB");
+  describe("Noun-First Command Syntax (<field|entity> <command> <value> <target...>)", () => {
+    test("normalizeCommandTokens accurately maps noun-first tokens", () => {
+      expect(normalizeCommandTokens(["save", "list"])).toEqual(["saves"]);
+      expect(normalizeCommandTokens(["save", "ls"])).toEqual(["saves"]);
+      expect(normalizeCommandTokens(["save", "load", "slot1"])).toEqual(["load", "save", "slot1"]);
+      expect(normalizeCommandTokens(["save", "delete", "slot1"])).toEqual(["save", "delete", "slot1"]);
+      expect(normalizeCommandTokens(["game", "new"])).toEqual(["new", "game"]);
+      expect(normalizeCommandTokens(["game", "load", "slot1"])).toEqual(["load", "save", "slot1"]);
+      expect(normalizeCommandTokens(["game", "save", "slot1"])).toEqual(["save", "slot1"]);
+      expect(normalizeCommandTokens(["game", "rename", "slot2"])).toEqual(["rename", "save", "slot2"]);
+      expect(normalizeCommandTokens(["game", "delete", "slot1"])).toEqual(["delete", "save", "slot1"]);
+      expect(normalizeCommandTokens(["game", "list"])).toEqual(["saves"]);
+      expect(normalizeCommandTokens(["char", "add", "enemy", "G1", "G2"])).toEqual(["add", "enemy", "G1", "G2"]);
+      expect(normalizeCommandTokens(["char", "add", "pc", "Hero"])).toEqual(["add", "pc", "Hero"]);
+      expect(normalizeCommandTokens(["char", "add", "neutral", "Merchant"])).toEqual(["add", "neutral", "Merchant"]);
+      expect(normalizeCommandTokens(["char", "add", "G1"])).toEqual(["add", "char", "G1"]);
+      expect(normalizeCommandTokens(["char", "remove", "G1"])).toEqual(["remove", "char", "G1"]);
+      expect(normalizeCommandTokens(["char", "remove", "pcs"])).toEqual(["remove", "pcs"]);
+      expect(normalizeCommandTokens(["pc", "add", "P1"])).toEqual(["add", "pc", "P1"]);
+      expect(normalizeCommandTokens(["enemy", "add", "E1"])).toEqual(["add", "enemy", "E1"]);
+      expect(normalizeCommandTokens(["neutral", "add", "N1"])).toEqual(["add", "neutral", "N1"]);
+      expect(normalizeCommandTokens(["pc", "remove", "P1"])).toEqual(["remove", "pc", "P1"]);
+      expect(normalizeCommandTokens(["type", "set", "enemy", "Hero"])).toEqual(["set", "type", "enemy", "Hero"]);
+      expect(normalizeCommandTokens(["type", "change", "Hero", "enemy"])).toEqual(["set", "type", "Hero", "enemy"]);
+      expect(normalizeCommandTokens(["hp", "set", "40", "Hero"])).toEqual(["set", "hp", "40", "Hero"]);
+      expect(normalizeCommandTokens(["hp", "clear", "Hero"])).toEqual(["clear", "hp", "Hero"]);
+      expect(normalizeCommandTokens(["ac", "set", "16", "Hero"])).toEqual(["set", "ac", "16", "Hero"]);
+      expect(normalizeCommandTokens(["ac", "clear", "all"])).toEqual(["clear", "ac", "all"]);
+      expect(normalizeCommandTokens(["init", "set", "12", "Hero"])).toEqual(["set", "init", "12", "Hero"]);
+      expect(normalizeCommandTokens(["init", "clear", "Hero"])).toEqual(["clear", "init", "Hero"]);
+      expect(normalizeCommandTokens(["dmg", "add", "10", "Hero"])).toEqual(["add", "dmg", "10", "Hero"]);
+      expect(normalizeCommandTokens(["dmg", "remove", "5", "Hero"])).toEqual(["remove", "dmg", "5", "Hero"]);
+      expect(normalizeCommandTokens(["dmg", "clear", "Hero"])).toEqual(["clear", "dmg", "Hero"]);
+      expect(normalizeCommandTokens(["eff", "add", "Stunned", "Hero"])).toEqual(["add", "eff", "Stunned", "Hero"]);
+      expect(normalizeCommandTokens(["eff", "remove", "Stunned", "Hero"])).toEqual(["remove", "eff", "Stunned", "Hero"]);
+      expect(normalizeCommandTokens(["cond", "add", "Poisoned", "Hero"])).toEqual(["add", "eff", "Poisoned", "Hero"]);
+      expect(normalizeCommandTokens(["res", "add", "rage", "Hero"])).toEqual(["add", "res", "rage", "Hero"]);
+      expect(normalizeCommandTokens(["res", "use", "rage", "Hero"])).toEqual(["add", "res", "rage", "Hero"]);
+      expect(normalizeCommandTokens(["res", "remove", "rage", "Hero"])).toEqual(["remove", "res", "rage", "Hero"]);
+      expect(normalizeCommandTokens(["res", "clear", "Hero"])).toEqual(["clear", "res", "Hero"]);
+      expect(normalizeCommandTokens(["rxn", "set", "Hero"])).toEqual(["add", "rxn", "Hero"]);
+      expect(normalizeCommandTokens(["rxn", "remove", "Hero"])).toEqual(["remove", "rxn", "Hero"]);
+      expect(normalizeCommandTokens(["turn", "next"])).toEqual(["next"]);
+      expect(normalizeCommandTokens(["turn", "prev", "2"])).toEqual(["prev", "2"]);
+      expect(normalizeCommandTokens(["activity", "show"])).toEqual(["show", "activity"]);
+    });
 
-      handleCommand("add eff Blinded HeroA HeroB");
-      expect(creatures.find(c => c.name === "HeroA")?.statusEffects).toContain("Blinded");
-      expect(creatures.find(c => c.name === "HeroB")?.statusEffects).toContain("Blinded");
+    test("game new resets state cleanly", () => {
+      handleCommand("char add pc HeroA");
+      expect(creatures.length).toBe(1);
+      handleCommand("game new");
+      expect(creatures.length).toBe(0);
+      expect(getHistoryStacks().undoLength).toBe(0);
+    });
 
-      handleCommand("remove eff Blinded HeroA HeroB");
-      expect(creatures.find(c => c.name === "HeroA")?.statusEffects).not.toContain("Blinded");
-      expect(creatures.find(c => c.name === "HeroB")?.statusEffects).not.toContain("Blinded");
+    test("char add [type] and pc/enemy/neutral add are undoable and redoable", () => {
+      handleCommand("game new");
+      
+      // char add pc
+      const initialUndo = getHistoryStacks().undoLength;
+      handleCommand("char add pc HeroA HeroB");
+      expect(creatures.length).toBe(2);
+      expect(creatures[0]?.type).toBe("pc");
+      expect(creatures[1]?.type).toBe("pc");
+      expect(getHistoryStacks().undoLength).toBe(initialUndo + 1);
 
       handleCommand("undo");
-      expect(creatures.find(c => c.name === "HeroA")?.statusEffects).toContain("Blinded");
-      expect(creatures.find(c => c.name === "HeroB")?.statusEffects).toContain("Blinded");
+      expect(creatures.length).toBe(0);
+      expect(getHistoryStacks().undoLength).toBe(initialUndo);
+
+      handleCommand("redo");
+      expect(creatures.length).toBe(2);
+      expect(creatures.map(c => c.name)).toEqual(["HeroA", "HeroB"]);
+
+      // char add enemy & neutral
+      handleCommand("char add enemy Goblin1 Goblin2");
+      expect(creatures.length).toBe(4);
+      expect(creatures[2]?.type).toBe("enemy");
+
+      handleCommand("char add neutral Merchant");
+      expect(creatures.length).toBe(5);
+      expect(creatures[4]?.type).toBe("neutral");
+
+      handleCommand("undo");
+      expect(creatures.length).toBe(4);
+      handleCommand("redo");
+      expect(creatures.length).toBe(5);
+
+      // (pc | enemy | neutral) add
+      handleCommand("pc add HeroC");
+      expect(creatures.length).toBe(6);
+      expect(creatures[5]?.type).toBe("pc");
+
+      handleCommand("enemy add Goblin3");
+      expect(creatures.length).toBe(7);
+      expect(creatures[6]?.type).toBe("enemy");
+
+      handleCommand("neutral add Villager");
+      expect(creatures.length).toBe(8);
+      expect(creatures[7]?.type).toBe("neutral");
+
+      handleCommand("undo");
+      expect(creatures.length).toBe(7);
+      handleCommand("redo");
+      expect(creatures.length).toBe(8);
+    });
+
+    test("char add prompts for type and is undoable", () => {
+      handleCommand("game new");
+      handleCommand("char add PromptedChar");
+      expect(getCombatState().pendingQuitConfirmation).toBeFalse();
+      expect(getPendingCharTypePrompt()).not.toBeNull();
+      expect(getPendingCharTypePrompt()?.names).toEqual(["PromptedChar"]);
+
+      processCharTypePrompt("pc");
+      expect(creatures.length).toBe(1);
+      expect(creatures[0]?.name).toBe("PromptedChar");
+      expect(creatures[0]?.type).toBe("pc");
+
+      handleCommand("undo");
+      expect(creatures.length).toBe(0);
+
+      handleCommand("redo");
+      expect(creatures.length).toBe(1);
+      expect(creatures[0]?.name).toBe("PromptedChar");
+    });
+
+    test("char remove and type remove are undoable and redoable", () => {
+      handleCommand("game new");
+      handleCommand("char add pc HeroA HeroB");
+      handleCommand("char add enemy Goblin1 Goblin2");
+      expect(creatures.length).toBe(4);
+
+      // Specific removal with multiple targets
+      handleCommand("char remove HeroA Goblin1");
+      expect(creatures.length).toBe(2);
+      expect(creatures.map(c => c.name)).toEqual(["HeroB", "Goblin2"]);
+
+      handleCommand("undo");
+      expect(creatures.length).toBe(4);
+
+      handleCommand("redo");
+      expect(creatures.length).toBe(2);
+
+      // Bulk remove enemies
+      handleCommand("enemy remove");
+      expect(creatures.length).toBe(1);
+      expect(creatures[0]?.name).toBe("HeroB");
+
+      handleCommand("undo");
+      expect(creatures.length).toBe(2);
+      expect(creatures.some(c => c.name === "Goblin2")).toBeTrue();
+
+      // Bulk remove pcs
+      handleCommand("pc remove");
+      expect(creatures.length).toBe(1);
+      expect(creatures[0]?.name).toBe("Goblin2");
+
+      handleCommand("undo");
+      expect(creatures.length).toBe(2);
+    });
+
+    test("type set is undoable and redoable", () => {
+      handleCommand("game new");
+      handleCommand("char add pc HeroA HeroB");
+
+      handleCommand("type set enemy HeroA HeroB");
+      expect(creatures[0]?.type).toBe("enemy");
+      expect(creatures[1]?.type).toBe("enemy");
+
+      handleCommand("undo");
+      expect(creatures[0]?.type).toBe("pc");
+      expect(creatures[1]?.type).toBe("pc");
+
+      handleCommand("redo");
+      expect(creatures[0]?.type).toBe("enemy");
+      expect(creatures[1]?.type).toBe("enemy");
+
+      // Target first syntax: type set HeroA pc
+      handleCommand("type set HeroA pc");
+      expect(creatures[0]?.type).toBe("pc");
+      handleCommand("undo");
+      expect(creatures[0]?.type).toBe("enemy");
+    });
+
+    test("hp set and hp clear are undoable and redoable", () => {
+      handleCommand("game new");
+      handleCommand("char add pc HeroA HeroB");
+
+      // hp set <val> <target...>
+      handleCommand("hp set 50 HeroA HeroB");
+      expect(creatures[0]?.hpMax).toBe(50);
+      expect(creatures[1]?.hpMax).toBe(50);
+
+      handleCommand("undo");
+      expect(creatures[0]?.hpMax).toBeNull();
+      expect(creatures[1]?.hpMax).toBeNull();
+
+      handleCommand("redo");
+      expect(creatures[0]?.hpMax).toBe(50);
+      expect(creatures[1]?.hpMax).toBe(50);
+
+      // hp clear <target...>
+      handleCommand("hp clear HeroA");
+      expect(creatures[0]?.hpMax).toBeNull();
+      expect(creatures[1]?.hpMax).toBe(50);
+
+      handleCommand("undo");
+      expect(creatures[0]?.hpMax).toBe(50);
+
+      // hp clear all
+      handleCommand("hp clear all");
+      expect(creatures[0]?.hpMax).toBeNull();
+      expect(creatures[1]?.hpMax).toBeNull();
+
+      handleCommand("undo");
+      expect(creatures[0]?.hpMax).toBe(50);
+      expect(creatures[1]?.hpMax).toBe(50);
+    });
+
+    test("ac set and ac clear are undoable and redoable", () => {
+      handleCommand("game new");
+      handleCommand("char add pc HeroA HeroB");
+
+      handleCommand("ac set 17 HeroA HeroB");
+      expect(creatures[0]?.ac).toBe(17);
+      expect(creatures[1]?.ac).toBe(17);
+
+      handleCommand("undo");
+      expect(creatures[0]?.ac).toBeNull();
+      expect(creatures[1]?.ac).toBeNull();
+
+      handleCommand("redo");
+      expect(creatures[0]?.ac).toBe(17);
+      expect(creatures[1]?.ac).toBe(17);
+
+      handleCommand("ac clear HeroA");
+      expect(creatures[0]?.ac).toBeNull();
+      expect(creatures[1]?.ac).toBe(17);
+
+      handleCommand("undo");
+      expect(creatures[0]?.ac).toBe(17);
+
+      handleCommand("ac clear all");
+      expect(creatures[0]?.ac).toBeNull();
+      expect(creatures[1]?.ac).toBeNull();
+
+      handleCommand("undo");
+      expect(creatures[0]?.ac).toBe(17);
+      expect(creatures[1]?.ac).toBe(17);
+    });
+
+    test("init set and init clear are undoable and redoable", () => {
+      handleCommand("game new");
+      handleCommand("char add pc HeroA HeroB");
+
+      handleCommand("init set 15 HeroA HeroB");
+      expect(creatures[0]?.initiative).toBe(15);
+      expect(creatures[1]?.initiative).toBe(15);
+
+      handleCommand("undo");
+      expect(creatures[0]?.initiative).toBeNull();
+      expect(creatures[1]?.initiative).toBeNull();
+
+      handleCommand("redo");
+      expect(creatures[0]?.initiative).toBe(15);
+      expect(creatures[1]?.initiative).toBe(15);
+
+      handleCommand("init clear HeroA");
+      expect(creatures[0]?.initiative).toBeNull();
+      expect(creatures[1]?.initiative).toBe(15);
+
+      handleCommand("undo");
+      expect(creatures[0]?.initiative).toBe(15);
+
+      handleCommand("init clear all");
+      expect(creatures[0]?.initiative).toBeNull();
+      expect(creatures[1]?.initiative).toBeNull();
+
+      handleCommand("undo");
+      expect(creatures[0]?.initiative).toBe(15);
+      expect(creatures[1]?.initiative).toBe(15);
+    });
+
+    test("dmg add, dmg remove, and dmg clear are undoable and redoable", () => {
+      handleCommand("game new");
+      handleCommand("char add pc HeroA HeroB");
+
+      // dmg add
+      handleCommand("dmg add 14 HeroA HeroB");
+      expect(creatures[0]?.dmg).toBe(14);
+      expect(creatures[1]?.dmg).toBe(14);
+
+      handleCommand("undo");
+      expect(creatures[0]?.dmg).toBe(0);
+      expect(creatures[1]?.dmg).toBe(0);
+
+      handleCommand("redo");
+      expect(creatures[0]?.dmg).toBe(14);
+      expect(creatures[1]?.dmg).toBe(14);
+
+      // dmg remove (heal)
+      handleCommand("dmg remove 6 HeroA HeroB");
+      expect(creatures[0]?.dmg).toBe(8);
+      expect(creatures[1]?.dmg).toBe(8);
+
+      handleCommand("undo");
+      expect(creatures[0]?.dmg).toBe(14);
+      expect(creatures[1]?.dmg).toBe(14);
+
+      handleCommand("redo");
+      expect(creatures[0]?.dmg).toBe(8);
+      expect(creatures[1]?.dmg).toBe(8);
+
+      // dmg clear
+      handleCommand("dmg clear HeroA");
+      expect(creatures[0]?.dmg).toBe(0);
+      expect(creatures[1]?.dmg).toBe(8);
+
+      handleCommand("undo");
+      expect(creatures[0]?.dmg).toBe(8);
+
+      handleCommand("dmg clear all");
+      expect(creatures[0]?.dmg).toBe(0);
+      expect(creatures[1]?.dmg).toBe(0);
+
+      handleCommand("undo");
+      expect(creatures[0]?.dmg).toBe(8);
+      expect(creatures[1]?.dmg).toBe(8);
+    });
+
+    test("eff add and eff remove are undoable and redoable", () => {
+      handleCommand("game new");
+      handleCommand("char add pc HeroA HeroB");
+
+      handleCommand("eff add Stunned HeroA HeroB");
+      expect(creatures[0]?.statusEffects).toContain("Stunned");
+      expect(creatures[1]?.statusEffects).toContain("Stunned");
+
+      handleCommand("undo");
+      expect(creatures[0]?.statusEffects).not.toContain("Stunned");
+      expect(creatures[1]?.statusEffects).not.toContain("Stunned");
+
+      handleCommand("redo");
+      expect(creatures[0]?.statusEffects).toContain("Stunned");
+      expect(creatures[1]?.statusEffects).toContain("Stunned");
+
+      handleCommand("eff remove Stunned HeroA HeroB");
+      expect(creatures[0]?.statusEffects).not.toContain("Stunned");
+      expect(creatures[1]?.statusEffects).not.toContain("Stunned");
+
+      handleCommand("undo");
+      expect(creatures[0]?.statusEffects).toContain("Stunned");
+      expect(creatures[1]?.statusEffects).toContain("Stunned");
+
+      handleCommand("redo");
+      expect(creatures[0]?.statusEffects).not.toContain("Stunned");
+      expect(creatures[1]?.statusEffects).not.toContain("Stunned");
+    });
+
+    test("res add, res use, res remove, and res clear are undoable and redoable", () => {
+      handleCommand("game new");
+      handleCommand("char add pc HeroA HeroB");
+
+      // res add
+      handleCommand("res add \"action surge\" HeroA HeroB");
+      expect(creatures[0]?.resourceUsage?.["action surge"]).toBe(1);
+      expect(creatures[1]?.resourceUsage?.["action surge"]).toBe(1);
+
+      handleCommand("undo");
+      expect(creatures[0]?.resourceUsage?.["action surge"]).toBeUndefined();
+      expect(creatures[1]?.resourceUsage?.["action surge"]).toBeUndefined();
+
+      handleCommand("redo");
+      expect(creatures[0]?.resourceUsage?.["action surge"]).toBe(1);
+      expect(creatures[1]?.resourceUsage?.["action surge"]).toBe(1);
+
+      // res use (increment)
+      handleCommand("res use \"action surge\" HeroA");
+      expect(creatures[0]?.resourceUsage?.["action surge"]).toBe(2);
+
+      handleCommand("undo");
+      expect(creatures[0]?.resourceUsage?.["action surge"]).toBe(1);
+
+      handleCommand("redo");
+      expect(creatures[0]?.resourceUsage?.["action surge"]).toBe(2);
+
+      // res remove (decrement)
+      handleCommand("res remove \"action surge\" HeroA");
+      expect(creatures[0]?.resourceUsage?.["action surge"]).toBe(1);
+
+      handleCommand("undo");
+      expect(creatures[0]?.resourceUsage?.["action surge"]).toBe(2);
+
+      // res clear
+      handleCommand("res clear HeroA");
+      expect(creatures[0]?.resourceUsage?.["action surge"]).toBeUndefined();
+
+      handleCommand("undo");
+      expect(creatures[0]?.resourceUsage?.["action surge"]).toBe(2);
+
+      handleCommand("res clear all");
+      expect(creatures[0]?.resourceUsage?.["action surge"]).toBeUndefined();
+      expect(creatures[1]?.resourceUsage?.["action surge"]).toBeUndefined();
+
+      handleCommand("undo");
+      expect(creatures[0]?.resourceUsage?.["action surge"]).toBe(2);
+      expect(creatures[1]?.resourceUsage?.["action surge"]).toBe(1);
+    });
+
+    test("rxn set and rxn remove are undoable and redoable", () => {
+      handleCommand("game new");
+      handleCommand("char add pc HeroA HeroB");
+
+      handleCommand("rxn set HeroA HeroB");
+      expect(creatures[0]?.reactionUsed).toBeTrue();
+      expect(creatures[1]?.reactionUsed).toBeTrue();
+
+      handleCommand("undo");
+      expect(creatures[0]?.reactionUsed).toBeFalsy();
+      expect(creatures[1]?.reactionUsed).toBeFalsy();
+
+      handleCommand("redo");
+      expect(creatures[0]?.reactionUsed).toBeTrue();
+      expect(creatures[1]?.reactionUsed).toBeTrue();
+
+      handleCommand("rxn remove HeroA");
+      expect(creatures[0]?.reactionUsed).toBeFalse();
+      expect(creatures[1]?.reactionUsed).toBeTrue();
+
+      handleCommand("undo");
+      expect(creatures[0]?.reactionUsed).toBeTrue();
+
+      handleCommand("redo");
+      expect(creatures[0]?.reactionUsed).toBeFalse();
+    });
+
+    test("turn next and turn prev are undoable and redoable in combat mode", () => {
+      handleCommand("game new");
+      handleCommand("char add pc HeroA HeroB");
+      handleCommand("init set 20 HeroA 10 HeroB");
+      handleCommand("combat start");
+
+      const state1 = getCombatState();
+      expect(state1.inCombat).toBeTrue();
+      expect(state1.currentRound).toBe(1);
+      expect(state1.currentTurnIndex).toBe(0);
+
+      // Advance turn with turn next
+      handleCommand("turn next");
+      const state2 = getCombatState();
+      expect(state2.currentTurnIndex).toBe(1);
+
+      handleCommand("undo");
+      const state3 = getCombatState();
+      expect(state3.currentTurnIndex).toBe(0);
+
+      handleCommand("redo");
+      const state4 = getCombatState();
+      expect(state4.currentTurnIndex).toBe(1);
+
+      // Rewind turn with turn prev
+      handleCommand("turn prev");
+      expect(getCombatState().currentTurnIndex).toBe(0);
+
+      handleCommand("undo");
+      expect(getCombatState().currentTurnIndex).toBe(1);
+
+      handleCommand("redo");
+      expect(getCombatState().currentTurnIndex).toBe(0);
+    });
+
+    test("save commands (list, rename, delete) function cleanly with noun-first syntax", () => {
+      handleCommand("game new");
+      handleCommand("char add pc HeroA");
+      handleCommand("save test_noun_save");
+
+      const saveFile = path.join(SAVES_DIR, "test_noun_save.json");
+      expect(fs.existsSync(saveFile)).toBeTrue();
+
+      // save list is undo exempt
+      const preUndoLen = getHistoryStacks().undoLength;
+      handleCommand("save list");
+      expect(getHistoryStacks().undoLength).toBe(preUndoLen);
+
+      // activity show is undo exempt
+      handleCommand("activity show");
+      expect(getHistoryStacks().undoLength).toBe(preUndoLen);
+
+      // save rename
+      handleCommand("save rename test_noun_save_renamed");
+      const renamedFile = path.join(SAVES_DIR, "test_noun_save_renamed.json");
+      expect(fs.existsSync(renamedFile)).toBeTrue();
+
+      // save delete
+      handleCommand("save delete test_noun_save_renamed");
+      expect(fs.existsSync(renamedFile)).toBeFalse();
+    });
+
+    test("batch undo 3 correctly unwinds multiple noun-first commands", () => {
+      handleCommand("game new");
+      handleCommand("char add pc HeroA");
+      handleCommand("hp set 40 HeroA");
+      handleCommand("ac set 16 HeroA");
+      handleCommand("dmg add 10 HeroA");
+
+      expect(creatures[0]?.hpMax).toBe(40);
+      expect(creatures[0]?.ac).toBe(16);
+      expect(creatures[0]?.dmg).toBe(10);
+
+      // Undo 3 commands: dmg add, ac set, hp set
+      handleCommand("undo 3");
+      expect(creatures[0]?.hpMax).toBeNull();
+      expect(creatures[0]?.ac).toBeNull();
+      expect(creatures[0]?.dmg).toBe(0);
+
+      // Redo 3 commands
+      handleCommand("redo 3");
+      expect(creatures[0]?.hpMax).toBe(40);
+      expect(creatures[0]?.ac).toBe(16);
+      expect(creatures[0]?.dmg).toBe(10);
+    });
+
+    test("completer provides autocompletions for noun-first syntax", () => {
+      handleCommand("game new");
+      handleCommand("char add pc HeroA");
+
+      // hp
+      const [hpHits] = completer("hp ");
+      expect(hpHits).toContain("hp set");
+      expect(hpHits).toContain("hp clear");
+
+      // ac
+      const [acHits] = completer("ac ");
+      expect(acHits).toContain("ac set");
+      expect(acHits).toContain("ac clear");
+
+      // dmg
+      const [dmgHits] = completer("dmg ");
+      expect(dmgHits).toContain("dmg add");
+      expect(dmgHits).toContain("dmg remove");
+      expect(dmgHits).toContain("dmg clear");
+
+      // char
+      const [charHits] = completer("char ");
+      expect(charHits).toContain("char add");
+      expect(charHits).toContain("char remove");
+
+      // pc
+      const [pcHits] = completer("pc ");
+      expect(pcHits).toContain("pc add");
+      expect(pcHits).toContain("pc remove");
+
+      // save
+      const [saveHits] = completer("save ");
+      expect(saveHits).toContain("save list");
+      expect(saveHits).toContain("save delete");
+      expect(saveHits).toContain("save load");
+      expect(saveHits).toContain("save rename");
+
+      // game
+      const [gameHits] = completer("game ");
+      expect(gameHits).toContain("game new");
+      expect(gameHits).toContain("game load");
+      expect(gameHits).toContain("game save");
+
+      // turn
+      const [turnHits] = completer("turn ");
+      expect(turnHits).toContain("turn next");
+      expect(turnHits).toContain("turn prev");
+
+      // activity
+      const [actHits] = completer("activity ");
+      expect(actHits).toContain("activity show");
     });
   });
 });

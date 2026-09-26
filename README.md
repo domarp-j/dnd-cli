@@ -44,7 +44,7 @@ bun run dnd
 
 ## Usage & Capabilities
 
-Once launched, `dnd-cli` presents an interactive terminal interface. You can access the full command reference menu inside the app at any time by typing `help` (or `h`), or search and highlight specific commands using `help <query>` (or `h <query>`).
+Once launched, `dnd-cli` presents an interactive terminal interface. Commands follow the unified `<field|entity> <command> <value> <target...>` convention (e.g. `save delete`, `hp set 40 Ajax`, `dmg add 10 Ajax`). You can access the full command reference menu inside the app at any time by typing `help` (or `h`), or search and highlight specific commands using `help <query>` (or `h <query>`).
 
 Press `Tab` at any time to activate **interactive typeahead**: it searches all commands that contain your current string anywhere in their body, highlights the matching characters within the options, and lets you use the `↑` / `↓` arrow keys to select a command.
 
@@ -53,109 +53,105 @@ Here is a sampling of useful commands to demonstrate the CLI's capabilities:
 ### Creature & Stat Management
 - **Add PCs, enemies, and neutral creatures:**
   ```text
-  add pc Ajax Kaelor
-  add enemy "Goblin Warrior" Bugbear
+  char add pc Ajax Kaelor
+  char add enemy "Goblin Warrior" Bugbear
+  char add neutral Merchant
+  char add MysteriousTraveler      # Prompts interactively for creature type
+  # Or type-first shorthand:
+  pc add Ajax Kaelor
+  enemy add "Goblin Warrior" Bugbear
   ```
 - **Set HP, AC, and Initiative (supports multiple targets or alternating pairs):**
   ```text
-  set hp 45 Ajax Kaelor      # Sets HP to 45 for both Ajax and Kaelor
-  set ac 18 Ajax Kaelor      # Sets AC to 18 for both Ajax and Kaelor
-  set init 14 Ajax Kaelor    # Sets init to 14 for both Ajax and Kaelor
-  set hp 45 Ajax 38 Kaelor   # Alternating pairs syntax
+  hp set 45 Ajax Kaelor            # Sets HP to 45 for both Ajax and Kaelor
+  ac set 18 Ajax Kaelor            # Sets AC to 18 for both Ajax and Kaelor
+  init set 14 Ajax Kaelor          # Sets init to 14 for both Ajax and Kaelor
+  hp set 45 Ajax 38 Kaelor         # Alternating pairs syntax
   ```
-- **Change creature type (supports shorthand `p`, `e`, `n`, multiple targets, or alias `change type`):**
+- **Change creature type (supports multiple targets or type shorthands `pc`, `enemy`, `neutral`):**
   ```text
-  set type enemy Ajax Kaelor
-  set type pc Legolas Gimli
-  set type neutral "Goblin Warrior"
-  change type pc Ajax Kaelor
+  type set enemy Ajax Kaelor
+  type set pc Legolas Gimli
+  type set neutral "Goblin Warrior"
   ```
-- **Clear stats (using `null`, `none`, `clear`, `-`, `—`, or `clear` command):**
+- **Clear stats (supports specific targets or `all`):**
   ```text
-  set ac null Ajax Kaelor
-  clear init all
-  clear ac Ajax Kaelor
+  hp clear Ajax Kaelor
+  ac clear all
+  init clear all
   ```
-- **Remove creatures (individually by name with multiple targets, or bulk by type, with shorthand aliases `p`, `e`, `n`):**
+- **Remove creatures (individually by name with multiple targets, or bulk by type):**
   ```text
-  remove char Ajax Kaelor
-  remove enemies
-  remove pcs
-  remove neutrals
-  remove e
-  remove p
-  remove n
+  char remove Ajax Kaelor
+  enemy remove                     # Bulk remove all enemies
+  pc remove                        # Bulk remove all PCs
+  neutral remove                   # Bulk remove all neutrals
   ```
 
 ### Damage, Status Conditions & Resource Usage
 - **Apply damage, heal, or clear damage (supports multiple targets):**
   ```text
-  add dmg 12 Ajax Kaelor
-  hurt 8 Ajax Kaelor           # Alias for add dmg
-  remove dmg 6 Ajax Kaelor     # Subtract damage taken / heal
-  heal 4 Ajax Kaelor           # Alias for remove dmg
-  clear dmg all
+  dmg add 12 Ajax Kaelor           # Deal 12 damage to Ajax and Kaelor
+  dmg remove 6 Ajax Kaelor         # Heal / subtract 6 damage
+  dmg clear all                    # Clear all damage taken
   ```
-- **Track status conditions (supports multiple targets as the last args, with aliases `eff` / `effect` / `cond` / `condition` / `stat` / `status`):**
+- **Track status conditions (supports multiple targets as the last args, with aliases `eff` / `cond` / `stat` / `status`):**
   ```text
-  add eff Poisoned Ajax Kaelor
-  add stat Blinded Ajax
-  remove status Poisoned Ajax Kaelor
-  remove cond Blinded Ajax
+  eff add Poisoned Ajax Kaelor
+  eff add Blinded Ajax
+  eff remove Poisoned Ajax Kaelor
+  eff remove Blinded Ajax
   ```
   *(Standard D&D 5.5e conditions, statuses, defenses, and advantage/disadvantage modifiers are defined in `statusEffects.ts`)*
-- **Track resource usages (supports `res`, `use res` commands, multiple targets, and partial matching):**
+- **Track resource usages (supports `res`, multiple targets, and partial matching):**
   ```text
-  add res legaction Joe Bob      # Adds legaction=1 for Joe and Bob
-  use res lega Joe               # Increments legaction to 2 (via partial match)
-  remove res leg Joe             # Decrements legaction back to 1 (removes completely when 0)
-  clear res Joe                  # Clears all resource usages for Joe
+  res add legaction Joe Bob        # Adds legaction=1 for Joe and Bob
+  res use legaction Joe            # Increments legaction to 2 (via partial match)
+  res remove legaction Joe         # Decrements legaction back to 1 (removes completely when 0)
+  res clear Joe                    # Clears all resource usages for Joe
   ```
 
 ### Combat Mode
 - **Activate combat mode (automatically sorts by descending initiative):**
   ```text
-  combat                 # Start combat mode (alias 'c')
-  c start
+  combat                           # Start combat mode (alias 'c' or 'combat start')
+  combat end                       # End combat mode (clears all damage & initiative)
   ```
 - **Navigate turns and skip ahead or back:**
   ```text
-  next                   # Advance 1 turn (alias 'n')
-  n 3                    # Advance 3 turns
-  prev                   # Go back 1 turn (alias 'p')
-  ```
-- **End combat (clears all damage & initiative):**
-  ```text
-  combat end             # End combat mode (alias 'c end')
+  turn next                        # Advance 1 turn (alias 'next' or 'n')
+  turn next 3                      # Advance 3 turns
+  turn prev                        # Go back 1 turn (alias 'prev' or 'p')
   ```
 - **Track reaction usage (automatically resets when the creature's turn starts):**
   ```text
-  add rxn Aragorn          # Mark Aragorn's reaction as used (shows "✓" in "Rxn" column)
-  set reaction Legolas     # Mark Legolas's reaction as used (alternate syntax)
-  remove rxn Aragorn       # Restore Aragorn's reaction manually (removes checkmark)
+  rxn set Aragorn                  # Mark Aragorn's reaction as used (shows "✓" in "Rxn" column)
+  rxn remove Aragorn               # Restore Aragorn's reaction manually (removes checkmark)
   ```
 
-
 ### Game State Persistence
-- **Save/load state snapshots and rename sessions:**
+- **Save/load state snapshots, list saves, and rename sessions:**
   ```text
-  save dungeon_room1
-  rename save dungeon_room2
-  load save               # Lists saves interactively
-  load save dungeon_room2  # Loads specific save
-  saves                   # View all saved game files (alias 'list saves')
-  delete save dungeon_room1 # Delete save file (alias 'del save')
-  new game                # Reset to a fresh unsaved game
+  save list                        # View all saved game files with paths (alias 'saves')
+  save dungeon_room1               # Save session snapshot
+  save load dungeon_room1          # Load specific save (or interactive list)
+  save rename dungeon_room2        # Rename current game session
+  save delete dungeon_room1        # Delete save file(s)
+  game new                         # Reset to a fresh unsaved game (alias 'new game')
   ```
   *(Note: When launched, the tracker automatically loads your most recently saved session by default.)*
 
-### Undo and Redo History
-- **Revert or re-apply state mutations (supports optional count arguments):**
+### Utilities & History
+- **Activity log:**
   ```text
-  undo       # Undo the last action
-  u 3        # Undo the last 3 actions
-  redo       # Redo the last undone action
-  r 2        # Redo the last 2 undone actions
+  activity show                    # Show all actions logged in this session
+  ```
+- **Undo and Redo History (supports optional count arguments):**
+  ```text
+  undo                             # Undo the last action (alias 'u')
+  undo 3                           # Undo the last 3 actions
+  redo                             # Redo the last undone action (alias 'r')
+  redo 2                           # Redo the last 2 undone actions
   ```
 
 ---

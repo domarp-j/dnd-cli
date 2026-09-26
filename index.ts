@@ -109,8 +109,203 @@ function restoreSnapshot(snapshot: Snapshot): void {
   currentSessionName = snapshot.currentSessionName;
 }
 
+export function normalizeCommandTokens(parts: string[]): string[] {
+  if (parts.length === 0) return parts;
+  const first = parts[0]!.toLowerCase();
+  const second = parts[1]?.toLowerCase();
+
+  // 1. save ...
+  if (first === "save" || first === "savegame") {
+    if (second === "list" || second === "ls") {
+      return ["saves", ...parts.slice(2)];
+    }
+    if (second === "load") {
+      return ["load", "save", ...parts.slice(2)];
+    }
+    return parts;
+  }
+
+  // 2. game ...
+  if (first === "game") {
+    if (second === "new") {
+      return ["new", "game", ...parts.slice(2)];
+    }
+    if (second === "load") {
+      return ["load", "save", ...parts.slice(2)];
+    }
+    if (second === "save") {
+      return ["save", ...parts.slice(2)];
+    }
+    if (second === "rename") {
+      return ["rename", "save", ...parts.slice(2)];
+    }
+    if (second === "delete" || second === "del" || second === "rm" || second === "remove") {
+      return ["delete", "save", ...parts.slice(2)];
+    }
+    if (second === "list" || second === "ls") {
+      return ["saves", ...parts.slice(2)];
+    }
+    return parts;
+  }
+
+  // 3. char / creature ...
+  if (first === "char" || first === "creature") {
+    if (second === "add") {
+      const third = parts[2]?.toLowerCase();
+      if (third === "pc" || third === "p" || third === "enemy" || third === "e" || third === "neutral" || third === "n") {
+        return ["add", parts[2]!, ...parts.slice(3)];
+      }
+      return ["add", "char", ...parts.slice(2)];
+    }
+    if (second === "remove" || second === "rm" || second === "del" || second === "delete") {
+      const third = parts[2]?.toLowerCase();
+      if (third === "pcs" || third === "pc" || third === "enemies" || third === "enemy" || third === "neutrals" || third === "neutral") {
+        return ["remove", parts[2]!, ...parts.slice(3)];
+      }
+      return ["remove", "char", ...parts.slice(2)];
+    }
+    return parts;
+  }
+
+  // 4. pc / enemy / neutral ...
+  if (first === "pc" || first === "pcs" || first === "enemy" || first === "enemies" || first === "neutral" || first === "neutrals") {
+    const normType = first.startsWith("pc") ? "pc" : first.startsWith("en") ? "enemy" : "neutral";
+    if (second === "add") {
+      return ["add", normType, ...parts.slice(2)];
+    }
+    if (second === "remove" || second === "rm" || second === "del" || second === "delete") {
+      return ["remove", normType, ...parts.slice(2)];
+    }
+    return parts;
+  }
+
+  // 5. type ...
+  if (first === "type") {
+    if (second === "set" || second === "change") {
+      return ["set", "type", ...parts.slice(2)];
+    }
+    return ["set", "type", ...parts.slice(1)];
+  }
+
+  // 6. hp ...
+  if (first === "hp") {
+    if (second === "set") {
+      return ["set", "hp", ...parts.slice(2)];
+    }
+    if (second === "clear" || second === "remove" || second === "rm" || second === "del" || second === "delete") {
+      return ["clear", "hp", ...parts.slice(2)];
+    }
+    if (parts.length >= 2 && !isNaN(parseInt(parts[1]!, 10))) {
+      return ["set", "hp", ...parts.slice(1)];
+    }
+    return parts;
+  }
+
+  // 7. ac ...
+  if (first === "ac") {
+    if (second === "set") {
+      return ["set", "ac", ...parts.slice(2)];
+    }
+    if (second === "clear" || second === "remove" || second === "rm" || second === "del" || second === "delete") {
+      return ["clear", "ac", ...parts.slice(2)];
+    }
+    if (parts.length >= 2 && !isNaN(parseInt(parts[1]!, 10))) {
+      return ["set", "ac", ...parts.slice(1)];
+    }
+    return parts;
+  }
+
+  // 8. init / initiative ...
+  if (first === "init" || first === "initiative") {
+    if (second === "set") {
+      return ["set", "init", ...parts.slice(2)];
+    }
+    if (second === "clear" || second === "remove" || second === "rm" || second === "del" || second === "delete") {
+      return ["clear", "init", ...parts.slice(2)];
+    }
+    if (parts.length >= 2 && !isNaN(parseInt(parts[1]!, 10))) {
+      return ["set", "init", ...parts.slice(1)];
+    }
+    return parts;
+  }
+
+  // 9. dmg / damage ...
+  if (first === "dmg" || first === "damage") {
+    if (second === "add" || second === "hurt") {
+      return ["add", "dmg", ...parts.slice(2)];
+    }
+    if (second === "remove" || second === "rm" || second === "heal") {
+      return ["remove", "dmg", ...parts.slice(2)];
+    }
+    if (second === "clear") {
+      return ["clear", "dmg", ...parts.slice(2)];
+    }
+    if (parts.length >= 2 && !isNaN(parseInt(parts[1]!, 10))) {
+      return ["add", "dmg", ...parts.slice(1)];
+    }
+    return parts;
+  }
+
+  // 10. eff / cond / stat / status / effect / condition ...
+  if (["eff", "effect", "effects", "cond", "condition", "stat", "status", "stats"].includes(first)) {
+    if (second === "add") {
+      return ["add", "eff", ...parts.slice(2)];
+    }
+    if (second === "remove" || second === "rm" || second === "del" || second === "delete") {
+      return ["remove", "eff", ...parts.slice(2)];
+    }
+    return parts;
+  }
+
+  // 11. res / resource ...
+  if (first === "res" || first === "resource") {
+    if (second === "add" || second === "use") {
+      return ["add", "res", ...parts.slice(2)];
+    }
+    if (second === "remove" || second === "rm" || second === "del" || second === "delete") {
+      return ["remove", "res", ...parts.slice(2)];
+    }
+    if (second === "clear") {
+      return ["clear", "res", ...parts.slice(2)];
+    }
+    return parts;
+  }
+
+  // 12. rxn / reaction ...
+  if (first === "rxn" || first === "reaction") {
+    if (second === "set" || second === "add" || second === "use") {
+      return ["add", "rxn", ...parts.slice(2)];
+    }
+    if (second === "remove" || second === "rm" || second === "clear" || second === "del" || second === "reset") {
+      return ["remove", "rxn", ...parts.slice(2)];
+    }
+    return parts;
+  }
+
+  // 13. turn ...
+  if (first === "turn") {
+    if (second === "next" || second === "n") {
+      return ["next", ...parts.slice(2)];
+    }
+    if (second === "prev" || second === "p" || second === "previous" || second === "back") {
+      return ["prev", ...parts.slice(2)];
+    }
+    return parts;
+  }
+
+  // 14. activity ...
+  if (first === "activity") {
+    if (!second || second === "show" || second === "list" || second === "log") {
+      return ["show", "activity", ...parts.slice(2)];
+    }
+    return parts;
+  }
+
+  return parts;
+}
+
 function isUndoExemptCommand(input: string): boolean {
-  const parts = tokenize(input.trim());
+  const parts = normalizeCommandTokens(tokenize(input.trim()));
   const cmd = parts[0]?.toLowerCase();
   const exemptCmds = [
     "undo", "u",
@@ -720,7 +915,7 @@ function renderTable(): void {
   }
 
   console.log(`${DIM}${"─".repeat(100)}${RESET}`);
-  console.log(`${DIM}  help (h) · quit (q) · <command> <field> <value> <target>${RESET}\n`);
+  console.log(`${DIM}  help (h) · quit (q) · <field|entity> <command> <value> <target...>${RESET}\n`);
 }
 
 // --- Helpers ---
@@ -748,7 +943,7 @@ export function wrapStatusEffects(effects: string[], width: number): string[] {
   return lines;
 }
 
-function tokenize(input: string): string[] {
+export function tokenize(input: string): string[] {
   const regex = /"([^"]+)"|'([^']+)'|(\S+)/g;
   const tokens: string[] = [];
   let match: RegExpExecArray | null;
@@ -819,6 +1014,7 @@ function findCreatures(identifiers: string[]): FindManyResult {
 
 function handleCommandInternal(input: string): boolean {
   let parts = tokenize(input.trim());
+  parts = normalizeCommandTokens(parts);
   let cmd = parts[0]?.toLowerCase();
 
   if (cmd === "hurt") {
@@ -838,7 +1034,11 @@ function handleCommandInternal(input: string): boolean {
       cmd = "set";
     }
   } else if (cmd === "type") {
-    parts.splice(0, 0, "set");
+    if (parts[1]?.toLowerCase() === "set" || parts[1]?.toLowerCase() === "change") {
+      parts = ["set", "type", ...parts.slice(2)];
+    } else {
+      parts.splice(0, 0, "set");
+    }
     cmd = "set";
   }
 
@@ -939,13 +1139,19 @@ function handleCommandInternal(input: string): boolean {
       {
         title: "Creature Management",
         lines: [
+          { command: "char add [type] <name>...", desc: "Add creature(s) by type (pc, enemy, neutral) or prompt" },
+          { command: "(pc | enemy | neutral) add <name>...", desc: "Add creature(s) of specified type" },
           { command: "add (enemy | e) <name>...", desc: "Add enemy creature(s)" },
           { command: "add (neutral | n) <name>...", desc: "Add neutral creature(s)" },
           { command: "add (pc | p) <name>...", desc: "Add player character(s)" },
           { command: "add char <name>...", desc: "Add creature(s) by prompting for type" },
+          { command: "char remove <name>...", desc: "Remove specific creature(s) by name" },
           { command: "remove char <name>...", desc: "Remove specific creature(s) by name" },
+          { command: "(pc | enemy | neutral) remove", desc: "Bulk remove creatures by type" },
           { command: "remove (pcs | enemies | neutrals)", desc: "Bulk remove creatures by type" },
           { command: "remove (p | e | n)", desc: "Bulk remove creatures by type" },
+          { command: "type set (pc | enemy | neutral) <t>...", desc: "Change character type" },
+          { command: "type set <target>... (pc | enemy | neutral)", desc: "Change character type" },
           { command: "set type (pc | enemy | neutral) <target>...", desc: "Change character type" },
           { command: "set type <target>... (pc | enemy | neutral)", desc: "Change character type" },
           { command: "change type <target> <type>", desc: "Change character type" },
@@ -956,55 +1162,77 @@ function handleCommandInternal(input: string): boolean {
         lines: [
           { command: "combat | c [start]", desc: "Start combat mode (resorts by initiative)" },
           { command: "combat | c end", desc: "End combat mode (clears init & dmg)" },
+          { command: "turn (next | prev) [<count>]", desc: "Advance or rewind 1 or <count> turns" },
           { command: "(next | n) [<count>]", desc: "Advance 1 or <count> turns" },
           { command: "(prev | p) [<count>]", desc: "Go back 1 or <count> turns" },
+          { command: "rxn set <target>...", desc: "Mark creature reaction as used" },
           { command: "add/set (rxn | reaction) <target>...", desc: "Mark creature reaction as used" },
+          { command: "rxn remove <target>...", desc: "Restore creature reaction" },
           { command: "remove (rxn | reaction) <target>...", desc: "Restore creature reaction" },
         ]
       },
       {
         title: "Stats & Status Effects",
         lines: [
-          { command: "add/use res <name> <target>...", desc: "Add/increment resource usage for target(s)" },
-          { command: "add (eff | cond | stat) <eff> <t>...", desc: "Add status effect to target(s)" },
+          { command: "hp set <val> <target>...", desc: "Set HP max (supports multiple targets or pairs)" },
+          { command: "set hp <val> <target>...", desc: "Set HP max (supports multiple targets or pairs)" },
+          { command: "hp clear (<all> | <target>...)", desc: "Clear HP max for target(s) or all" },
+          { command: "clear hp (<all> | <target>...)", desc: "Clear HP max for target(s) or all" },
+          { command: "ac set <val> <target>...", desc: "Set AC (supports multiple targets or pairs)" },
+          { command: "set ac <val> <target>...", desc: "Set AC (supports multiple targets or pairs)" },
+          { command: "ac clear (<all> | <target>...)", desc: "Clear AC for target(s) or all" },
+          { command: "clear ac (<all> | <target>...)", desc: "Clear AC for target(s) or all" },
+          { command: "init set <val> <target>...", desc: "Set initiative (supports multiple targets or pairs)" },
+          { command: "set init <val> <target>...", desc: "Set initiative (supports multiple targets or pairs)" },
+          { command: "init clear (<all> | <target>...)", desc: "Clear initiative for target(s) or all" },
+          { command: "clear init (<all> | <target>...)", desc: "Clear initiative for target(s) or all" },
+          { command: "dmg add <value> <target>...", desc: "Add damage taken to target(s)" },
           { command: "add dmg <value> <target>...", desc: "Add damage taken to target(s)" },
           { command: "hurt <value> <target>...", desc: "Add damage taken to target(s)" },
-          { command: "clear ac (<all> | <target>...)", desc: "Clear AC for target(s) or all" },
-          { command: "clear dmg (<all> | <target>...)", desc: "Clear damage for target(s) or all" },
-          { command: "clear hp (<all> | <target>...)", desc: "Clear HP max for target(s) or all" },
-          { command: "clear init (<all> | <target>...)", desc: "Clear initiative for target(s) or all" },
-          { command: "clear res (<all> | <target>...)", desc: "Clear resource usage for target(s) or all" },
+          { command: "dmg remove <value> <target>...", desc: "Heal/subtract damage from target(s)" },
           { command: "remove dmg <value> <target>...", desc: "Heal/subtract damage from target(s)" },
           { command: "heal <value> <target>...", desc: "Heal/subtract damage from target(s)" },
+          { command: "dmg clear (<all> | <target>...)", desc: "Clear damage for target(s) or all" },
+          { command: "clear dmg (<all> | <target>...)", desc: "Clear damage for target(s) or all" },
+          { command: "eff add <eff> <target>...", desc: "Add status effect to target(s)" },
+          { command: "add (eff | cond | stat) <eff> <t>...", desc: "Add status effect to target(s)" },
+          { command: "eff remove <eff> <target>...", desc: "Remove status effect from target(s)" },
           { command: "remove (eff | cond | stat) <eff> <target>...", desc: "Remove status effect from target(s)" },
+          { command: "res (add | use) <name> <target>...", desc: "Add/increment resource usage for target(s)" },
+          { command: "add/use res <name> <target>...", desc: "Add/increment resource usage for target(s)" },
+          { command: "res remove <name> <target>...", desc: "Remove/decrement resource usage from target(s)" },
           { command: "remove res <name> <target>...", desc: "Remove/decrement resource usage from target(s)" },
-          { command: "set ac <val> <target>...", desc: "Set AC (supports multiple targets or pairs)" },
-          { command: "set hp <val> <target>...", desc: "Set HP max (supports multiple targets or pairs)" },
-          { command: "set init <val> <target>...", desc: "Set initiative (supports multiple targets or pairs)" },
+          { command: "res clear (<all> | <target>...)", desc: "Clear resource usage for target(s) or all" },
+          { command: "clear res (<all> | <target>...)", desc: "Clear resource usage for target(s) or all" },
         ]
       },
       {
         title: "Game State & Storage",
         lines: [
+          { command: "save list", desc: "List all saved game files with paths" },
+          { command: "list saves", desc: "List all saved game files with paths" },
+          { command: "saves", desc: "List all saved game files with paths" },
+          { command: "save delete [<name>...]", desc: "Delete save file(s) (or list options)" },
           { command: "delete save [<name>...]", desc: "Delete save file(s) (or list options)" },
           { command: "del save [<name>...]", desc: "Delete save file(s) (or list options)" },
+          { command: "save load [<name>]", desc: "Load saved game state (or list options)" },
           { command: "load save [<name>]", desc: "Load saved game state (or list options)" },
-          { command: "new game", desc: "Start a fresh new game session" },
+          { command: "save rename [<new_name>]", desc: "Rename current game session" },
           { command: "rename save [<new_name>]", desc: "Rename current game session" },
           { command: "save [<name>]", desc: "Save game session snapshot (or prompt)" },
-          { command: "saves", desc: "List all saved game files with paths" },
-          { command: "list saves", desc: "List all saved game files with paths" },
+          { command: "game new", desc: "Start a fresh new game session" },
+          { command: "new game", desc: "Start a fresh new game session" },
         ]
       },
       {
         title: "Utilities",
         lines: [
+          { command: "activity show", desc: "Show all actions logged in this session" },
           { command: "(help | h) [<filter>]", desc: "Show this POSIX / docopt help menu (supports optional filter)" },
-          { command: "(quit | q | exit)", desc: "Exit the application" },
-          { command: "redo | r [<count>]", desc: "Re-apply the last 1 or <count> undone actions" },
-          { command: "show activity", desc: "Show all actions logged in this session" },
-          { command: "test [simple]", desc: "Load test data encounter" },
           { command: "undo | u [<count>]", desc: "Revert the last 1 or <count> mutating actions" },
+          { command: "redo | r [<count>]", desc: "Re-apply the last 1 or <count> undone actions" },
+          { command: "test [simple]", desc: "Load test data encounter" },
+          { command: "(quit | q | exit)", desc: "Exit the application" },
         ]
       }
     ];
@@ -2456,46 +2684,46 @@ function handleCommandInternal(input: string): boolean {
 
     if (isSimple) {
       // Add creatures via real commands — no stats, just names + types
-      handleCommand("add pc \"ajax grimstone\" \"kaelor stormstride\" \"lyra moonwhisper\" \"thorgan ironbreaker\" \"elaria shadowstep\" \"seraphina sunfire\" \"valerius frostweaver\"");
-      handleCommand("add enemy \"goblin warrior 1\" \"goblin warrior 2\" \"goblin archer\" \"goblin shaman\" \"bugbear chieftain\" \"hobgoblin captain\" \"skeleton archer\" \"dark cultist\" \"young red dragon\"");
-      handleCommand("add neutral \"captured merchant\" \"village elder\" \"tavern keeper\" \"mysterious traveler\"");
+      handleCommand("char add pc \"ajax grimstone\" \"kaelor stormstride\" \"lyra moonwhisper\" \"thorgan ironbreaker\" \"elaria shadowstep\" \"seraphina sunfire\" \"valerius frostweaver\"");
+      handleCommand("char add enemy \"goblin warrior 1\" \"goblin warrior 2\" \"goblin archer\" \"goblin shaman\" \"bugbear chieftain\" \"hobgoblin captain\" \"skeleton archer\" \"dark cultist\" \"young red dragon\"");
+      handleCommand("char add neutral \"captured merchant\" \"village elder\" \"tavern keeper\" \"mysterious traveler\"");
     } else {
       // PCs
-      handleCommand("add pc ajax \"kaelor stormstride\" \"lyra moonwhisper\" \"thorgan ironbreaker\" \"elaria shadowstep\" \"seraphina sunfire\" \"valerius frostweaver\"");
-      handleCommand("set hp 45 ajax 38 \"kaelor stormstride\" 32 \"lyra moonwhisper\" 58 \"thorgan ironbreaker\" 30 \"elaria shadowstep\" 40 \"seraphina sunfire\" 28 \"valerius frostweaver\"");
-      handleCommand("set ac 18 ajax 15 \"kaelor stormstride\" 12 \"lyra moonwhisper\" 16 \"thorgan ironbreaker\" 14 \"elaria shadowstep\" 17 \"seraphina sunfire\" 13 \"valerius frostweaver\"");
-      handleCommand("set init 14 ajax 18 \"kaelor stormstride\" 9 \"lyra moonwhisper\" 12 \"thorgan ironbreaker\" 20 \"elaria shadowstep\" 10 \"seraphina sunfire\" 15 \"valerius frostweaver\"");
-      handleCommand("add dmg 12 \"kaelor stormstride\"");
-      handleCommand("add dmg 15 \"thorgan ironbreaker\"");
-      handleCommand("add dmg 4 \"elaria shadowstep\"");
-      handleCommand("add dmg 8 \"valerius frostweaver\"");
-      handleCommand("add eff Concentrating \"lyra moonwhisper\"");
-      handleCommand("add eff Raging \"thorgan ironbreaker\"");
-      handleCommand("add eff Invisible \"valerius frostweaver\"");
+      handleCommand("char add pc ajax \"kaelor stormstride\" \"lyra moonwhisper\" \"thorgan ironbreaker\" \"elaria shadowstep\" \"seraphina sunfire\" \"valerius frostweaver\"");
+      handleCommand("hp set 45 ajax 38 \"kaelor stormstride\" 32 \"lyra moonwhisper\" 58 \"thorgan ironbreaker\" 30 \"elaria shadowstep\" 40 \"seraphina sunfire\" 28 \"valerius frostweaver\"");
+      handleCommand("ac set 18 ajax 15 \"kaelor stormstride\" 12 \"lyra moonwhisper\" 16 \"thorgan ironbreaker\" 14 \"elaria shadowstep\" 17 \"seraphina sunfire\" 13 \"valerius frostweaver\"");
+      handleCommand("init set 14 ajax 18 \"kaelor stormstride\" 9 \"lyra moonwhisper\" 12 \"thorgan ironbreaker\" 20 \"elaria shadowstep\" 10 \"seraphina sunfire\" 15 \"valerius frostweaver\"");
+      handleCommand("dmg add 12 \"kaelor stormstride\"");
+      handleCommand("dmg add 15 \"thorgan ironbreaker\"");
+      handleCommand("dmg add 4 \"elaria shadowstep\"");
+      handleCommand("dmg add 8 \"valerius frostweaver\"");
+      handleCommand("eff add Concentrating \"lyra moonwhisper\"");
+      handleCommand("eff add Raging \"thorgan ironbreaker\"");
+      handleCommand("eff add Invisible \"valerius frostweaver\"");
 
       // Enemies
-      handleCommand("add enemy \"goblin warrior 1\" \"goblin warrior 2\" \"goblin archer\" \"goblin shaman\" \"bugbear chieftain\" \"hobgoblin captain\" \"skeleton archer\" \"dark cultist\" \"young red dragon\"");
-      handleCommand("set hp 12 \"goblin warrior 1\" 12 \"goblin warrior 2\" 10 \"goblin archer\" 18 \"goblin shaman\" 42 \"bugbear chieftain\" 39 \"hobgoblin captain\" 13 \"skeleton archer\" 22 \"dark cultist\" 178 \"young red dragon\"");
-      handleCommand("set ac 13 \"goblin warrior 1\" 13 \"goblin warrior 2\" 12 \"goblin archer\" 12 \"goblin shaman\" 15 \"bugbear chieftain\" 17 \"hobgoblin captain\" 11 \"skeleton archer\" 12 \"dark cultist\" 18 \"young red dragon\"");
-      handleCommand("set init 11 \"goblin warrior 1\" 8 \"goblin warrior 2\" 16 \"goblin archer\" 13 \"goblin shaman\" 7 \"bugbear chieftain\" 14 \"hobgoblin captain\" 15 \"skeleton archer\" 11 \"dark cultist\" 10 \"young red dragon\"");
-      handleCommand("add dmg 5 \"goblin warrior 1\"");
-      handleCommand("add dmg 12 \"goblin warrior 2\"");
-      handleCommand("add dmg 10 \"goblin archer\"");
-      handleCommand("add dmg 6 \"goblin shaman\"");
-      handleCommand("add dmg 14 \"bugbear chieftain\"");
-      handleCommand("add dmg 11 \"dark cultist\"");
-      handleCommand("add dmg 35 \"young red dragon\"");
-      handleCommand("add eff Dead \"goblin warrior 2\"");
-      handleCommand("add eff Poisoned \"goblin shaman\"");
-      handleCommand("add eff Frightened \"dark cultist\"");
+      handleCommand("char add enemy \"goblin warrior 1\" \"goblin warrior 2\" \"goblin archer\" \"goblin shaman\" \"bugbear chieftain\" \"hobgoblin captain\" \"skeleton archer\" \"dark cultist\" \"young red dragon\"");
+      handleCommand("hp set 12 \"goblin warrior 1\" 12 \"goblin warrior 2\" 10 \"goblin archer\" 18 \"goblin shaman\" 42 \"bugbear chieftain\" 39 \"hobgoblin captain\" 13 \"skeleton archer\" 22 \"dark cultist\" 178 \"young red dragon\"");
+      handleCommand("ac set 13 \"goblin warrior 1\" 13 \"goblin warrior 2\" 12 \"goblin archer\" 12 \"goblin shaman\" 15 \"bugbear chieftain\" 17 \"hobgoblin captain\" 11 \"skeleton archer\" 12 \"dark cultist\" 18 \"young red dragon\"");
+      handleCommand("init set 11 \"goblin warrior 1\" 8 \"goblin warrior 2\" 16 \"goblin archer\" 13 \"goblin shaman\" 7 \"bugbear chieftain\" 14 \"hobgoblin captain\" 15 \"skeleton archer\" 11 \"dark cultist\" 10 \"young red dragon\"");
+      handleCommand("dmg add 5 \"goblin warrior 1\"");
+      handleCommand("dmg add 12 \"goblin warrior 2\"");
+      handleCommand("dmg add 10 \"goblin archer\"");
+      handleCommand("dmg add 6 \"goblin shaman\"");
+      handleCommand("dmg add 14 \"bugbear chieftain\"");
+      handleCommand("dmg add 11 \"dark cultist\"");
+      handleCommand("dmg add 35 \"young red dragon\"");
+      handleCommand("eff add Dead \"goblin warrior 2\"");
+      handleCommand("eff add Poisoned \"goblin shaman\"");
+      handleCommand("eff add Frightened \"dark cultist\"");
 
       // Neutrals
-      handleCommand("add neutral \"captured merchant\" \"village elder\" \"tavern keeper\" \"mysterious traveler\"");
-      handleCommand("set hp 8 \"captured merchant\" 6 \"village elder\" 12 \"tavern keeper\" 25 \"mysterious traveler\"");
-      handleCommand("set ac 10 \"captured merchant\" 10 \"village elder\" 11 \"tavern keeper\" 14 \"mysterious traveler\"");
-      handleCommand("set init 16 \"mysterious traveler\"");
-      handleCommand("add dmg 3 \"captured merchant\"");
-      handleCommand("add eff Restrained \"captured merchant\"");
+      handleCommand("char add neutral \"captured merchant\" \"village elder\" \"tavern keeper\" \"mysterious traveler\"");
+      handleCommand("hp set 8 \"captured merchant\" 6 \"village elder\" 12 \"tavern keeper\" 25 \"mysterious traveler\"");
+      handleCommand("ac set 10 \"captured merchant\" 10 \"village elder\" 11 \"tavern keeper\" 14 \"mysterious traveler\"");
+      handleCommand("init set 16 \"mysterious traveler\"");
+      handleCommand("dmg add 3 \"captured merchant\"");
+      handleCommand("eff add Restrained \"captured merchant\"");
     }
 
     renderTable();
@@ -2825,11 +3053,12 @@ export function processSaveDeleteSelection(answer: string): boolean {
 // Wrap handleCommand to ensure auto-saving on every mutating command
 export function handleCommand(input: string): boolean {
   return executeWithUndoTracking(() => {
-    const parts = tokenize(input.trim());
+    const rawParts = tokenize(input.trim());
+    const parts = normalizeCommandTokens(rawParts);
     const cmd = parts[0]?.toLowerCase();
     const res = handleCommandInternal(input);
 
-    const nonMutatingCmds = ["help", "saves", "delete", "del", "quit", "exit", "q", "rename", "undo", "u", "redo", "r"];
+    const nonMutatingCmds = ["help", "saves", "delete", "del", "quit", "exit", "q", "rename", "undo", "u", "redo", "r", "show", "save", "load", "loadgame", "new"];
     if (cmd && !nonMutatingCmds.includes(cmd) && hasAddedCreature && currentSessionName) {
       saveState(currentSessionName);
     }
@@ -2838,6 +3067,31 @@ export function handleCommand(input: string): boolean {
 }
 
 export const ALL_COMMAND_TEMPLATES: string[] = [
+  // Primary syntax: <field|entity> <command> ...
+  "save list", "save delete", "save load", "save rename", "save",
+  "game new", "game load", "game save", "game list", "game delete",
+  "char add", "char add pc", "char add enemy", "char add neutral", "char remove",
+  "pc add", "pc remove",
+  "enemy add", "enemy remove",
+  "neutral add", "neutral remove",
+  "hp set", "hp clear",
+  "ac set", "ac clear",
+  "init set", "init clear",
+  "dmg add", "dmg remove", "dmg clear", "dmg hurt", "dmg heal",
+  "eff add", "eff remove",
+  "cond add", "cond remove",
+  "stat add", "stat remove",
+  "status add", "status remove",
+  "res add", "res use", "res remove", "res clear",
+  "rxn set", "rxn remove",
+  "type set", "type set pc", "type set enemy", "type set neutral",
+  "turn next", "turn prev",
+  "activity show",
+  "combat", "combat start", "combat end", "c", "c start", "c end",
+  "undo", "u", "redo", "r",
+  "help", "h", "quit", "exit", "q",
+  "test", "test simple",
+  // Legacy aliases for backward compatibility:
   "add", "add pc", "add enemy", "add neutral", "add char", "add eff", "add cond", "add stat", "add status",
   "add dmg", "add rxn", "add reaction", "add res",
   "use", "use res",
@@ -2850,13 +3104,10 @@ export const ALL_COMMAND_TEMPLATES: string[] = [
   "clear", "clear ac", "clear dmg", "clear hp", "clear init", "clear res",
   "set", "set ac", "set hp", "set init", "set type", "set type pc", "set type enemy", "set type neutral",
   "change", "change type",
-  "combat", "combat start", "combat end", "c", "c start", "c end",
   "next", "n", "prev", "p",
   "heal", "hurt",
-  "undo", "u", "redo", "r",
-  "save", "saves", "list saves", "load save", "new game", "rename save", "delete save", "del", "del save",
-  "show activity", "help", "h", "quit", "exit", "q",
-  "test", "test simple"
+  "saves", "list saves", "load save", "new game", "rename save", "delete save", "del", "del save",
+  "show activity"
 ];
 
 export function highlightMatch(
@@ -2892,6 +3143,155 @@ export function completer(line: string): [string[], string] {
   
   if (lineTrimmed === "" || (rawParts.length === 1 && !endsWithSpace)) {
     completions = ALL_COMMAND_TEMPLATES;
+  } else if (cmd === "char") {
+    if (baseParts.length === 1) {
+      completions = ["char add", "char remove"];
+    } else if (subCmd === "add") {
+      if (baseParts.length === 2) {
+        completions = ["char add pc", "char add enemy", "char add neutral"];
+      }
+    } else if (subCmd === "remove") {
+      if (baseParts.length === 2) {
+        const typeSubs = ["pcs", "enemies", "neutrals"];
+        const creatureSubs = creatures.map(c => c.name.includes(" ") ? `"${c.name}"` : c.name);
+        completions = [...typeSubs, ...creatureSubs].map(s => `char remove ${s}`);
+      } else {
+        completions = creatures.map(c => {
+          const formatted = c.name.includes(" ") ? `"${c.name}"` : c.name;
+          return `${baseParts.join(" ")} ${formatted}`;
+        });
+      }
+    }
+  } else if (cmd === "pc" || cmd === "enemy" || cmd === "neutral") {
+    if (baseParts.length === 1) {
+      completions = [`${cmd} add`, `${cmd} remove`];
+    } else if (subCmd === "remove") {
+      completions = creatures.map(c => {
+        const formatted = c.name.includes(" ") ? `"${c.name}"` : c.name;
+        return `${baseParts.join(" ")} ${formatted}`;
+      });
+    }
+  } else if (cmd === "hp" || cmd === "ac" || cmd === "init") {
+    if (baseParts.length === 1) {
+      completions = [`${cmd} set`, `${cmd} clear`];
+    } else if (subCmd === "clear") {
+      completions = ["all", ...creatures.map(c => c.name.includes(" ") ? `"${c.name}"` : c.name)].map(target => {
+        return `${cmd} clear ${target}`;
+      });
+    } else if (subCmd === "set") {
+      if (baseParts.length >= 3) {
+        completions = creatures.map(c => {
+          const formatted = c.name.includes(" ") ? `"${c.name}"` : c.name;
+          return `${baseParts.join(" ")} ${formatted}`;
+        });
+      }
+    }
+  } else if (cmd === "dmg") {
+    if (baseParts.length === 1) {
+      completions = ["dmg add", "dmg remove", "dmg clear", "dmg hurt", "dmg heal"];
+    } else if (subCmd === "clear") {
+      completions = ["all", ...creatures.map(c => c.name.includes(" ") ? `"${c.name}"` : c.name)].map(target => {
+        return `dmg clear ${target}`;
+      });
+    } else if (subCmd === "add" || subCmd === "remove" || subCmd === "hurt" || subCmd === "heal") {
+      if (baseParts.length >= 3) {
+        completions = creatures.map(c => {
+          const formatted = c.name.includes(" ") ? `"${c.name}"` : c.name;
+          return `${baseParts.join(" ")} ${formatted}`;
+        });
+      }
+    }
+  } else if (cmd === "eff" || cmd === "cond" || cmd === "stat" || cmd === "status") {
+    if (baseParts.length === 1) {
+      completions = [`${cmd} add`, `${cmd} remove`];
+    } else if (subCmd === "add" || subCmd === "remove") {
+      if (baseParts.length === 2) {
+        completions = ALL_STATUS_EFFECTS.map(eff => {
+          const formatted = eff.includes(" ") ? `"${eff}"` : eff;
+          return `${cmd} ${subCmd} ${formatted}`;
+        });
+      } else {
+        completions = creatures.map(c => {
+          const formatted = c.name.includes(" ") ? `"${c.name}"` : c.name;
+          return `${baseParts.join(" ")} ${formatted}`;
+        });
+      }
+    }
+  } else if (cmd === "res") {
+    if (baseParts.length === 1) {
+      completions = ["res add", "res use", "res remove", "res clear"];
+    } else if (subCmd === "clear") {
+      completions = ["all", ...creatures.map(c => c.name.includes(" ") ? `"${c.name}"` : c.name)].map(target => {
+        return `res clear ${target}`;
+      });
+    } else if (subCmd === "add" || subCmd === "use" || subCmd === "remove") {
+      if (baseParts.length === 2) {
+        const existingResources = new Set<string>();
+        for (const c of creatures) {
+          if (c.resourceUsage) {
+            for (const r of Object.keys(c.resourceUsage)) {
+              existingResources.add(r);
+            }
+          }
+        }
+        completions = Array.from(existingResources).map(r => {
+          const formatted = r.includes(" ") ? `"${r}"` : r;
+          return `${baseParts.join(" ")} ${formatted}`;
+        });
+      } else {
+        completions = creatures.map(c => {
+          const formatted = c.name.includes(" ") ? `"${c.name}"` : c.name;
+          return `${baseParts.join(" ")} ${formatted}`;
+        });
+      }
+    }
+  } else if (cmd === "rxn") {
+    if (baseParts.length === 1) {
+      completions = ["rxn set", "rxn remove"];
+    } else if (subCmd === "set" || subCmd === "remove") {
+      completions = creatures.map(c => {
+        const formatted = c.name.includes(" ") ? `"${c.name}"` : c.name;
+        return `${baseParts.join(" ")} ${formatted}`;
+      });
+    }
+  } else if (cmd === "type") {
+    if (baseParts.length === 1) {
+      completions = ["type set"];
+    } else if (subCmd === "set") {
+      if (baseParts.length === 2) {
+        completions = ["type set pc", "type set enemy", "type set neutral", ...creatures.map(c => `type set ${c.name.includes(" ") ? `"${c.name}"` : c.name}`)];
+      } else {
+        completions = creatures.map(c => {
+          const formatted = c.name.includes(" ") ? `"${c.name}"` : c.name;
+          return `${baseParts.join(" ")} ${formatted}`;
+        });
+      }
+    }
+  } else if (cmd === "turn") {
+    if (baseParts.length === 1) {
+      completions = ["turn next", "turn prev"];
+    }
+  } else if (cmd === "activity") {
+    if (baseParts.length === 1) {
+      completions = ["activity show"];
+    }
+  } else if (cmd === "save") {
+    if (baseParts.length === 1) {
+      completions = ["save list", "save delete", "save load", "save rename"];
+    } else if ((subCmd === "delete" || subCmd === "load") && baseParts.length === 2) {
+      if (fs.existsSync(SAVES_DIR)) {
+        const files = fs.readdirSync(SAVES_DIR).filter(f => f.endsWith(".json"));
+        completions = files.map(f => {
+          const name = f.replace(/\.json$/, "");
+          const formatted = name.includes(" ") ? `"${name}"` : name;
+          return `${cmd} ${subCmd} ${formatted}`;
+        });
+      }
+    }
+  } else if (cmd === "game") {
+    if (baseParts.length === 1) {
+      completions = ["game new", "game load", "game save", "game list", "game delete"];
+    }
   } else if (cmd === "add" || cmd === "use") {
     if (baseParts.length === 1) {
       if (cmd === "use") {
