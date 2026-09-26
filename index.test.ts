@@ -167,6 +167,86 @@ describe("D&D CLI Tracker Test Suite", () => {
       expect(hero?.dmg).toBe(0);
     });
 
+    test("dmg add max sets damage to equal hpMax, marks creature Dead, and supports multi-target", () => {
+      handleCommand("game new");
+      handleCommand("char add pc HeroA HeroB");
+      handleCommand("hp set 50 HeroA 30 HeroB");
+      handleCommand("dmg add 10 HeroA");
+
+      // dmg add max on single target
+      handleCommand("dmg add max HeroA");
+      const heroA = creatures.find((c) => c.name === "HeroA");
+      expect(heroA?.dmg).toBe(50);
+      expect(heroA?.statusEffects).toContain("Dead");
+
+      // multi-target dmg add max
+      handleCommand("dmg add max HeroA HeroB");
+      const heroB = creatures.find((c) => c.name === "HeroB");
+      expect(heroB?.dmg).toBe(30);
+      expect(heroB?.statusEffects).toContain("Dead");
+
+      // creature without hpMax
+      handleCommand("char add pc HeroC");
+      handleCommand("dmg add max HeroC");
+      const heroC = creatures.find((c) => c.name === "HeroC");
+      expect(heroC?.dmg).toBe(0);
+      expect(heroC?.statusEffects).toContain("Dead");
+    });
+
+    test("kill alias sets damage to hpMax, marks creature Dead, and is undoable/redoable", () => {
+      handleCommand("game new");
+      handleCommand("char add pc HeroA HeroB");
+      handleCommand("hp set 40 HeroA 25 HeroB");
+      const initialUndo = getHistoryStacks().undoLength;
+
+      // kill alias
+      handleCommand("kill HeroA HeroB");
+      expect(creatures[0]?.dmg).toBe(40);
+      expect(creatures[0]?.statusEffects).toContain("Dead");
+      expect(creatures[1]?.dmg).toBe(25);
+      expect(creatures[1]?.statusEffects).toContain("Dead");
+      expect(getHistoryStacks().undoLength).toBe(initialUndo + 1);
+
+      // undo
+      handleCommand("undo");
+      expect(creatures[0]?.dmg).toBe(0);
+      expect(creatures[0]?.statusEffects).not.toContain("Dead");
+      expect(creatures[1]?.dmg).toBe(0);
+      expect(creatures[1]?.statusEffects).not.toContain("Dead");
+      expect(getHistoryStacks().undoLength).toBe(initialUndo);
+
+      // redo
+      handleCommand("redo");
+      expect(creatures[0]?.dmg).toBe(40);
+      expect(creatures[0]?.statusEffects).toContain("Dead");
+      expect(creatures[1]?.dmg).toBe(25);
+      expect(creatures[1]?.statusEffects).toContain("Dead");
+      expect(getHistoryStacks().undoLength).toBe(initialUndo + 1);
+
+      // dmg add max undo/redo
+      handleCommand("game new");
+      handleCommand("char add pc Hero");
+      handleCommand("hp set 20 Hero");
+      const initLen = getHistoryStacks().undoLength;
+
+      handleCommand("dmg add max Hero");
+      expect(creatures[0]?.dmg).toBe(20);
+      expect(creatures[0]?.statusEffects).toContain("Dead");
+      expect(getHistoryStacks().undoLength).toBe(initLen + 1);
+
+      handleCommand("undo");
+      expect(creatures[0]?.dmg).toBe(0);
+      expect(creatures[0]?.statusEffects).not.toContain("Dead");
+      expect(getHistoryStacks().undoLength).toBe(initLen);
+
+      // non-mutating on missing args or invalid target
+      handleCommand("kill");
+      expect(getHistoryStacks().undoLength).toBe(initLen);
+
+      handleCommand("kill NonexistentTarget");
+      expect(getHistoryStacks().undoLength).toBe(initLen);
+    });
+
     test("supports multiple value and target pairs for setting HP, AC, and initiative", () => {
       handleCommand("char add pc HeroA HeroB");
       handleCommand("hp set 40 HeroA 35 HeroB");
@@ -1055,8 +1135,8 @@ describe("D&D CLI Tracker Test Suite", () => {
         expect(fullOutput).not.toContain("<all>");
         expect(fullOutput).not.toContain("<val>");
         expect(fullOutput).not.toContain("<eff>");
-        expect(fullOutput).not.toContain("<t>...");
-        expect(fullOutput).toContain("dmg add <value> <target>...");
+        expect(fullOutput).toContain("dmg add (<value> | max) <target>...");
+        expect(fullOutput).toContain("kill <target>...");
         expect(fullOutput).toContain("dmg remove <value> <target>...");
         expect(fullOutput).toContain("save delete [<name>...]");
 
@@ -1551,6 +1631,11 @@ describe("D&D CLI Tracker Test Suite", () => {
       expect(normalizeCommandTokens(["init", "set", "12", "Hero"])).toEqual(["set", "init", "12", "Hero"]);
       expect(normalizeCommandTokens(["init", "clear", "Hero"])).toEqual(["clear", "init", "Hero"]);
       expect(normalizeCommandTokens(["dmg", "add", "10", "Hero"])).toEqual(["add", "dmg", "10", "Hero"]);
+      expect(normalizeCommandTokens(["dmg", "add", "max", "Hero"])).toEqual(["add", "dmg", "max", "Hero"]);
+      expect(normalizeCommandTokens(["dmg", "max", "Hero"])).toEqual(["add", "dmg", "max", "Hero"]);
+      expect(normalizeCommandTokens(["dmg", "kill", "Hero"])).toEqual(["add", "dmg", "max", "Hero"]);
+      expect(normalizeCommandTokens(["kill", "Hero"])).toEqual(["add", "dmg", "max", "Hero"]);
+      expect(normalizeCommandTokens(["kill", "HeroA", "HeroB"])).toEqual(["add", "dmg", "max", "HeroA", "HeroB"]);
       expect(normalizeCommandTokens(["dmg", "remove", "5", "Hero"])).toEqual(["remove", "dmg", "5", "Hero"]);
       expect(normalizeCommandTokens(["dmg", "clear", "Hero"])).toEqual(["clear", "dmg", "Hero"]);
       expect(normalizeCommandTokens(["eff", "add", "Stunned", "Hero"])).toEqual(["add", "eff", "Stunned", "Hero"]);
@@ -2116,8 +2201,18 @@ describe("D&D CLI Tracker Test Suite", () => {
       // dmg
       const [dmgHits] = completer("dmg ");
       expect(dmgHits).toContain("dmg add");
+      expect(dmgHits).toContain("dmg add max");
       expect(dmgHits).toContain("dmg remove");
       expect(dmgHits).toContain("dmg clear");
+      expect(dmgHits).toContain("dmg kill");
+
+      // kill
+      const [killHits] = completer("kill ");
+      expect(killHits).toContain("kill HeroA");
+
+      // dmg add max
+      const [dmgAddMaxHits] = completer("dmg add max ");
+      expect(dmgAddMaxHits).toContain("dmg add max HeroA");
 
       // char
       const [charHits] = completer("char ");

@@ -96,6 +96,8 @@ Here is a sampling of useful commands to demonstrate the CLI's capabilities:
 - **Apply damage, heal, or clear damage (supports multiple targets):**
   ```text
   dmg add 12 Ajax Kaelor           # Deal 12 damage to Ajax and Kaelor
+  dmg add max Ajax                 # Set dmg to equal HP max (Dead)
+  kill Ajax Kaelor                 # Alias for dmg add max (instantly kill target(s))
   dmg remove 6 Ajax Kaelor         # Heal / subtract 6 damage
   dmg clear all                    # Clear all damage taken
   ```

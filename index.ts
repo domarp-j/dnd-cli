@@ -247,7 +247,10 @@ export function normalizeCommandTokens(parts: string[]): string[] {
     if (second === "clear") {
       return ["clear", "dmg", ...parts.slice(2)];
     }
-    if (parts.length >= 2 && !isNaN(parseInt(parts[1]!, 10))) {
+    if (second === "kill" || second === "max") {
+      return ["add", "dmg", "max", ...parts.slice(2)];
+    }
+    if (parts.length >= 2 && (!isNaN(parseInt(parts[1]!, 10)) || parts[1]!.toLowerCase() === "max")) {
       return ["add", "dmg", ...parts.slice(1)];
     }
     return parts;
@@ -306,6 +309,11 @@ export function normalizeCommandTokens(parts: string[]): string[] {
       return ["show", "activity", ...parts.slice(2)];
     }
     return parts;
+  }
+
+  // 15. kill alias
+  if (first === "kill") {
+    return ["add", "dmg", "max", ...parts.slice(1)];
   }
 
   return parts;
@@ -1191,7 +1199,8 @@ function handleCommandInternal(input: string): boolean {
           { command: "ac clear (all | <target>...)", desc: "Clear AC for target(s) or all" },
           { command: "init set <value> <target>...", desc: "Set initiative (supports multiple targets or pairs)" },
           { command: "init clear (all | <target>...)", desc: "Clear initiative for target(s) or all" },
-          { command: "dmg add <value> <target>...", desc: "Add damage taken to target(s)" },
+          { command: "dmg add (<value> | max) <target>...", desc: "Add damage or set to max HP (kill) for target(s)" },
+          { command: "kill <target>...", desc: "Instantly set dmg to max HP (Dead) for target(s)" },
           { command: "dmg remove <value> <target>...", desc: "Heal/subtract damage from target(s)" },
           { command: "dmg clear (all | <target>...)", desc: "Clear damage for target(s) or all" },
           { command: "eff add <effect> <target>...", desc: "Add status effect to target(s)" },
@@ -1797,28 +1806,50 @@ function handleCommandInternal(input: string): boolean {
       return true;
     }
 
-    // --- dmg add <value> <target>... ---
+    // --- dmg add (<value> | max) <target>... ---
     if (matched === "dmg") {
       const rawVal = parts[2];
       const targets = parts.slice(3);
 
       if (!rawVal || targets.length === 0) {
         renderTable();
-        console.log(`${RED}Usage: dmg add <value> <target>...${RESET}\n`);
+        console.log(`${RED}Usage: dmg add (<value> | max) <target>... or kill <target>...${RESET}\n`);
         return true;
       }
 
-      const val = parseInt(rawVal, 10);
-      if (isNaN(val)) {
-        renderTable();
-        console.log(`${RED}"${rawVal}" is not a valid number.${RESET}\n`);
-        return true;
+      const isMax = rawVal.toLowerCase() === "max" || rawVal.toLowerCase() === "m";
+      let val = 0;
+      if (!isMax) {
+        val = parseInt(rawVal, 10);
+        if (isNaN(val)) {
+          renderTable();
+          console.log(`${RED}"${rawVal}" is not a valid number.${RESET}\n`);
+          return true;
+        }
       }
 
       const result = findCreatures(targets);
       if (!result.ok) {
         renderTable();
         console.log(`${RED}${result.error}${RESET}\n`);
+        return true;
+      }
+
+      if (isMax) {
+        for (const creature of result.creatures) {
+          if (creature.hpMax === null) {
+            creature.hpMax = 0;
+          }
+          creature.dmg = creature.hpMax;
+          if (!creature.statusEffects.some(e => e.toLowerCase() === "dead")) {
+            creature.statusEffects.push("Dead");
+          }
+        }
+
+        renderTable();
+        const names = result.creatures.map((c) => c.name).join(", ");
+        console.log(`${GREEN}✓ ${names}: killed (dmg set to max HP)${RESET}\n`);
+        logActivity(`Killed ${names} (dmg set to max HP)`);
         return true;
       }
 
@@ -3131,7 +3162,7 @@ export const ALL_COMMAND_TEMPLATES: string[] = [
   "hp set", "hp clear",
   "ac set", "ac clear",
   "init set", "init clear",
-  "dmg add", "dmg remove", "dmg clear", "dmg hurt", "dmg heal",
+  "dmg add", "dmg add max", "dmg remove", "dmg clear", "dmg hurt", "dmg heal", "dmg kill", "kill",
   "eff add", "eff remove",
   "cond add", "cond remove",
   "stat add", "stat remove",
@@ -3234,12 +3265,26 @@ export function completer(line: string): [string[], string] {
     }
   } else if (cmd === "dmg") {
     if (baseParts.length === 1) {
-      completions = ["dmg add", "dmg remove", "dmg clear", "dmg hurt", "dmg heal"];
+      completions = ["dmg add", "dmg add max", "dmg remove", "dmg clear", "dmg hurt", "dmg heal", "dmg kill"];
     } else if (subCmd === "clear") {
       completions = ["all", ...creatures.map(c => c.name.includes(" ") ? `"${c.name}"` : c.name)].map(target => {
         return `dmg clear ${target}`;
       });
-    } else if (subCmd === "add" || subCmd === "remove" || subCmd === "hurt" || subCmd === "heal") {
+    } else if (subCmd === "kill" || subCmd === "max") {
+      completions = creatures.map(c => {
+        const formatted = c.name.includes(" ") ? `"${c.name}"` : c.name;
+        return `${baseParts.join(" ")} ${formatted}`;
+      });
+    } else if (subCmd === "add") {
+      if (baseParts.length === 2) {
+        completions = ["dmg add max", ...creatures.map(c => `dmg add ${c.name.includes(" ") ? `"${c.name}"` : c.name}`)];
+      } else {
+        completions = creatures.map(c => {
+          const formatted = c.name.includes(" ") ? `"${c.name}"` : c.name;
+          return `${baseParts.join(" ")} ${formatted}`;
+        });
+      }
+    } else if (subCmd === "remove" || subCmd === "hurt" || subCmd === "heal") {
       if (baseParts.length >= 3) {
         completions = creatures.map(c => {
           const formatted = c.name.includes(" ") ? `"${c.name}"` : c.name;
@@ -3247,6 +3292,11 @@ export function completer(line: string): [string[], string] {
         });
       }
     }
+  } else if (cmd === "kill") {
+    completions = creatures.map(c => {
+      const formatted = c.name.includes(" ") ? `"${c.name}"` : c.name;
+      return `${baseParts.join(" ")} ${formatted}`;
+    });
   } else if (cmd === "eff" || cmd === "cond" || cmd === "stat" || cmd === "status") {
     if (baseParts.length === 1) {
       completions = [`${cmd} add`, `${cmd} remove`];
