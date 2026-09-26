@@ -159,7 +159,11 @@ export function normalizeCommandTokens(parts: string[]): string[] {
     }
     if (second === "remove" || second === "rm" || second === "del" || second === "delete") {
       const third = parts[2]?.toLowerCase();
-      if (third === "pcs" || third === "pc" || third === "enemies" || third === "enemy" || third === "neutrals" || third === "neutral") {
+      if (
+        third === "pcs" || third === "pc" || third === "p" ||
+        third === "enemies" || third === "enemy" || third === "e" ||
+        third === "neutrals" || third === "neutral" || third === "n"
+      ) {
         return ["remove", parts[2]!, ...parts.slice(3)];
       }
       return ["remove", "char", ...parts.slice(2)];
@@ -840,7 +844,7 @@ function renderTable(): void {
   console.log(`${DIM}${"─".repeat(100)}${RESET}`);
 
   if (creatures.length === 0) {
-    console.log(`${DIM}  No creatures yet. Use "add pc n1 n2" to begin.${RESET}`);
+    console.log(`${DIM}  No creatures yet. Use "char add pc n1 n2" to begin.${RESET}`);
   } else {
     // Header
     const hdr = inCombat
@@ -1012,35 +1016,53 @@ function findCreatures(identifiers: string[]): FindManyResult {
 
 // --- Commands ---
 
-function handleCommandInternal(input: string): boolean {
-  let parts = tokenize(input.trim());
-  parts = normalizeCommandTokens(parts);
-  let cmd = parts[0]?.toLowerCase();
+export const OLD_DISALLOWED_COMMANDS = new Set([
+  "add",
+  "set",
+  "remove",
+  "rm",
+  "clear",
+  "delete",
+  "del",
+  "load",
+  "loadgame",
+  "new",
+  "rename",
+  "saves",
+  "list",
+  "hurt",
+  "heal",
+  "use",
+  "change",
+  "show",
+  "next",
+  "prev",
+  "n",
+  "p",
+  "start",
+  "end",
+]);
 
-  if (cmd === "hurt") {
-    parts[0] = "add";
-    parts.splice(1, 0, "dmg");
-    cmd = "add";
-  } else if (cmd === "heal") {
-    parts[0] = "remove";
-    parts.splice(1, 0, "dmg");
-    cmd = "remove";
-  } else if (cmd === "use") {
-    parts[0] = "add";
-    cmd = "add";
-  } else if (cmd === "change") {
-    if (parts[1]?.toLowerCase() === "type") {
-      parts[0] = "set";
-      cmd = "set";
-    }
-  } else if (cmd === "type") {
-    if (parts[1]?.toLowerCase() === "set" || parts[1]?.toLowerCase() === "change") {
-      parts = ["set", "type", ...parts.slice(2)];
-    } else {
-      parts.splice(0, 0, "set");
-    }
-    cmd = "set";
+function handleCommandInternal(input: string): boolean {
+  const trimmed = input.trim();
+  if (!trimmed) {
+    return true; // empty input, just re-render
   }
+
+  const rawParts = tokenize(trimmed);
+  if (rawParts.length === 0) {
+    return true;
+  }
+  const rawFirst = rawParts[0]!.toLowerCase();
+
+  if (OLD_DISALLOWED_COMMANDS.has(rawFirst)) {
+    renderTable();
+    console.log(`${RED}Unknown command: "${trimmed}". Type "help" for commands.${RESET}\n`);
+    return true;
+  }
+
+  let parts = normalizeCommandTokens(rawParts);
+  let cmd = parts[0]?.toLowerCase();
 
   if (!cmd) {
     return true; // empty input, just re-render
@@ -1141,20 +1163,10 @@ function handleCommandInternal(input: string): boolean {
         lines: [
           { command: "char add [type] <name>...", desc: "Add creature(s) by type (pc, enemy, neutral) or prompt" },
           { command: "(pc | enemy | neutral) add <name>...", desc: "Add creature(s) of specified type" },
-          { command: "add (enemy | e) <name>...", desc: "Add enemy creature(s)" },
-          { command: "add (neutral | n) <name>...", desc: "Add neutral creature(s)" },
-          { command: "add (pc | p) <name>...", desc: "Add player character(s)" },
-          { command: "add char <name>...", desc: "Add creature(s) by prompting for type" },
           { command: "char remove <name>...", desc: "Remove specific creature(s) by name" },
-          { command: "remove char <name>...", desc: "Remove specific creature(s) by name" },
           { command: "(pc | enemy | neutral) remove", desc: "Bulk remove creatures by type" },
-          { command: "remove (pcs | enemies | neutrals)", desc: "Bulk remove creatures by type" },
-          { command: "remove (p | e | n)", desc: "Bulk remove creatures by type" },
           { command: "type set (pc | enemy | neutral) <t>...", desc: "Change character type" },
           { command: "type set <target>... (pc | enemy | neutral)", desc: "Change character type" },
-          { command: "set type (pc | enemy | neutral) <target>...", desc: "Change character type" },
-          { command: "set type <target>... (pc | enemy | neutral)", desc: "Change character type" },
-          { command: "change type <target> <type>", desc: "Change character type" },
         ]
       },
       {
@@ -1163,65 +1175,41 @@ function handleCommandInternal(input: string): boolean {
           { command: "combat | c [start]", desc: "Start combat mode (resorts by initiative)" },
           { command: "combat | c end", desc: "End combat mode (clears init & dmg)" },
           { command: "turn (next | prev) [<count>]", desc: "Advance or rewind 1 or <count> turns" },
-          { command: "(next | n) [<count>]", desc: "Advance 1 or <count> turns" },
-          { command: "(prev | p) [<count>]", desc: "Go back 1 or <count> turns" },
           { command: "rxn set <target>...", desc: "Mark creature reaction as used" },
-          { command: "add/set (rxn | reaction) <target>...", desc: "Mark creature reaction as used" },
           { command: "rxn remove <target>...", desc: "Restore creature reaction" },
-          { command: "remove (rxn | reaction) <target>...", desc: "Restore creature reaction" },
         ]
       },
       {
         title: "Stats & Status Effects",
         lines: [
           { command: "hp set <val> <target>...", desc: "Set HP max (supports multiple targets or pairs)" },
-          { command: "set hp <val> <target>...", desc: "Set HP max (supports multiple targets or pairs)" },
           { command: "hp clear (<all> | <target>...)", desc: "Clear HP max for target(s) or all" },
-          { command: "clear hp (<all> | <target>...)", desc: "Clear HP max for target(s) or all" },
           { command: "ac set <val> <target>...", desc: "Set AC (supports multiple targets or pairs)" },
-          { command: "set ac <val> <target>...", desc: "Set AC (supports multiple targets or pairs)" },
           { command: "ac clear (<all> | <target>...)", desc: "Clear AC for target(s) or all" },
-          { command: "clear ac (<all> | <target>...)", desc: "Clear AC for target(s) or all" },
           { command: "init set <val> <target>...", desc: "Set initiative (supports multiple targets or pairs)" },
-          { command: "set init <val> <target>...", desc: "Set initiative (supports multiple targets or pairs)" },
           { command: "init clear (<all> | <target>...)", desc: "Clear initiative for target(s) or all" },
-          { command: "clear init (<all> | <target>...)", desc: "Clear initiative for target(s) or all" },
           { command: "dmg add <value> <target>...", desc: "Add damage taken to target(s)" },
-          { command: "add dmg <value> <target>...", desc: "Add damage taken to target(s)" },
-          { command: "hurt <value> <target>...", desc: "Add damage taken to target(s)" },
           { command: "dmg remove <value> <target>...", desc: "Heal/subtract damage from target(s)" },
-          { command: "remove dmg <value> <target>...", desc: "Heal/subtract damage from target(s)" },
-          { command: "heal <value> <target>...", desc: "Heal/subtract damage from target(s)" },
           { command: "dmg clear (<all> | <target>...)", desc: "Clear damage for target(s) or all" },
-          { command: "clear dmg (<all> | <target>...)", desc: "Clear damage for target(s) or all" },
           { command: "eff add <eff> <target>...", desc: "Add status effect to target(s)" },
-          { command: "add (eff | cond | stat) <eff> <t>...", desc: "Add status effect to target(s)" },
           { command: "eff remove <eff> <target>...", desc: "Remove status effect from target(s)" },
-          { command: "remove (eff | cond | stat) <eff> <target>...", desc: "Remove status effect from target(s)" },
           { command: "res (add | use) <name> <target>...", desc: "Add/increment resource usage for target(s)" },
-          { command: "add/use res <name> <target>...", desc: "Add/increment resource usage for target(s)" },
           { command: "res remove <name> <target>...", desc: "Remove/decrement resource usage from target(s)" },
-          { command: "remove res <name> <target>...", desc: "Remove/decrement resource usage from target(s)" },
           { command: "res clear (<all> | <target>...)", desc: "Clear resource usage for target(s) or all" },
-          { command: "clear res (<all> | <target>...)", desc: "Clear resource usage for target(s) or all" },
         ]
       },
       {
         title: "Game State & Storage",
         lines: [
           { command: "save list", desc: "List all saved game files with paths" },
-          { command: "list saves", desc: "List all saved game files with paths" },
-          { command: "saves", desc: "List all saved game files with paths" },
           { command: "save delete [<name>...]", desc: "Delete save file(s) (or list options)" },
-          { command: "delete save [<name>...]", desc: "Delete save file(s) (or list options)" },
-          { command: "del save [<name>...]", desc: "Delete save file(s) (or list options)" },
           { command: "save load [<name>]", desc: "Load saved game state (or list options)" },
-          { command: "load save [<name>]", desc: "Load saved game state (or list options)" },
           { command: "save rename [<new_name>]", desc: "Rename current game session" },
-          { command: "rename save [<new_name>]", desc: "Rename current game session" },
           { command: "save [<name>]", desc: "Save game session snapshot (or prompt)" },
           { command: "game new", desc: "Start a fresh new game session" },
-          { command: "new game", desc: "Start a fresh new game session" },
+          { command: "game load [<name>]", desc: "Load saved game session snapshot" },
+          { command: "game save [<name>]", desc: "Save game session snapshot" },
+          { command: "game delete [<name>...]", desc: "Delete saved game file(s)" },
         ]
       },
       {
@@ -3091,23 +3079,6 @@ export const ALL_COMMAND_TEMPLATES: string[] = [
   "undo", "u", "redo", "r",
   "help", "h", "quit", "exit", "q",
   "test", "test simple",
-  // Legacy aliases for backward compatibility:
-  "add", "add pc", "add enemy", "add neutral", "add char", "add eff", "add cond", "add stat", "add status",
-  "add dmg", "add rxn", "add reaction", "add res",
-  "use", "use res",
-  "remove", "remove char", "remove pcs", "remove enemies", "remove neutrals", "remove p", "remove e", "remove n",
-  "remove eff", "remove cond", "remove stat", "remove status",
-  "remove dmg", "remove rxn", "remove reaction", "remove res",
-  "rm", "rm char", "rm pcs", "rm enemies", "rm neutrals", "rm p", "rm e", "rm n",
-  "rm eff", "rm cond", "rm stat", "rm status",
-  "rm dmg", "rm rxn", "rm reaction", "rm res",
-  "clear", "clear ac", "clear dmg", "clear hp", "clear init", "clear res",
-  "set", "set ac", "set hp", "set init", "set type", "set type pc", "set type enemy", "set type neutral",
-  "change", "change type",
-  "next", "n", "prev", "p",
-  "heal", "hurt",
-  "saves", "list saves", "load save", "new game", "rename save", "delete save", "del", "del save",
-  "show activity"
 ];
 
 export function highlightMatch(
@@ -3138,6 +3109,10 @@ export function completer(line: string): [string[], string] {
   }
   const cmd = baseParts[0]?.toLowerCase() || "";
   const subCmd = baseParts[1]?.toLowerCase() || "";
+  
+  if (OLD_DISALLOWED_COMMANDS.has(cmd)) {
+    return [[], line];
+  }
   
   let completions: string[] = [];
   
@@ -3292,176 +3267,9 @@ export function completer(line: string): [string[], string] {
     if (baseParts.length === 1) {
       completions = ["game new", "game load", "game save", "game list", "game delete"];
     }
-  } else if (cmd === "add" || cmd === "use") {
-    if (baseParts.length === 1) {
-      if (cmd === "use") {
-        completions = ["res"].map(s => `use ${s}`);
-      } else {
-        const addSubs = ["pc", "enemy", "neutral", "char", "eff", "cond", "stat", "status", "dmg", "condition", "effect", "rxn", "reaction", "res"];
-        completions = addSubs.map(s => `add ${s}`);
-      }
-    } else if (subCmd === "rxn" || subCmd === "reaction") {
-      completions = creatures.map(c => {
-        const formatted = c.name.includes(" ") ? `"${c.name}"` : c.name;
-        return `${baseParts.join(" ")} ${formatted}`;
-      });
-    } else if (subCmd === "eff" || subCmd === "cond" || subCmd === "effect" || subCmd === "condition" || subCmd === "stat" || subCmd === "status") {
-      if (baseParts.length === 2) {
-        completions = ALL_STATUS_EFFECTS.map(eff => {
-          const formatted = eff.includes(" ") ? `"${eff}"` : eff;
-          return `${cmd} ${baseParts[1]} ${formatted}`;
-        });
-      } else {
-        completions = creatures.map(c => {
-          const formatted = c.name.includes(" ") ? `"${c.name}"` : c.name;
-          return `${baseParts.join(" ")} ${formatted}`;
-        });
-      }
-    } else if (subCmd === "res") {
-      if (baseParts.length === 2) {
-        const existingResources = new Set<string>();
-        for (const c of creatures) {
-          if (c.resourceUsage) {
-            for (const r of Object.keys(c.resourceUsage)) {
-              existingResources.add(r);
-            }
-          }
-        }
-        completions = Array.from(existingResources).map(r => {
-          const formatted = r.includes(" ") ? `"${r}"` : r;
-          return `${baseParts.join(" ")} ${formatted}`;
-        });
-      } else {
-        completions = creatures.map(c => {
-          const formatted = c.name.includes(" ") ? `"${c.name}"` : c.name;
-          return `${baseParts.join(" ")} ${formatted}`;
-        });
-      }
-    } else if (subCmd === "dmg") {
-      if (baseParts.length >= 3) {
-        completions = creatures.map(c => {
-          const formatted = c.name.includes(" ") ? `"${c.name}"` : c.name;
-          return `${baseParts.join(" ")} ${formatted}`;
-        });
-      }
-    }
-  } else if (cmd === "remove" || cmd === "rm") {
-    const rmPrefix = cmd;
-    if (baseParts.length === 1) {
-      const rmSubs = ["char", "pcs", "enemies", "neutrals", "p", "e", "n", "eff", "cond", "stat", "status", "dmg", "rxn", "reaction", "res"];
-      completions = rmSubs.map(s => `${rmPrefix} ${s}`);
-    } else if (subCmd === "rxn" || subCmd === "reaction") {
-      completions = creatures.map(c => {
-        const formatted = c.name.includes(" ") ? `"${c.name}"` : c.name;
-        return `${baseParts.join(" ")} ${formatted}`;
-      });
-    } else if (subCmd === "eff" || subCmd === "cond" || subCmd === "effect" || subCmd === "condition" || subCmd === "stat" || subCmd === "status") {
-      if (baseParts.length === 2) {
-        completions = ALL_STATUS_EFFECTS.map(eff => {
-          const formatted = eff.includes(" ") ? `"${eff}"` : eff;
-          return `${rmPrefix} ${baseParts[1]} ${formatted}`;
-        });
-      } else {
-        completions = creatures.map(c => {
-          const formatted = c.name.includes(" ") ? `"${c.name}"` : c.name;
-          return `${baseParts.join(" ")} ${formatted}`;
-        });
-      }
-    } else if (subCmd === "res") {
-      if (baseParts.length === 2) {
-        const existingResources = new Set<string>();
-        for (const c of creatures) {
-          if (c.resourceUsage) {
-            for (const r of Object.keys(c.resourceUsage)) {
-              existingResources.add(r);
-            }
-          }
-        }
-        completions = Array.from(existingResources).map(r => {
-          const formatted = r.includes(" ") ? `"${r}"` : r;
-          return `${baseParts.join(" ")} ${formatted}`;
-        });
-      } else {
-        completions = creatures.map(c => {
-          const formatted = c.name.includes(" ") ? `"${c.name}"` : c.name;
-          return `${baseParts.join(" ")} ${formatted}`;
-        });
-      }
-    } else if (subCmd === "dmg") {
-      if (baseParts.length >= 3) {
-        completions = creatures.map(c => {
-          const formatted = c.name.includes(" ") ? `"${c.name}"` : c.name;
-          return `${baseParts.join(" ")} ${formatted}`;
-        });
-      }
-    } else if (subCmd === "char") {
-      completions = creatures.map(c => {
-        const formatted = c.name.includes(" ") ? `"${c.name}"` : c.name;
-        return `${rmPrefix} char ${formatted}`;
-      });
-    }
-  } else if (cmd === "clear") {
-    if (baseParts.length === 1) {
-      const clearSubs = ["init", "dmg", "hp", "ac", "res"];
-      completions = clearSubs.map(s => `clear ${s}`);
-    } else {
-      completions = ["all", ...creatures.map(c => c.name.includes(" ") ? `"${c.name}"` : c.name)].map(target => {
-        return `clear ${baseParts[1]} ${target}`;
-      });
-    }
-  } else if (cmd === "set" || cmd === "change") {
-    if (baseParts.length === 1) {
-      if (cmd === "change") {
-        completions = ["change type"];
-      } else {
-        const setSubs = ["hp", "ac", "init", "type", "rxn", "reaction"];
-        completions = setSubs.map(s => `set ${s}`);
-      }
-    } else if (subCmd === "type") {
-      const typeOptions = ["pc", "enemy", "neutral"].map(t => `${baseParts.join(" ")} ${t}`);
-      const creatureOptions = creatures.map(c => {
-        const formatted = c.name.includes(" ") ? `"${c.name}"` : c.name;
-        return `${baseParts.join(" ")} ${formatted}`;
-      });
-      completions = [...typeOptions, ...creatureOptions];
-    } else if (subCmd === "rxn" || subCmd === "reaction") {
-      completions = creatures.map(c => {
-        const formatted = c.name.includes(" ") ? `"${c.name}"` : c.name;
-        return `${baseParts.join(" ")} ${formatted}`;
-      });
-    } else if (baseParts.length >= 2) {
-      completions = creatures.map(c => {
-        const formatted = c.name.includes(" ") ? `"${c.name}"` : c.name;
-        return `${baseParts.join(" ")} ${formatted}`;
-      });
-    }
   } else if (cmd === "combat" || cmd === "c") {
     if (baseParts.length === 1) {
       completions = [`${cmd} start`, `${cmd} end`];
-    }
-  } else if (cmd === "show") {
-    if (baseParts.length === 1) {
-      completions = ["show activity"];
-    }
-  } else if (cmd === "load" || cmd === "rename" || cmd === "delete" || cmd === "del") {
-    if (baseParts.length === 1) {
-      completions = [`${cmd} save`];
-    } else if (subCmd === "save" && baseParts.length === 2) {
-      if (fs.existsSync(SAVES_DIR)) {
-        const files = fs.readdirSync(SAVES_DIR).filter(f => f.endsWith(".json"));
-        completions = files.map(f => {
-          const name = f.replace(/\.json$/, "");
-          const formatted = name.includes(" ") ? `"${name}"` : name;
-          return `${cmd} save ${formatted}`;
-        });
-      }
-    }
-  } else if (cmd === "heal" || cmd === "hurt") {
-    if (baseParts.length >= 2) {
-      completions = creatures.map(c => {
-        const formatted = c.name.includes(" ") ? `"${c.name}"` : c.name;
-        return `${baseParts.join(" ")} ${formatted}`;
-      });
     }
   }
 

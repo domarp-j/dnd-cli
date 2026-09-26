@@ -119,9 +119,10 @@ Here is a sampling of useful commands to demonstrate the CLI's capabilities:
   ```
 - **Navigate turns and skip ahead or back:**
   ```text
-  turn next                        # Advance 1 turn (alias 'next' or 'n')
+  turn next                        # Advance 1 turn
   turn next 3                      # Advance 3 turns
-  turn prev                        # Go back 1 turn (alias 'prev' or 'p')
+  turn prev                        # Go back 1 turn
+  turn prev 2                      # Go back 2 turns
   ```
 - **Track reaction usage (automatically resets when the creature's turn starts):**
   ```text
@@ -132,12 +133,12 @@ Here is a sampling of useful commands to demonstrate the CLI's capabilities:
 ### Game State Persistence
 - **Save/load state snapshots, list saves, and rename sessions:**
   ```text
-  save list                        # View all saved game files with paths (alias 'saves')
+  save list                        # View all saved game files with paths
   save dungeon_room1               # Save session snapshot
   save load dungeon_room1          # Load specific save (or interactive list)
   save rename dungeon_room2        # Rename current game session
   save delete dungeon_room1        # Delete save file(s)
-  game new                         # Reset to a fresh unsaved game (alias 'new game')
+  game new                         # Reset to a fresh unsaved game
   ```
   *(Note: When launched, the tracker automatically loads your most recently saved session by default.)*
 

@@ -26,6 +26,7 @@ import {
   initializeSession,
   normalizeCommandTokens,
   tokenize,
+  OLD_DISALLOWED_COMMANDS,
 } from "./index";
 
 const SAVES_DIR = path.join(process.cwd(), "saves");
@@ -113,23 +114,23 @@ describe("D&D CLI Tracker Test Suite", () => {
 
   describe("Adding Creatures", () => {
     test("adds PCs, enemies, and neutrals", () => {
-      handleCommand("add pc Aragorn Legolas");
+      handleCommand("char add pc Aragorn Legolas");
       expect(creatures.length).toBe(2);
       expect(creatures[0]?.type).toBe("pc");
 
-      handleCommand("add enemy Orc1 Orc2");
+      handleCommand("char add enemy Orc1 Orc2");
       expect(creatures.length).toBe(4);
       expect(creatures.filter((c) => c.type === "enemy").length).toBe(2);
 
-      handleCommand("add neutral Merchant");
+      handleCommand("char add neutral Merchant");
       expect(creatures.length).toBe(5);
       expect(creatures.find((c) => c.name === "Merchant")?.type).toBe("neutral");
     });
 
     test("supports shorthand type IDs (p, e, n)", () => {
-      handleCommand("add p Frodo");
-      handleCommand("add e Nazgul");
-      handleCommand("add n Gollum");
+      handleCommand("char add p Frodo");
+      handleCommand("char add e Nazgul");
+      handleCommand("char add n Gollum");
 
       expect(creatures.find((c) => c.name === "Frodo")?.type).toBe("pc");
       expect(creatures.find((c) => c.name === "Nazgul")?.type).toBe("enemy");
@@ -139,11 +140,11 @@ describe("D&D CLI Tracker Test Suite", () => {
 
   describe("Stat Management", () => {
     test("sets HP, AC, initiative, and damage", () => {
-      handleCommand("add pc Hero");
-      handleCommand("set hp 50 Hero");
-      handleCommand("set ac 16 Hero");
-      handleCommand("set init 15 Hero");
-      handleCommand("add dmg 10 Hero");
+      handleCommand("char add pc Hero");
+      handleCommand("hp set 50 Hero");
+      handleCommand("ac set 16 Hero");
+      handleCommand("init set 15 Hero");
+      handleCommand("dmg add 10 Hero");
 
       const hero = creatures.find((c) => c.name === "Hero");
       expect(hero?.hpMax).toBe(50);
@@ -152,25 +153,25 @@ describe("D&D CLI Tracker Test Suite", () => {
       expect(hero?.dmg).toBe(10);
     });
 
-    test("supports hurt and heal alias commands", () => {
-      handleCommand("add pc Hero");
-      handleCommand("hurt 15 Hero");
+    test("supports dmg add and dmg remove commands", () => {
+      handleCommand("char add pc Hero");
+      handleCommand("dmg add 15 Hero");
       const hero = creatures.find((c) => c.name === "Hero");
       expect(hero?.dmg).toBe(15);
 
-      handleCommand("heal 5 Hero");
+      handleCommand("dmg remove 5 Hero");
       expect(hero?.dmg).toBe(10);
 
       // heal down to 0 cap
-      handleCommand("heal 20 Hero");
+      handleCommand("dmg remove 20 Hero");
       expect(hero?.dmg).toBe(0);
     });
 
     test("supports multiple value and target pairs for setting HP, AC, and initiative", () => {
-      handleCommand("add pc HeroA HeroB");
-      handleCommand("set hp 40 HeroA 35 HeroB");
-      handleCommand("set ac 18 HeroA 15 HeroB");
-      handleCommand("set init 14 HeroA 20 HeroB");
+      handleCommand("char add pc HeroA HeroB");
+      handleCommand("hp set 40 HeroA 35 HeroB");
+      handleCommand("ac set 18 HeroA 15 HeroB");
+      handleCommand("init set 14 HeroA 20 HeroB");
 
       const heroA = creatures.find((c) => c.name === "HeroA");
       const heroB = creatures.find((c) => c.name === "HeroB");
@@ -185,39 +186,39 @@ describe("D&D CLI Tracker Test Suite", () => {
     });
 
     test("adds and removes status effects", () => {
-      handleCommand("add pc Hero");
-      handleCommand("add eff Poisoned Hero");
+      handleCommand("char add pc Hero");
+      handleCommand("eff add Poisoned Hero");
       let hero = creatures.find((c) => c.name === "Hero");
       expect(hero?.statusEffects).toContain("Poisoned");
 
-      handleCommand("remove eff Poisoned Hero");
+      handleCommand("eff remove Poisoned Hero");
       hero = creatures.find((c) => c.name === "Hero");
       expect(hero?.statusEffects).not.toContain("Poisoned");
 
       // Verify that "cond" alias works
-      handleCommand("add cond Poisoned Hero");
+      handleCommand("cond add Poisoned Hero");
       hero = creatures.find((c) => c.name === "Hero");
       expect(hero?.statusEffects).toContain("Poisoned");
 
-      handleCommand("remove cond Poisoned Hero");
+      handleCommand("cond remove Poisoned Hero");
       hero = creatures.find((c) => c.name === "Hero");
       expect(hero?.statusEffects).not.toContain("Poisoned");
 
       // Verify that "stat" alias works
-      handleCommand("add stat Blinded Hero");
+      handleCommand("stat add Blinded Hero");
       hero = creatures.find((c) => c.name === "Hero");
       expect(hero?.statusEffects).toContain("Blinded");
 
-      handleCommand("remove stat Blinded Hero");
+      handleCommand("stat remove Blinded Hero");
       hero = creatures.find((c) => c.name === "Hero");
       expect(hero?.statusEffects).not.toContain("Blinded");
 
-      // Verify that "status" alias works (with rm)
-      handleCommand("add status Invisible Hero");
+      // Verify that "status" alias works
+      handleCommand("status add Invisible Hero");
       hero = creatures.find((c) => c.name === "Hero");
       expect(hero?.statusEffects).toContain("Invisible");
 
-      handleCommand("rm status Invisible Hero");
+      handleCommand("status remove Invisible Hero");
       hero = creatures.find((c) => c.name === "Hero");
       expect(hero?.statusEffects).not.toContain("Invisible");
     });
@@ -232,76 +233,76 @@ describe("D&D CLI Tracker Test Suite", () => {
       const acBefore = creatures.map((c) => c.ac);
 
       // Running without target should NOT modify creatures
-      handleCommand("clear init");
+      handleCommand("init clear");
       expect(creatures.map((c) => c.initiative)).toEqual(initBefore);
 
-      handleCommand("clear dmg");
+      handleCommand("dmg clear");
       expect(creatures.map((c) => c.dmg)).toEqual(dmgBefore);
 
-      handleCommand("clear hp");
+      handleCommand("hp clear");
       expect(creatures.map((c) => c.hpMax)).toEqual(hpBefore);
 
-      handleCommand("clear ac");
+      handleCommand("ac clear");
       expect(creatures.map((c) => c.ac)).toEqual(acBefore);
 
-      // Explicit target clears for specified creature via clear command
-      handleCommand("clear init ajax");
+      // Explicit target clears for specified creature
+      handleCommand("init clear ajax");
       expect(creatures.find((c) => c.name.toLowerCase().includes("ajax"))?.initiative).toBeNull();
 
-      handleCommand("clear hp kaelor");
+      handleCommand("hp clear kaelor");
       expect(creatures.find((c) => c.name.toLowerCase().includes("kaelor"))?.hpMax).toBeNull();
 
-      handleCommand("clear ac thorgan");
+      handleCommand("ac clear thorgan");
       expect(creatures.find((c) => c.name.toLowerCase().includes("thorgan"))?.ac).toBeNull();
 
-      // Explicit all clears for all creatures via clear command
-      handleCommand("clear init all");
+      // Explicit all clears for all creatures
+      handleCommand("init clear all");
       expect(creatures.every((c) => c.initiative === null)).toBeTrue();
 
-      handleCommand("clear dmg all");
+      handleCommand("dmg clear all");
       expect(creatures.every((c) => c.dmg === 0)).toBeTrue();
 
-      handleCommand("clear hp all");
+      handleCommand("hp clear all");
       expect(creatures.every((c) => c.hpMax === null)).toBeTrue();
 
-      handleCommand("clear ac all");
+      handleCommand("ac clear all");
       expect(creatures.every((c) => c.ac === null)).toBeTrue();
 
-      // Test the same for remove command on a clean test state
+      // Test the same on a clean test state
       handleCommand("test");
-      handleCommand("remove init ajax");
+      handleCommand("init clear ajax");
       expect(creatures.find((c) => c.name.toLowerCase().includes("ajax"))?.initiative).toBeNull();
 
-      handleCommand("remove hp kaelor");
+      handleCommand("hp clear kaelor");
       expect(creatures.find((c) => c.name.toLowerCase().includes("kaelor"))?.hpMax).toBeNull();
 
-      handleCommand("remove ac thorgan");
+      handleCommand("ac clear thorgan");
       expect(creatures.find((c) => c.name.toLowerCase().includes("thorgan"))?.ac).toBeNull();
 
-      handleCommand("remove dmg thorgan");
+      handleCommand("dmg clear thorgan");
       expect(creatures.find((c) => c.name.toLowerCase().includes("thorgan"))?.dmg).toBe(0);
 
-      // Explicit all clears via remove command
-      handleCommand("remove init all");
+      // Explicit all clears
+      handleCommand("init clear all");
       expect(creatures.every((c) => c.initiative === null)).toBeTrue();
 
-      handleCommand("remove dmg all");
+      handleCommand("dmg clear all");
       expect(creatures.every((c) => c.dmg === 0)).toBeTrue();
 
-      handleCommand("remove hp all");
+      handleCommand("hp clear all");
       expect(creatures.every((c) => c.hpMax === null)).toBeTrue();
 
-      handleCommand("remove ac all");
+      handleCommand("ac clear all");
       expect(creatures.every((c) => c.ac === null)).toBeTrue();
     });
   });
 
   describe("Combat Mode & Turn Navigation", () => {
     test("sorts by initiative descending in combat mode", () => {
-      handleCommand("add pc HeroA");
-      handleCommand("add pc HeroB");
-      handleCommand("set init 10 HeroA");
-      handleCommand("set init 20 HeroB");
+      handleCommand("char add pc HeroA");
+      handleCommand("char add pc HeroB");
+      handleCommand("init set 10 HeroA");
+      handleCommand("init set 20 HeroB");
 
       handleCommand("combat");
       const sorted = getSortedCreatures();
@@ -309,32 +310,32 @@ describe("D&D CLI Tracker Test Suite", () => {
       expect(sorted[1]?.name).toBe("HeroA"); // Init 10
     });
 
-    test("navigates turns with next/prev and skip counts", () => {
+    test("navigates turns with turn next/prev and skip counts", () => {
       handleCommand("test");
-      handleCommand("clear dmg \"goblin archer\"");
+      handleCommand("dmg clear \"goblin archer\"");
       handleCommand("combat");
 
       const initialActive = getCombatState().activeCreature?.name;
       expect(initialActive).toBe("elaria shadowstep"); // Highest init (20)
 
-      handleCommand("n 2");
+      handleCommand("turn next 2");
       expect(getCombatState().activeCreature?.name).toBe("goblin archer");
 
-      handleCommand("p 1");
+      handleCommand("turn prev 1");
       expect(getCombatState().activeCreature?.name).toBe("kaelor stormstride");
     });
 
     test("increments/decrements round counter on wrap-around", () => {
-      handleCommand("add pc A B");
-      handleCommand("set init 20 A");
-      handleCommand("set init 10 B");
+      handleCommand("char add pc A B");
+      handleCommand("init set 20 A");
+      handleCommand("init set 10 B");
       handleCommand("combat");
 
       expect(getCombatState().currentRound).toBe(1);
-      handleCommand("n 2"); // A -> B -> A (Round 2)
+      handleCommand("turn next 2"); // A -> B -> A (Round 2)
       expect(getCombatState().currentRound).toBe(2);
 
-      handleCommand("p 1"); // A (Round 2) -> B (Round 1)
+      handleCommand("turn prev 1"); // A (Round 2) -> B (Round 1)
       expect(getCombatState().currentRound).toBe(1);
     });
   });
@@ -371,13 +372,13 @@ describe("D&D CLI Tracker Test Suite", () => {
       handleCommand("test");
       expect(creatures.length).toBe(20);
 
-      handleCommand("remove enemies"); // Remove all enemies
+      handleCommand("enemy remove"); // Remove all enemies
       expect(creatures.some((c) => c.type === "enemy")).toBeFalse();
 
-      handleCommand("remove pcs"); // Remove all PCs
+      handleCommand("pc remove"); // Remove all PCs
       expect(creatures.some((c) => c.type === "pc")).toBeFalse();
 
-      handleCommand("remove neutrals"); // Remove all neutrals
+      handleCommand("neutral remove"); // Remove all neutrals
       expect(creatures.length).toBe(0);
     });
 
@@ -385,19 +386,19 @@ describe("D&D CLI Tracker Test Suite", () => {
       handleCommand("test");
       expect(creatures.length).toBe(20);
 
-      handleCommand("remove e"); // Remove all enemies
+      handleCommand("char remove e"); // Remove all enemies
       expect(creatures.some((c) => c.type === "enemy")).toBeFalse();
 
-      handleCommand("remove p"); // Remove all PCs
+      handleCommand("char remove p"); // Remove all PCs
       expect(creatures.some((c) => c.type === "pc")).toBeFalse();
 
-      handleCommand("remove n"); // Remove all neutrals
+      handleCommand("char remove n"); // Remove all neutrals
       expect(creatures.length).toBe(0);
     });
 
     test("removes specific creature by name", () => {
-      handleCommand("add pc HeroA HeroB");
-      handleCommand("remove char HeroA");
+      handleCommand("char add pc HeroA HeroB");
+      handleCommand("char remove HeroA");
       expect(creatures.length).toBe(1);
       expect(creatures[0]?.name).toBe("HeroB");
     });
@@ -405,21 +406,21 @@ describe("D&D CLI Tracker Test Suite", () => {
 
   describe("Local Game State Persistence", () => {
     test("saves and loads game state", () => {
-      handleCommand("add pc Hero1 Hero2");
-      handleCommand("set hp 40 Hero1");
+      handleCommand("char add pc Hero1 Hero2");
+      handleCommand("hp set 40 Hero1");
       handleCommand("save test_slot");
 
-      handleCommand("new game");
+      handleCommand("game new");
       expect(creatures.length).toBe(0);
 
-      handleCommand("load save test_slot");
+      handleCommand("save load test_slot");
       expect(creatures.length).toBe(2);
       expect(creatures.find((c) => c.name === "Hero1")?.hpMax).toBe(40);
     });
 
     test("auto-saves on mutating commands", () => {
-      handleCommand("new game");
-      handleCommand("add pc AutoSavedHero");
+      handleCommand("game new");
+      handleCommand("char add pc AutoSavedHero");
       const sessionName = getCombatState().currentSessionName;
 
       // Reset in-memory creatures
@@ -428,37 +429,37 @@ describe("D&D CLI Tracker Test Suite", () => {
 
       // Loading the active session save file should restore AutoSavedHero
       if (sessionName) {
-        handleCommand(`load save ${sessionName}`);
+        handleCommand(`save load ${sessionName}`);
         expect(creatures.some((c) => c.name === "AutoSavedHero")).toBeTrue();
       }
     });
 
     test("deletes a saved game file", () => {
       handleCommand("save test_file_to_delete");
-      expect(handleCommand("load save test_file_to_delete")).toBeTrue();
+      expect(handleCommand("save load test_file_to_delete")).toBeTrue();
 
-      handleCommand("delete save test_file_to_delete");
-      handleCommand("load save test_file_to_delete");
+      handleCommand("save delete test_file_to_delete");
+      handleCommand("save load test_file_to_delete");
       expect(creatures.some((c) => c.name === "AutoSavedHero")).toBeFalse();
     });
 
     test("shows interactive options when typing load save without arguments", () => {
-      handleCommand("add pc InteractiveHero");
+      handleCommand("char add pc InteractiveHero");
       handleCommand("save test_interactive_slot");
 
       resetState();
       expect(creatures.length).toBe(0);
 
-      // Trigger 'load save' without arguments -> presents options
-      handleCommand("load save");
+      // Trigger 'save load' without arguments -> presents options
+      handleCommand("save load");
 
       // Select option by typing 1 or save name
       processSaveSelection("test_interactive_slot");
       expect(creatures.some((c) => c.name === "InteractiveHero")).toBeTrue();
     });
 
-    test("bare load and delete and rename and new without save/game qualifier show ambiguous error", () => {
-      // These should NOT perform any action, just print an error
+    test("bare old commands load and delete and rename and new without field show unknown command", () => {
+      // These should NOT perform any action, just reject as unknown
       expect(handleCommand("load")).toBeTrue();
       expect(handleCommand("delete")).toBeTrue();
       expect(handleCommand("rename")).toBeTrue();
@@ -469,20 +470,20 @@ describe("D&D CLI Tracker Test Suite", () => {
 
     test("shows interactive options when typing delete save without arguments", () => {
       handleCommand("save test_slot_to_del_interactively");
-      expect(handleCommand("load save test_slot_to_del_interactively")).toBeTrue();
+      expect(handleCommand("save load test_slot_to_del_interactively")).toBeTrue();
 
-      // Trigger 'delete save' without arguments -> presents options
-      handleCommand("delete save");
+      // Trigger 'save delete' without arguments -> presents options
+      handleCommand("save delete");
 
       // Select option by save name
       processSaveDeleteSelection("test_slot_to_del_interactively");
 
       // Attempting to load deleted save file should now fail
-      expect(handleCommand("load save test_slot_to_del_interactively")).toBeTrue();
+      expect(handleCommand("save load test_slot_to_del_interactively")).toBeTrue();
     });
 
     test("prompts for session name with preset default when saving without argument", () => {
-      handleCommand("add pc PromptHero");
+      handleCommand("char add pc PromptHero");
       handleCommand("save");
 
       // Respond with custom name
@@ -495,14 +496,14 @@ describe("D&D CLI Tracker Test Suite", () => {
       handleCommand("save test_multi_del_3");
 
       // Direct multi-delete
-      handleCommand("delete save test_multi_del_1 test_multi_del_2");
-      expect(handleCommand("load save test_multi_del_1")).toBeTrue();
-      expect(handleCommand("load save test_multi_del_2")).toBeTrue();
+      handleCommand("save delete test_multi_del_1 test_multi_del_2");
+      expect(handleCommand("save load test_multi_del_1")).toBeTrue();
+      expect(handleCommand("save load test_multi_del_2")).toBeTrue();
 
       // Interactive multi-delete
       handleCommand("save test_multi_del_interactive_a");
       handleCommand("save test_multi_del_interactive_b");
-      handleCommand("delete save");
+      handleCommand("save delete");
       processSaveDeleteSelection("test_multi_del_interactive_a test_multi_del_interactive_b");
     });
 
@@ -511,7 +512,7 @@ describe("D&D CLI Tracker Test Suite", () => {
       expect(creatures.length).toBe(0);
 
       // Add first PC -> generates random save name and auto-saves
-      handleCommand("add pc FirstHero");
+      handleCommand("char add pc FirstHero");
       expect(creatures.length).toBe(1);
 
       const sessionName = getCombatState().currentSessionName;
@@ -520,70 +521,70 @@ describe("D&D CLI Tracker Test Suite", () => {
 
     test("renames current game session via rename command", () => {
       resetState();
-      handleCommand("add pc HeroToRename");
+      handleCommand("char add pc HeroToRename");
 
-      expect(handleCommand("rename save test_renamed_session")).toBeTrue();
+      expect(handleCommand("save rename test_renamed_session")).toBeTrue();
 
       // Reset state and load renamed session file
       resetState();
-      expect(handleCommand("load save test_renamed_session")).toBeTrue();
+      expect(handleCommand("save load test_renamed_session")).toBeTrue();
       expect(creatures.some((c) => c.name === "HeroToRename")).toBeTrue();
     });
 
     test("prompts with preset default when typing rename without arguments", () => {
       resetState();
-      handleCommand("add pc PresetHero");
+      handleCommand("char add pc PresetHero");
 
-      handleCommand("rename save"); // triggers pendingRenamePrompt
+      handleCommand("save rename"); // triggers pendingRenamePrompt
 
       processRenamePrompt("test_prompted_rename_slot");
       resetState();
-      expect(handleCommand("load save test_prompted_rename_slot")).toBeTrue();
+      expect(handleCommand("save load test_prompted_rename_slot")).toBeTrue();
     });
   });
 
   describe("Activity Log", () => {
-    test("records actions and show activity returns true", () => {
-      handleCommand("add pc LogHero");
-      handleCommand("add enemy Goblin");
-      handleCommand("set hp 20 LogHero");
-      handleCommand("add dmg 5 Goblin");
+    test("records actions and activity show returns true", () => {
+      handleCommand("char add pc LogHero");
+      handleCommand("char add enemy Goblin");
+      handleCommand("hp set 20 LogHero");
+      handleCommand("dmg add 5 Goblin");
 
       const log = getActivityLog();
       expect(log.length).toBeGreaterThan(0);
       expect(log.some((e) => e.message.includes("LogHero"))).toBeTrue();
       expect(log.some((e) => e.message.includes("Goblin"))).toBeTrue();
 
-      expect(handleCommand("show activity")).toBeTrue();
+      expect(handleCommand("activity show")).toBeTrue();
     });
 
     test("activity log is empty after resetState", () => {
-      handleCommand("add pc LogHero");
+      handleCommand("char add pc LogHero");
       resetState();
       expect(getActivityLog().length).toBe(0);
     });
 
     test("activity log persists across save and load", () => {
-      handleCommand("add pc PersistHero");
-      handleCommand("add dmg 10 PersistHero");
+      handleCommand("char add pc PersistHero");
+      handleCommand("dmg add 10 PersistHero");
       const sessionName = getCombatState().currentSessionName;
       if (sessionName) {
         resetState();
-        handleCommand(`load save ${sessionName}`);
+        handleCommand(`save load ${sessionName}`);
         const log = getActivityLog();
         expect(log.some((e) => e.message.includes("PersistHero"))).toBeTrue();
       }
     });
 
-    test("show activity returns true when log is empty", () => {
-      expect(handleCommand("show activity")).toBeTrue();
+    test("activity show returns true when log is empty", () => {
+      expect(handleCommand("activity show")).toBeTrue();
     });
   });
 
   describe("Undo / Redo Functionality", () => {
     test("tracks mutating command changes in undoStack", () => {
       expect(getHistoryStacks().undoLength).toBe(0);
-      handleCommand("add pc TestHero");
+      handleCommand("char add pc TestHero");
       expect(creatures.length).toBe(1);
       expect(getHistoryStacks().undoLength).toBe(1);
 
@@ -599,22 +600,22 @@ describe("D&D CLI Tracker Test Suite", () => {
     });
 
     test("rolls back activityLog on undo and restores on redo", () => {
-      handleCommand("add pc LoggedHero");
-      handleCommand("set hp 15 LoggedHero");
+      handleCommand("char add pc LoggedHero");
+      handleCommand("hp set 15 LoggedHero");
       expect(getActivityLog().length).toBeGreaterThan(0);
       const preUndoLength = getActivityLog().length;
 
-      handleCommand("undo"); // undo set hp
+      handleCommand("undo"); // undo hp set
       expect(getActivityLog().length).toBe(preUndoLength - 1);
 
-      handleCommand("redo"); // redo set hp
+      handleCommand("redo"); // redo hp set
       expect(getActivityLog().length).toBe(preUndoLength);
     });
 
     test("handles multiple undo/redo levels sequentially", () => {
-      handleCommand("add pc HeroA");
-      handleCommand("add pc HeroB");
-      handleCommand("add pc HeroC");
+      handleCommand("char add pc HeroA");
+      handleCommand("char add pc HeroB");
+      handleCommand("char add pc HeroC");
       expect(creatures.length).toBe(3);
 
       handleCommand("undo"); // removes HeroC
@@ -634,17 +635,17 @@ describe("D&D CLI Tracker Test Suite", () => {
     });
 
     test("clears redo history on a new mutating action", () => {
-      handleCommand("add pc HeroA");
+      handleCommand("char add pc HeroA");
       handleCommand("undo");
       expect(getHistoryStacks().redoLength).toBe(1);
 
-      handleCommand("add pc HeroB"); // new mutating action clears redo stack
+      handleCommand("char add pc HeroB"); // new mutating action clears redo stack
       expect(getHistoryStacks().redoLength).toBe(0);
     });
 
     test("interactive prompt changes (e.g. combat confirmation) are tracked and undoable", () => {
-      handleCommand("add pc CombatHero");
-      handleCommand("set init 15 CombatHero");
+      handleCommand("char add pc CombatHero");
+      handleCommand("init set 15 CombatHero");
       handleCommand("combat"); // start combat
       expect(getCombatState().inCombat).toBeTrue();
 
@@ -661,9 +662,9 @@ describe("D&D CLI Tracker Test Suite", () => {
     });
 
     test("supports count parameter to undo or redo multiple times at once", () => {
-      handleCommand("add pc HeroA");
-      handleCommand("add pc HeroB");
-      handleCommand("add pc HeroC");
+      handleCommand("char add pc HeroA");
+      handleCommand("char add pc HeroB");
+      handleCommand("char add pc HeroC");
       expect(creatures.length).toBe(3);
 
       handleCommand("undo 2"); // Reverts adding HeroC and HeroB
@@ -679,72 +680,72 @@ describe("D&D CLI Tracker Test Suite", () => {
     });
 
     test("game state & storage and utility commands are not undoable and clear stacks on load/new", () => {
-      handleCommand("add pc HeroA");
+      handleCommand("char add pc HeroA");
       expect(getHistoryStacks().undoLength).toBe(1);
 
       // 'save' should be exempt from undo tracking and not push to undoStack
       handleCommand("save test_exempt_save");
       expect(getHistoryStacks().undoLength).toBe(1);
 
-      // 'rename save' should be exempt
-      handleCommand("rename save test_exempt_rename");
+      // 'save rename' should be exempt
+      handleCommand("save rename test_exempt_rename");
       expect(getHistoryStacks().undoLength).toBe(1);
 
-      // 'new game' should clear the history stacks entirely
-      handleCommand("new game");
+      // 'game new' should clear the history stacks entirely
+      handleCommand("game new");
       expect(creatures.length).toBe(0);
       expect(getHistoryStacks().undoLength).toBe(0);
 
       // Setup state for load test
-      handleCommand("add pc LoadHero");
+      handleCommand("char add pc LoadHero");
       handleCommand("save test_load_exempt");
       expect(getHistoryStacks().undoLength).toBe(1);
 
       // Save to another slot to shift active session and prevent overwriting test_load_exempt.json
       handleCommand("save test_another_session");
 
-      handleCommand("add pc AnotherHero");
+      handleCommand("char add pc AnotherHero");
       expect(getHistoryStacks().undoLength).toBe(2);
 
-      // 'load save' should clear history stacks
-      handleCommand("load save test_load_exempt");
+      // 'save load' should clear history stacks
+      handleCommand("save load test_load_exempt");
       expect(creatures.length).toBe(1);
       expect(creatures[0]?.name).toBe("LoadHero");
       expect(getHistoryStacks().undoLength).toBe(0);
     });
 
     test("running test command runs internal subcommands with tracking, allowing command-by-command undo", () => {
-      handleCommand("new game");
+      handleCommand("game new");
       expect(creatures.length).toBe(0);
       expect(getHistoryStacks().undoLength).toBe(0);
 
-      // Run test simple (which runs 3 subcommands internally: add pc, add enemy, add neutral)
+      // Run test simple (which runs 3 subcommands internally: char add pc, char add enemy, char add neutral)
       handleCommand("test simple");
       expect(creatures.length).toBe(20);
       // The 3 subcommands should be recorded on the undo stack
       expect(getHistoryStacks().undoLength).toBe(3);
 
-      // Revert the 3rd subcommand (add neutral)
+      // Revert the 3rd subcommand (char add neutral)
       handleCommand("undo");
       expect(creatures.length).toBe(16);
       expect(creatures.some(c => c.type === "neutral")).toBeFalse();
 
-      // Revert the 2nd subcommand (add enemy)
+      // Revert the 2nd subcommand (char add enemy)
       handleCommand("undo");
       expect(creatures.length).toBe(7);
       expect(creatures.every(c => c.type === "pc")).toBeTrue();
 
-      // Revert the 1st subcommand (add pc)
+      // Revert the 1st subcommand (char add pc)
       handleCommand("undo");
       expect(creatures.length).toBe(0);
     });
 
     test("add char command prompts for character type, adds correctly, and is undoable", () => {
-      handleCommand("new game");
+      handleCommand("game new");
       expect(creatures.length).toBe(0);
 
-      // Running 'add char' should set the pending prompt and NOT add any creatures yet
-      handleCommand("add char Legolas Aragorn");
+      // Running 'char add' should set the pending prompt and NOT add any creatures yet
+      handleCommand("char add Legolas Aragorn");
       expect(creatures.length).toBe(0);
       expect(getPendingCharTypePrompt()?.names).toEqual(["Legolas", "Aragorn"]);
 
@@ -770,83 +771,76 @@ describe("D&D CLI Tracker Test Suite", () => {
 
     test("completer function provides command and context autocomplete", () => {
       // 1. Match main command prefix
-      const [hitsMain, lineMain] = completer("ad");
-      expect(hitsMain).toContain("add");
-      expect(lineMain).toBe("ad");
+      const [hitsMain, lineMain] = completer("ch");
+      expect(hitsMain).toContain("char add");
+      expect(lineMain).toBe("ch");
 
-      // 2. Match add subcommands
-      const [hitsAdd, lineAdd] = completer("add ");
-      expect(hitsAdd).toContain("add pc");
-      expect(hitsAdd).toContain("add enemy");
-      expect(hitsAdd).toContain("add eff");
+      // 2. Match char subcommands
+      const [hitsChar, lineChar] = completer("char ");
+      expect(hitsChar).toContain("char add");
+      expect(hitsChar).toContain("char remove");
 
       // 3. Match status effects
-      const [hitsEff, lineEff] = completer("add eff Pois");
-      expect(hitsEff).toContain("add eff Poisoned");
+      const [hitsEff, lineEff] = completer("eff add Pois");
+      expect(hitsEff).toContain("eff add Poisoned");
 
-      const [hitsStat, _stat] = completer("add stat Pois");
-      expect(hitsStat).toContain("add stat Poisoned");
+      const [hitsStat, _stat] = completer("stat add Pois");
+      expect(hitsStat).toContain("stat add Poisoned");
 
-      const [hitsStatus, _status] = completer("add status Pois");
-      expect(hitsStatus).toContain("add status Poisoned");
+      const [hitsStatus, _status] = completer("status add Pois");
+      expect(hitsStatus).toContain("status add Poisoned");
 
-      const [hitsRmStat, _rmStat] = completer("remove stat Pois");
-      expect(hitsRmStat).toContain("remove stat Poisoned");
-
-      const [hitsRmStatus, _rmStatus] = completer("remove status Pois");
-      expect(hitsRmStatus).toContain("remove status Poisoned");
+      const [hitsRmEff, _rmEff] = completer("eff remove Pois");
+      expect(hitsRmEff).toContain("eff remove Poisoned");
 
       // 4. Match target names when setting stats
-      handleCommand("new game");
-      handleCommand("add pc Legolas Aragorn");
+      handleCommand("game new");
+      handleCommand("char add pc Legolas Aragorn");
 
-      const [hitsSet, lineSet] = completer("set hp 10 L");
-      expect(hitsSet).toContain("set hp 10 Legolas");
-      expect(lineSet).toBe("set hp 10 L");
+      const [hitsSet, lineSet] = completer("hp set 10 L");
+      expect(hitsSet).toContain("hp set 10 Legolas");
+      expect(lineSet).toBe("hp set 10 L");
 
       // 5. Match string anywhere in command body
       const [hitsStatAny] = completer("stat");
-      expect(hitsStatAny).toContain("add stat");
-      expect(hitsStatAny).toContain("remove stat");
-      expect(hitsStatAny).toContain("rm stat");
+      expect(hitsStatAny).toContain("stat add");
+      expect(hitsStatAny).toContain("stat remove");
 
       const [hitsEffAll] = completer("eff");
-      expect(hitsEffAll).toContain("add eff");
-      expect(hitsEffAll).toContain("remove eff");
-      expect(hitsEffAll).toContain("rm eff");
+      expect(hitsEffAll).toContain("eff add");
+      expect(hitsEffAll).toContain("eff remove");
 
       const [hitsHp] = completer("hp");
-      expect(hitsHp).toContain("clear hp");
-      expect(hitsHp).toContain("set hp");
+      expect(hitsHp).toContain("hp clear");
+      expect(hitsHp).toContain("hp set");
 
       const [hitsSave] = completer("save");
-      expect(hitsSave).toContain("save");
-      expect(hitsSave).toContain("saves");
-      expect(hitsSave).toContain("load save");
-      expect(hitsSave).toContain("rename save");
-      expect(hitsSave).toContain("delete save");
+      expect(hitsSave).toContain("save list");
+      expect(hitsSave).toContain("save load");
+      expect(hitsSave).toContain("save rename");
+      expect(hitsSave).toContain("save delete");
     });
 
     test("highlightMatch colors matching substring within options", () => {
-      const highlighted = highlightMatch("add stat", "stat");
+      const highlighted = highlightMatch("stat add", "stat");
       expect(highlighted).toContain("stat");
       // Check that ANSI styling wraps the matched text
       expect(highlighted).toContain("\x1b[33mstat\x1b[0m");
 
       // Case insensitive match preserves original casing
-      const casePreserved = highlightMatch("add eff Poisoned", "pois");
+      const casePreserved = highlightMatch("eff add Poisoned", "pois");
       expect(casePreserved).toContain("\x1b[33mPois\x1b[0m");
 
       // Empty query or no match returns base string
-      const noMatch = highlightMatch("clear ac", "xyz");
-      expect(noMatch).toContain("clear ac");
+      const noMatch = highlightMatch("ac clear", "xyz");
+      expect(noMatch).toContain("ac clear");
       expect(noMatch).not.toContain("\x1b[33m");
     });
 
     test("reaction state is set, cleared on turn start, manually restored, and undoable", () => {
-      handleCommand("new game");
-      handleCommand("add pc Aragorn Legolas");
-      handleCommand("set init 15 Aragorn 10 Legolas");
+      handleCommand("game new");
+      handleCommand("char add pc Aragorn Legolas");
+      handleCommand("init set 15 Aragorn 10 Legolas");
       
       handleCommand("combat start");
       const aragorn = creatures.find(c => c.name.toLowerCase() === "aragorn");
@@ -856,34 +850,34 @@ describe("D&D CLI Tracker Test Suite", () => {
       expect(creatures.find(c => c.name.toLowerCase() === "aragorn")?.reactionUsed).toBeFalse();
       expect(creatures.find(c => c.name.toLowerCase() === "legolas")?.reactionUsed).toBeFalsy();
 
-      handleCommand("add rxn Aragorn");
+      handleCommand("rxn set Aragorn");
       expect(creatures.find(c => c.name.toLowerCase() === "aragorn")?.reactionUsed).toBeTrue();
 
-      handleCommand("set reaction Legolas");
+      handleCommand("rxn set Legolas");
       expect(creatures.find(c => c.name.toLowerCase() === "legolas")?.reactionUsed).toBeTrue();
 
-      handleCommand("next");
+      handleCommand("turn next");
       expect(creatures.find(c => c.name.toLowerCase() === "legolas")?.reactionUsed).toBeFalse();
       expect(creatures.find(c => c.name.toLowerCase() === "aragorn")?.reactionUsed).toBeTrue();
 
-      handleCommand("next");
+      handleCommand("turn next");
       expect(creatures.find(c => c.name.toLowerCase() === "aragorn")?.reactionUsed).toBeFalse();
 
-      handleCommand("add rxn Aragorn");
+      handleCommand("rxn set Aragorn");
       expect(creatures.find(c => c.name.toLowerCase() === "aragorn")?.reactionUsed).toBeTrue();
-      handleCommand("remove rxn Aragorn");
+      handleCommand("rxn remove Aragorn");
       expect(creatures.find(c => c.name.toLowerCase() === "aragorn")?.reactionUsed).toBeFalse();
 
-      handleCommand("add rxn Aragorn");
+      handleCommand("rxn set Aragorn");
       expect(creatures.find(c => c.name.toLowerCase() === "aragorn")?.reactionUsed).toBeTrue();
       handleCommand("undo");
       expect(creatures.find(c => c.name.toLowerCase() === "aragorn")?.reactionUsed).toBeFalse();
     });
 
     test("c alias starts and ends combat correctly and autocompletes", () => {
-      handleCommand("new game");
-      handleCommand("add pc Aragorn");
-      handleCommand("set init 15 Aragorn");
+      handleCommand("game new");
+      handleCommand("char add pc Aragorn");
+      handleCommand("init set 15 Aragorn");
 
       expect(getCombatState().inCombat).toBeFalse();
 
@@ -901,34 +895,34 @@ describe("D&D CLI Tracker Test Suite", () => {
     });
 
     test("skips dead creatures during combat turn transitions", () => {
-      handleCommand("new game");
-      handleCommand("add pc A B C");
-      handleCommand("set hp 10 A 10 B 10 C");
-      handleCommand("set init 30 A 20 B 10 C");
+      handleCommand("game new");
+      handleCommand("char add pc A B C");
+      handleCommand("hp set 10 A 10 B 10 C");
+      handleCommand("init set 30 A 20 B 10 C");
 
-      handleCommand("add dmg 10 B");
+      handleCommand("dmg add 10 B");
       expect(creatures.find(c => c.name === "A")?.statusEffects).not.toContain("Dead");
       expect(creatures.find(c => c.name === "B")?.statusEffects).toContain("Dead");
 
       handleCommand("combat");
       expect(getCombatState().activeCreature?.name).toBe("A");
 
-      handleCommand("next");
+      handleCommand("turn next");
       expect(getCombatState().activeCreature?.name).toBe("C");
 
-      handleCommand("next");
+      handleCommand("turn next");
       expect(getCombatState().activeCreature?.name).toBe("A");
 
-      handleCommand("remove dmg 10 B");
+      handleCommand("dmg remove 10 B");
       expect(creatures.find(c => c.name === "B")?.statusEffects).not.toContain("Dead");
 
-      handleCommand("next");
+      handleCommand("turn next");
       expect(getCombatState().activeCreature?.name).toBe("B");
     });
 
     test("does not restart combat if already started", () => {
-      handleCommand("new game");
-      handleCommand("add pc A");
+      handleCommand("game new");
+      handleCommand("char add pc A");
       handleCommand("combat");
       expect(getCombatState().inCombat).toBeTrue();
 
@@ -951,64 +945,61 @@ describe("D&D CLI Tracker Test Suite", () => {
     });
 
     test("supports Resource Usage column, incrementing/decrementing, alias res, and partial matching", () => {
-      handleCommand("new game");
-      handleCommand("add pc Joe");
+      handleCommand("game new");
+      handleCommand("char add pc Joe");
 
       // Verify initial state
       const joe = creatures.find(c => c.name === "Joe")!;
       expect(joe.resourceUsage).toEqual({});
 
       // Increment legaction
-      handleCommand("add res legaction Joe");
+      handleCommand("res add legaction Joe");
       expect(joe.resourceUsage?.["legaction"]).toBe(1);
 
       // Increment again
-      handleCommand("add res legaction Joe");
+      handleCommand("res add legaction Joe");
       expect(joe.resourceUsage?.["legaction"]).toBe(2);
 
-      // Partial matching with "use res" alias
-      handleCommand("use res lega Joe");
+      // Partial matching with "res use" alias
+      handleCommand("res use lega Joe");
       expect(joe.resourceUsage?.["legaction"]).toBe(3);
 
       // Partial matching is case-insensitive
-      handleCommand("use res LEGA Joe");
+      handleCommand("res use LEGA Joe");
       expect(joe.resourceUsage?.["legaction"]).toBe(4);
 
       // Decrementing/removing resource
-      handleCommand("remove res leg Joe");
+      handleCommand("res remove leg Joe");
       expect(joe.resourceUsage?.["legaction"]).toBe(3);
 
       // Verify it is removed completely when reaching 0
-      handleCommand("remove res leg Joe"); // 2
-      handleCommand("remove res leg Joe"); // 1
-      handleCommand("remove res leg Joe"); // 0 -> deleted
+      handleCommand("res remove leg Joe"); // 2
+      handleCommand("res remove leg Joe"); // 1
+      handleCommand("res remove leg Joe"); // 0 -> deleted
       expect(joe.resourceUsage?.["legaction"]).toBeUndefined();
 
       // Test clearing resource usage
-      handleCommand("add res spellslot Joe");
+      handleCommand("res add spellslot Joe");
       expect(joe.resourceUsage?.["spellslot"]).toBe(1);
-      handleCommand("clear res Joe");
+      handleCommand("res clear Joe");
       expect(joe.resourceUsage?.["spellslot"]).toBeUndefined();
     });
 
     test("resource command autocompletions", () => {
-      handleCommand("new game");
-      handleCommand("add pc Joe");
-      handleCommand("add res spellslot Joe");
+      handleCommand("game new");
+      handleCommand("char add pc Joe");
+      handleCommand("res add spellslot Joe");
 
-      // Autocomplete "add "
-      const [addHits, _] = completer("add ");
-      expect(addHits).not.toContain("add resource");
-      expect(addHits).toContain("add res");
-
-      // Autocomplete "use "
-      const [useHits, _2] = completer("use ");
-      expect(useHits).not.toContain("use resource");
-      expect(useHits).toContain("use res");
+      // Autocomplete "res "
+      const [resHits, _] = completer("res ");
+      expect(resHits).toContain("res add");
+      expect(resHits).toContain("res use");
+      expect(resHits).toContain("res remove");
+      expect(resHits).toContain("res clear");
 
       // Autocomplete existing resources
-      const [resHits, _3] = completer("use res ");
-      expect(resHits).toContain("use res spellslot");
+      const [useHits, _2] = completer("res use ");
+      expect(useHits).toContain("res use spellslot");
     });
 
     test("help command with filter highlights matching lines", () => {
@@ -1021,21 +1012,21 @@ describe("D&D CLI Tracker Test Suite", () => {
       try {
         handleCommand("help res");
         
-        const resLine = logs.find(l => l.includes("add/use res"));
-        const pcLine = logs.find(l => l.includes("add (pc | p)"));
+        const resLine = logs.find(l => l.includes("res (add | use)"));
+        const charLine = logs.find(l => l.includes("char add"));
 
         expect(resLine).toBeDefined();
         expect(resLine).toContain("\x1b[1m");
         expect(resLine).toContain("\x1b[33m");
 
-        expect(pcLine).toBeDefined();
-        expect(pcLine).not.toContain("\x1b[33m");
+        expect(charLine).toBeDefined();
+        expect(charLine).not.toContain("\x1b[33m");
       } finally {
         console.log = originalLog;
       }
     });
 
-    test("help menu lists aliases cleanly with identical descriptions without explicit alias notes", () => {
+    test("help menu lists commands cleanly in noun-first format", () => {
       const logs: string[] = [];
       const originalLog = console.log;
       console.log = (...args: any[]) => {
@@ -1046,113 +1037,97 @@ describe("D&D CLI Tracker Test Suite", () => {
         handleCommand("help");
         const fullOutput = logs.join("\n");
 
-        // remove (pcs | enemies | neutrals) and remove (p | e | n)
-        expect(fullOutput).toContain("remove (pcs | enemies | neutrals)");
-        expect(fullOutput).toContain("remove (p | e | n)");
-        const rmFullLine = logs.find(l => l.includes("remove (pcs | enemies | neutrals)"));
-        const rmShortLine = logs.find(l => l.includes("remove (p | e | n)"));
-        expect(rmFullLine).toContain("Bulk remove creatures by type");
-        expect(rmShortLine).toContain("Bulk remove creatures by type");
-        expect(rmFullLine).not.toContain("(or p | e | n)");
+        expect(fullOutput).toContain("(pc | enemy | neutral) remove");
+        expect(fullOutput).toContain("type set (pc | enemy | neutral)");
+        expect(fullOutput).toContain("dmg add <value> <target>...");
+        expect(fullOutput).toContain("dmg remove <value> <target>...");
+        expect(fullOutput).toContain("save delete [<name>...]");
 
-        // set type and change type
-        const setTypeLine = logs.find(l => l.includes("set type (pc | enemy | neutral)"));
-        const setTypeRevLine = logs.find(l => l.includes("set type <target>... (pc | enemy | neutral)"));
-        expect(setTypeLine).toContain("Change character type");
-        expect(setTypeRevLine).toContain("Change character type");
-        expect(setTypeLine).not.toContain("(or set type");
-
-        // damage and healing
-        const addDmgLine = logs.find(l => l.includes("add dmg <value> <target>..."));
-        const hurtLine = logs.find(l => l.includes("hurt <value> <target>..."));
-        const rmDmgLine = logs.find(l => l.includes("remove dmg <value> <target>..."));
-        const healLine = logs.find(l => l.includes("heal <value> <target>..."));
-        expect(addDmgLine).toContain("Add damage taken to target(s)");
-        expect(hurtLine).toContain("Add damage taken to target(s)");
-        expect(hurtLine).not.toContain("(alias for");
-        expect(rmDmgLine).toContain("Heal/subtract damage from target(s)");
-        expect(healLine).toContain("Heal/subtract damage from target(s)");
-        expect(healLine).not.toContain("(alias for");
-
-        // delete and del save
-        const deleteSaveLine = logs.find(l => l.includes("delete save [<name>...]"));
-        const delSaveLine = logs.find(l => l.includes("del save [<name>...]"));
-        expect(deleteSaveLine).toContain("Delete save file(s)");
-        expect(delSaveLine).toContain("Delete save file(s)");
-
-        // No alias callouts in descriptions
-        expect(fullOutput).not.toContain("(alias for");
+        // Disallowed old verbs should not appear in help menu
+        expect(fullOutput).not.toContain("  add pc");
+        expect(fullOutput).not.toContain("hurt <value>");
+        expect(fullOutput).not.toContain("heal <value>");
+        expect(fullOutput).not.toContain("delete save");
       } finally {
         console.log = originalLog;
       }
     });
 
-    test("completer includes remove p/e/n and del save aliases", () => {
-      const [rmHits] = completer("remove ");
-      expect(rmHits).toContain("remove p");
-      expect(rmHits).toContain("remove e");
-      expect(rmHits).toContain("remove n");
+    test("completer includes noun-first templates and excludes legacy commands", () => {
+      const [charHits] = completer("char remove ");
+      expect(charHits).toContain("char remove pcs");
+      expect(charHits).toContain("char remove enemies");
+      expect(charHits).toContain("char remove neutrals");
 
-      const [delHits] = completer("del ");
-      expect(delHits).toContain("del save");
+      const [saveHits] = completer("save ");
+      expect(saveHits).toContain("save delete");
+
+      const [legacyAdd] = completer("add ");
+      expect(legacyAdd).toHaveLength(0);
+
+      const [legacySet] = completer("set ");
+      expect(legacySet).toHaveLength(0);
+
+      const [legacyRm] = completer("remove ");
+      expect(legacyRm).toHaveLength(0);
     });
   });
 
   describe("Changing Creature Type", () => {
-    test("changes creature type using 'set type <type> <target>' and shorthands", () => {
-      handleCommand("add pc Aragorn");
+    test("changes creature type using 'type set <type> <target>' and shorthands", () => {
+      handleCommand("char add pc Aragorn");
       const aragorn = creatures.find((c) => c.name === "Aragorn");
       expect(aragorn?.type).toBe("pc");
 
-      handleCommand("set type enemy Aragorn");
+      handleCommand("type set enemy Aragorn");
       expect(aragorn?.type).toBe("enemy");
 
-      handleCommand("set type neutral Aragorn");
+      handleCommand("type set neutral Aragorn");
       expect(aragorn?.type).toBe("neutral");
 
-      handleCommand("set type p Aragorn");
+      handleCommand("type set p Aragorn");
       expect(aragorn?.type).toBe("pc");
 
-      handleCommand("set type e Aragorn");
+      handleCommand("type set e Aragorn");
       expect(aragorn?.type).toBe("enemy");
 
-      handleCommand("set type n Aragorn");
+      handleCommand("type set n Aragorn");
       expect(aragorn?.type).toBe("neutral");
     });
 
-    test("supports multiple targets with one type: 'set type <type> <t1> <t2>'", () => {
-      handleCommand("add pc Aragorn Legolas Gimli");
-      handleCommand("set type enemy Aragorn Legolas");
+    test("supports multiple targets with one type: 'type set <type> <t1> <t2>'", () => {
+      handleCommand("char add pc Aragorn Legolas Gimli");
+      handleCommand("type set enemy Aragorn Legolas");
 
       expect(creatures.find((c) => c.name === "Aragorn")?.type).toBe("enemy");
       expect(creatures.find((c) => c.name === "Legolas")?.type).toBe("enemy");
       expect(creatures.find((c) => c.name === "Gimli")?.type).toBe("pc");
     });
 
-    test("supports alternating pairs: 'set type <type1> <t1> <type2> <t2>'", () => {
-      handleCommand("add pc Aragorn Legolas");
-      handleCommand("set type enemy Aragorn neutral Legolas");
+    test("supports alternating pairs: 'type set <type1> <t1> <type2> <t2>'", () => {
+      handleCommand("char add pc Aragorn Legolas");
+      handleCommand("type set enemy Aragorn neutral Legolas");
 
       expect(creatures.find((c) => c.name === "Aragorn")?.type).toBe("enemy");
       expect(creatures.find((c) => c.name === "Legolas")?.type).toBe("neutral");
     });
 
-    test("supports target-first syntax: 'set type <target> <type>'", () => {
-      handleCommand("add pc Aragorn Legolas");
-      handleCommand("set type Aragorn enemy");
+    test("supports target-first syntax: 'type set <target> <type>'", () => {
+      handleCommand("char add pc Aragorn Legolas");
+      handleCommand("type set Aragorn enemy");
       expect(creatures.find((c) => c.name === "Aragorn")?.type).toBe("enemy");
 
-      handleCommand("set type Aragorn Legolas neutral");
+      handleCommand("type set Aragorn Legolas neutral");
       expect(creatures.find((c) => c.name === "Aragorn")?.type).toBe("neutral");
       expect(creatures.find((c) => c.name === "Legolas")?.type).toBe("neutral");
     });
 
-    test("supports 'change type' and 'type' command aliases", () => {
-      handleCommand("add pc Aragorn");
-      handleCommand("change type enemy Aragorn");
+    test("supports 'type set' and 'type' command shortcuts", () => {
+      handleCommand("char add pc Aragorn");
+      handleCommand("type set enemy Aragorn");
       expect(creatures.find((c) => c.name === "Aragorn")?.type).toBe("enemy");
 
-      handleCommand("change type Aragorn pc");
+      handleCommand("type set Aragorn pc");
       expect(creatures.find((c) => c.name === "Aragorn")?.type).toBe("pc");
 
       handleCommand("type neutral Aragorn");
@@ -1163,27 +1138,27 @@ describe("D&D CLI Tracker Test Suite", () => {
     });
 
     test("validates invalid types and nonexistent targets", () => {
-      handleCommand("add pc Aragorn");
+      handleCommand("char add pc Aragorn");
       
       // Invalid type
-      expect(handleCommand("set type dragon Aragorn")).toBeTrue();
+      expect(handleCommand("type set dragon Aragorn")).toBeTrue();
       expect(creatures.find((c) => c.name === "Aragorn")?.type).toBe("pc");
 
       // Nonexistent target
-      expect(handleCommand("set type enemy Nonexistent")).toBeTrue();
+      expect(handleCommand("type set enemy Nonexistent")).toBeTrue();
       expect(creatures.find((c) => c.name === "Aragorn")?.type).toBe("pc");
 
       // Missing arguments
-      expect(handleCommand("set type")).toBeTrue();
-      expect(handleCommand("set type pc")).toBeTrue();
+      expect(handleCommand("type set")).toBeTrue();
+      expect(handleCommand("type set pc")).toBeTrue();
     });
 
     test("is undoable and redoable", () => {
-      handleCommand("add pc Aragorn");
+      handleCommand("char add pc Aragorn");
       const aragorn = creatures.find((c) => c.name === "Aragorn");
       expect(aragorn?.type).toBe("pc");
 
-      handleCommand("set type enemy Aragorn");
+      handleCommand("type set enemy Aragorn");
       expect(aragorn?.type).toBe("enemy");
 
       handleCommand("undo");
@@ -1193,107 +1168,104 @@ describe("D&D CLI Tracker Test Suite", () => {
       expect(creatures.find((c) => c.name === "Aragorn")?.type).toBe("enemy");
     });
 
-    test("set type autocompletions", () => {
-      handleCommand("new game");
-      handleCommand("add pc Aragorn");
+    test("type set autocompletions", () => {
+      handleCommand("game new");
+      handleCommand("char add pc Aragorn");
 
-      const [setHits, _] = completer("set ");
-      expect(setHits).toContain("set type");
+      const [typeHits, _] = completer("type ");
+      expect(typeHits).toContain("type set");
 
-      const [changeHits, _2] = completer("change ");
-      expect(changeHits).toContain("change type");
-
-      const [typeHits, _3] = completer("set type ");
-      expect(typeHits).toContain("set type pc");
-      expect(typeHits).toContain("set type enemy");
-      expect(typeHits).toContain("set type neutral");
-      expect(typeHits).toContain("set type Aragorn");
+      const [typeSetHits, _2] = completer("type set ");
+      expect(typeSetHits).toContain("type set pc");
+      expect(typeSetHits).toContain("type set enemy");
+      expect(typeSetHits).toContain("type set neutral");
+      expect(typeSetHits).toContain("type set Aragorn");
     });
   });
 
   describe("Death States & HP Thresholds", () => {
     test("marks creature Dead immediately when dmg matches HP for PC, enemy, and neutral", () => {
-      handleCommand("new game");
-      handleCommand("add pc Hero");
-      handleCommand("add enemy Goblin");
-      handleCommand("add neutral Merchant");
+      handleCommand("game new");
+      handleCommand("char add pc Hero");
+      handleCommand("char add enemy Goblin");
+      handleCommand("char add neutral Merchant");
 
-      handleCommand("set hp 20 Hero 12 Goblin 8 Merchant");
+      handleCommand("hp set 20 Hero 12 Goblin 8 Merchant");
 
-      handleCommand("add dmg 20 Hero");
+      handleCommand("dmg add 20 Hero");
       expect(creatures.find(c => c.name === "Hero")?.statusEffects).toContain("Dead");
 
-      handleCommand("add dmg 12 Goblin");
+      handleCommand("dmg add 12 Goblin");
       expect(creatures.find(c => c.name === "Goblin")?.statusEffects).toContain("Dead");
 
-      handleCommand("add dmg 8 Merchant");
+      handleCommand("dmg add 8 Merchant");
       expect(creatures.find(c => c.name === "Merchant")?.statusEffects).toContain("Dead");
     });
 
     test("marks creature Dead immediately when dmg exceeds HP for neutral and other characters", () => {
-      handleCommand("new game");
-      handleCommand("add pc Hero");
-      handleCommand("add enemy Goblin");
-      handleCommand("add neutral Villager");
+      handleCommand("game new");
+      handleCommand("char add pc Hero");
+      handleCommand("char add enemy Goblin");
+      handleCommand("char add neutral Villager");
 
-      handleCommand("set hp 15 Hero 10 Goblin 6 Villager");
+      handleCommand("hp set 15 Hero 10 Goblin 6 Villager");
 
-      handleCommand("add dmg 20 Hero");
+      handleCommand("dmg add 20 Hero");
       expect(creatures.find(c => c.name === "Hero")?.statusEffects).toContain("Dead");
 
-      handleCommand("add dmg 15 Goblin");
+      handleCommand("dmg add 15 Goblin");
       expect(creatures.find(c => c.name === "Goblin")?.statusEffects).toContain("Dead");
 
-      handleCommand("add dmg 12 Villager");
+      handleCommand("dmg add 12 Villager");
       expect(creatures.find(c => c.name === "Villager")?.statusEffects).toContain("Dead");
     });
 
     test("marks creature Dead when set hp sets HP max at or below current damage", () => {
-      handleCommand("new game");
-      handleCommand("add neutral Villager");
-      handleCommand("add dmg 10 Villager");
+      handleCommand("game new");
+      handleCommand("char add neutral Villager");
+      handleCommand("dmg add 10 Villager");
       expect(creatures.find(c => c.name === "Villager")?.statusEffects).not.toContain("Dead");
 
       // Setting HP equal to existing damage
-      handleCommand("set hp 10 Villager");
+      handleCommand("hp set 10 Villager");
       expect(creatures.find(c => c.name === "Villager")?.statusEffects).toContain("Dead");
 
       // Setting HP lower than existing damage
-      handleCommand("set hp 5 Villager");
+      handleCommand("hp set 5 Villager");
       expect(creatures.find(c => c.name === "Villager")?.statusEffects).toContain("Dead");
 
       // Setting HP above damage restores alive state
-      handleCommand("set hp 20 Villager");
+      handleCommand("hp set 20 Villager");
       expect(creatures.find(c => c.name === "Villager")?.statusEffects).not.toContain("Dead");
     });
 
     test("removes Dead state when healed below max HP", () => {
-      handleCommand("new game");
-      handleCommand("add neutral Villager");
-      handleCommand("set hp 10 Villager");
-      handleCommand("add dmg 10 Villager");
+      handleCommand("game new");
+      handleCommand("char add neutral Villager");
+      handleCommand("hp set 10 Villager");
+      handleCommand("dmg add 10 Villager");
       expect(creatures.find(c => c.name === "Villager")?.statusEffects).toContain("Dead");
 
-      handleCommand("heal 1 Villager");
+      handleCommand("dmg remove 1 Villager");
       expect(creatures.find(c => c.name === "Villager")?.statusEffects).not.toContain("Dead");
     });
 
     test("preserves manual Dead effect on creatures without hpMax", () => {
-      handleCommand("new game");
-      handleCommand("add neutral Ghost");
-      handleCommand("add eff Dead Ghost");
+      handleCommand("game new");
+      handleCommand("char add neutral Ghost");
+      handleCommand("eff add Dead Ghost");
       expect(creatures.find(c => c.name === "Ghost")?.statusEffects).toContain("Dead");
 
       // Running a command should not clear manual Dead on null hpMax creature
-      handleCommand("add neutral Skeleton");
+      handleCommand("char add neutral Skeleton");
       expect(creatures.find(c => c.name === "Ghost")?.statusEffects).toContain("Dead");
     });
   });
 
   describe("Default Session Loading & Startup", () => {
     test("getLatestSave returns the most recently saved session file", () => {
-      handleCommand("new game");
-      handleCommand("add pc FirstHero");
+      handleCommand("game new");
+      handleCommand("char add pc FirstHero");
       handleCommand("save test_startup_older");
 
       const olderPath = path.join(SAVES_DIR, "test_startup_older.json");
@@ -1301,8 +1273,8 @@ describe("D&D CLI Tracker Test Suite", () => {
       olderData.savedAt = new Date(Date.now() - 100000).toISOString();
       fs.writeFileSync(olderPath, JSON.stringify(olderData, null, 2), "utf-8");
 
-      handleCommand("new game");
-      handleCommand("add pc NewerHero");
+      handleCommand("game new");
+      handleCommand("char add pc NewerHero");
       handleCommand("save test_startup_newer");
 
       const newerPath = path.join(SAVES_DIR, "test_startup_newer.json");
@@ -1316,9 +1288,9 @@ describe("D&D CLI Tracker Test Suite", () => {
     });
 
     test("initializeSession loads the latest session by default", () => {
-      handleCommand("new game");
-      handleCommand("add pc TargetHero");
-      handleCommand("set hp 50 TargetHero");
+      handleCommand("game new");
+      handleCommand("char add pc TargetHero");
+      handleCommand("hp set 50 TargetHero");
       handleCommand("save test_default_autoload");
 
       resetState();
@@ -1333,8 +1305,8 @@ describe("D&D CLI Tracker Test Suite", () => {
     });
 
     test("initializeSession respects fresh flag and starts fresh", () => {
-      handleCommand("new game");
-      handleCommand("add pc SavedHero");
+      handleCommand("game new");
+      handleCommand("char add pc SavedHero");
       handleCommand("save test_fresh_override");
 
       resetState();
@@ -1345,8 +1317,8 @@ describe("D&D CLI Tracker Test Suite", () => {
     });
 
     test("initializeSession loads specific session when requested", () => {
-      handleCommand("new game");
-      handleCommand("add pc SpecificHero");
+      handleCommand("game new");
+      handleCommand("char add pc SpecificHero");
       handleCommand("save test_specific_slot");
 
       resetState();
@@ -1365,9 +1337,9 @@ describe("D&D CLI Tracker Test Suite", () => {
     });
 
     test("loaded session correctly supports undo and redo on subsequent commands", () => {
-      handleCommand("new game");
-      handleCommand("add pc UndoLoadedHero");
-      handleCommand("set hp 40 UndoLoadedHero");
+      handleCommand("game new");
+      handleCommand("char add pc UndoLoadedHero");
+      handleCommand("hp set 40 UndoLoadedHero");
       handleCommand("save test_undo_on_loaded");
 
       resetState();
@@ -1378,7 +1350,7 @@ describe("D&D CLI Tracker Test Suite", () => {
       expect(getHistoryStacks().undoLength).toBe(0);
 
       // Mutate loaded session
-      handleCommand("add dmg 15 UndoLoadedHero");
+      handleCommand("dmg add 15 UndoLoadedHero");
       expect(creatures[0]?.dmg).toBe(15);
       expect(getHistoryStacks().undoLength).toBe(1);
 
@@ -1393,8 +1365,8 @@ describe("D&D CLI Tracker Test Suite", () => {
       expect(getHistoryStacks().undoLength).toBe(1);
 
       // Verify batch undo on loaded session
-      handleCommand("add dmg 5 UndoLoadedHero");
-      handleCommand("set ac 18 UndoLoadedHero");
+      handleCommand("dmg add 5 UndoLoadedHero");
+      handleCommand("ac set 18 UndoLoadedHero");
       expect(creatures[0]?.dmg).toBe(20);
       expect(creatures[0]?.ac).toBe(18);
 
@@ -1406,8 +1378,8 @@ describe("D&D CLI Tracker Test Suite", () => {
 
   describe("Multi-target commands and Glob * removal", () => {
     test("does not match creatures using glob * patterns", () => {
-      handleCommand("new game");
-      handleCommand("add pc HeroA HeroB Goblin1");
+      handleCommand("game new");
+      handleCommand("char add pc HeroA HeroB Goblin1");
 
       const originalLog = console.log;
       const logs: string[] = [];
@@ -1415,12 +1387,12 @@ describe("D&D CLI Tracker Test Suite", () => {
 
       try {
         // Passing * or Hero* should fail to match
-        handleCommand("hurt 10 Hero*");
+        handleCommand("dmg add 10 Hero*");
         expect(logs.some(l => l.includes('No creature matching "Hero*"'))).toBeTrue();
         expect(creatures.find(c => c.name === "HeroA")?.dmg).toBe(0);
 
         logs.length = 0;
-        handleCommand("clear ac *");
+        handleCommand("ac clear *");
         expect(logs.some(l => l.includes('No creature matching "*"'))).toBeTrue();
       } finally {
         console.log = originalLog;
@@ -1428,15 +1400,15 @@ describe("D&D CLI Tracker Test Suite", () => {
     });
 
     test("ambiguous match message does not recommend wildcards", () => {
-      handleCommand("new game");
-      handleCommand("add enemy GoblinA GoblinB");
+      handleCommand("game new");
+      handleCommand("char add enemy GoblinA GoblinB");
 
       const originalLog = console.log;
       const logs: string[] = [];
       console.log = (...args: any[]) => { logs.push(args.join(" ")); };
 
       try {
-        handleCommand("hurt 10 Gob");
+        handleCommand("dmg add 10 Gob");
         const ambigMsg = logs.find(l => l.includes("Ambiguous match"));
         expect(ambigMsg).toBeDefined();
         expect(ambigMsg).not.toContain("Perhaps you meant");
@@ -1447,40 +1419,40 @@ describe("D&D CLI Tracker Test Suite", () => {
     });
 
     test("set hp, ac, and init apply to multiple targets with targets as last args", () => {
-      handleCommand("new game");
-      handleCommand("add pc HeroA HeroB HeroC");
+      handleCommand("game new");
+      handleCommand("char add pc HeroA HeroB HeroC");
 
       // Set HP for all 3
-      handleCommand("set hp 45 HeroA HeroB HeroC");
+      handleCommand("hp set 45 HeroA HeroB HeroC");
       expect(creatures.find(c => c.name === "HeroA")?.hpMax).toBe(45);
       expect(creatures.find(c => c.name === "HeroB")?.hpMax).toBe(45);
       expect(creatures.find(c => c.name === "HeroC")?.hpMax).toBe(45);
 
       // Set AC for all 3
-      handleCommand("set ac 18 HeroA HeroB HeroC");
+      handleCommand("ac set 18 HeroA HeroB HeroC");
       expect(creatures.find(c => c.name === "HeroA")?.ac).toBe(18);
       expect(creatures.find(c => c.name === "HeroB")?.ac).toBe(18);
       expect(creatures.find(c => c.name === "HeroC")?.ac).toBe(18);
 
       // Set init for all 3
-      handleCommand("set init 14 HeroA HeroB HeroC");
+      handleCommand("init set 14 HeroA HeroB HeroC");
       expect(creatures.find(c => c.name === "HeroA")?.initiative).toBe(14);
       expect(creatures.find(c => c.name === "HeroB")?.initiative).toBe(14);
       expect(creatures.find(c => c.name === "HeroC")?.initiative).toBe(14);
 
-      // Clear stats with value first, targets last
-      handleCommand("set ac clear HeroA HeroB");
+      // Clear stats with targets last
+      handleCommand("ac clear HeroA HeroB");
       expect(creatures.find(c => c.name === "HeroA")?.ac).toBeNull();
       expect(creatures.find(c => c.name === "HeroB")?.ac).toBeNull();
       expect(creatures.find(c => c.name === "HeroC")?.ac).toBe(18);
     });
 
     test("multi-target set commands are fully undoable and redoable", () => {
-      handleCommand("new game");
-      handleCommand("add pc HeroA HeroB");
+      handleCommand("game new");
+      handleCommand("char add pc HeroA HeroB");
 
       const initUndoLen = getHistoryStacks().undoLength;
-      handleCommand("set hp 50 HeroA HeroB");
+      handleCommand("hp set 50 HeroA HeroB");
       expect(getHistoryStacks().undoLength).toBe(initUndoLen + 1);
       expect(creatures.find(c => c.name === "HeroA")?.hpMax).toBe(50);
       expect(creatures.find(c => c.name === "HeroB")?.hpMax).toBe(50);
@@ -1493,19 +1465,20 @@ describe("D&D CLI Tracker Test Suite", () => {
 
       // Redo restores both
       handleCommand("redo");
+      expect(getHistoryStacks().undoLength).toBe(initUndoLen + 1);
       expect(creatures.find(c => c.name === "HeroA")?.hpMax).toBe(50);
       expect(creatures.find(c => c.name === "HeroB")?.hpMax).toBe(50);
     });
 
-    test("set type and change type support multiple targets as last args and are undoable", () => {
-      handleCommand("new game");
-      handleCommand("add pc HeroA HeroB");
+    test("type set supports multiple targets as last args and is undoable", () => {
+      handleCommand("game new");
+      handleCommand("char add pc HeroA HeroB");
 
-      handleCommand("set type enemy HeroA HeroB");
+      handleCommand("type set enemy HeroA HeroB");
       expect(creatures.find(c => c.name === "HeroA")?.type).toBe("enemy");
       expect(creatures.find(c => c.name === "HeroB")?.type).toBe("enemy");
 
-      handleCommand("change type neutral HeroA HeroB");
+      handleCommand("type set neutral HeroA HeroB");
       expect(creatures.find(c => c.name === "HeroA")?.type).toBe("neutral");
       expect(creatures.find(c => c.name === "HeroB")?.type).toBe("neutral");
 
@@ -1514,12 +1487,12 @@ describe("D&D CLI Tracker Test Suite", () => {
       expect(creatures.find(c => c.name === "HeroB")?.type).toBe("enemy");
     });
 
-    test("remove char removes multiple targets and is undoable", () => {
-      handleCommand("new game");
-      handleCommand("add pc HeroA HeroB HeroC");
+    test("char remove removes multiple targets and is undoable", () => {
+      handleCommand("game new");
+      handleCommand("char add pc HeroA HeroB HeroC");
       expect(creatures.length).toBe(3);
 
-      handleCommand("remove char HeroA HeroC");
+      handleCommand("char remove HeroA HeroC");
       expect(creatures.length).toBe(1);
       expect(creatures[0]?.name).toBe("HeroB");
 
@@ -2105,4 +2078,119 @@ describe("D&D CLI Tracker Test Suite", () => {
       expect(actHits).toContain("activity show");
     });
   });
+
+  describe("Disallowed Legacy Commands & Exception Preservation", () => {
+    test("rejects all legacy verb-first commands as unknown commands and prevents state mutation", () => {
+      handleCommand("game new");
+      handleCommand("char add pc HeroA");
+      const preUndoLength = getHistoryStacks().undoLength;
+
+      const disallowedSamples = [
+        "add pc HeroB",
+        "add enemy Goblin1",
+        "set hp 20 HeroA",
+        "set ac 15 HeroA",
+        "set init 12 HeroA",
+        "remove HeroA",
+        "rm HeroA",
+        "clear hp HeroA",
+        "clear all",
+        "delete save slot1",
+        "del save slot1",
+        "load save slot1",
+        "loadgame slot1",
+        "new game",
+        "rename save slot1 slot2",
+        "saves",
+        "list",
+        "hurt 10 HeroA",
+        "heal 5 HeroA",
+        "use rage HeroA",
+        "change type HeroA enemy",
+        "show activity",
+        "next",
+        "prev",
+        "n",
+        "p",
+        "start combat",
+        "end combat",
+      ];
+
+      const originalLog = console.log;
+      const logs: string[] = [];
+      console.log = (...args: any[]) => {
+        logs.push(args.join(" "));
+      };
+
+      try {
+        for (const cmd of disallowedSamples) {
+          logs.length = 0;
+          const handled = handleCommand(cmd);
+          expect(handled).toBeTrue();
+          expect(logs.some(l => l.includes(`Unknown command: "${cmd}". Type "help" for commands.`))).toBeTrue();
+        }
+      } finally {
+        console.log = originalLog;
+      }
+
+      // State and undo stack remain completely untouched
+      expect(creatures.length).toBe(1);
+      expect(creatures[0]?.name).toBe("HeroA");
+      expect(getHistoryStacks().undoLength).toBe(preUndoLength);
+    });
+
+    test("every keyword in OLD_DISALLOWED_COMMANDS is rejected as unknown command", () => {
+      const originalLog = console.log;
+      const logs: string[] = [];
+      console.log = (...args: any[]) => {
+        logs.push(args.join(" "));
+      };
+
+      try {
+        for (const disCmd of OLD_DISALLOWED_COMMANDS) {
+          logs.length = 0;
+          handleCommand(disCmd);
+          expect(logs.some(l => l.includes(`Unknown command: "${disCmd}". Type "help" for commands.`))).toBeTrue();
+        }
+      } finally {
+        console.log = originalLog;
+      }
+    });
+
+    test("allowed exceptions without field/entity continue to function", () => {
+      handleCommand("game new");
+
+      // 1. test and test simple
+      handleCommand("test simple");
+      expect(creatures.length).toBeGreaterThan(0);
+
+      // 2. undo / redo
+      handleCommand("char add pc Hero");
+      handleCommand("hp set 50 Hero");
+      expect(creatures.find(c => c.name === "Hero")?.hpMax).toBe(50);
+      handleCommand("u");
+      expect(creatures.find(c => c.name === "Hero")?.hpMax).toBeNull();
+      handleCommand("r");
+      expect(creatures.find(c => c.name === "Hero")?.hpMax).toBe(50);
+
+      // 3. quit / exit / q
+      expect(getCombatState().pendingQuitConfirmation).toBeFalse();
+      handleCommand("q");
+      expect(getCombatState().pendingQuitConfirmation).toBeTrue();
+      processQuitConfirmation("n");
+      expect(getCombatState().pendingQuitConfirmation).toBeFalse();
+
+      // 4. help / h
+      const originalLog = console.log;
+      const logs: string[] = [];
+      console.log = (...args: any[]) => { logs.push(args.join(" ")); };
+      try {
+        handleCommand("h");
+        expect(logs.some(l => l.includes("Available commands:"))).toBeTrue();
+      } finally {
+        console.log = originalLog;
+      }
+    });
+  });
 });
+
