@@ -27,6 +27,7 @@ import {
   normalizeCommandTokens,
   tokenize,
   OLD_DISALLOWED_COMMANDS,
+  ALL_COMMAND_TEMPLATES,
 } from "./index";
 
 const SAVES_DIR = path.join(process.cwd(), "saves");
@@ -2364,6 +2365,224 @@ describe("D&D CLI Tracker Test Suite", () => {
       } finally {
         console.log = originalLog;
       }
+    });
+  });
+
+  describe("init swap & combat swap command", () => {
+    test("swaps distinct initiative values between two creatures", () => {
+      handleCommand("game new");
+      handleCommand("char add pc HeroA");
+      handleCommand("char add enemy GoblinB");
+      handleCommand("init set 20 HeroA 10 GoblinB");
+
+      expect(creatures.find(c => c.name === "HeroA")?.initiative).toBe(20);
+      expect(creatures.find(c => c.name === "GoblinB")?.initiative).toBe(10);
+
+      handleCommand("init swap HeroA GoblinB");
+
+      expect(creatures.find(c => c.name === "HeroA")?.initiative).toBe(10);
+      expect(creatures.find(c => c.name === "GoblinB")?.initiative).toBe(20);
+    });
+
+    test("swaps combat order during combat mode with turn preservation", () => {
+      handleCommand("game new");
+      handleCommand("char add pc HeroA");
+      handleCommand("char add enemy GoblinB");
+      handleCommand("init set 25 HeroA 15 GoblinB");
+      handleCommand("combat start");
+
+      let sorted = getSortedCreatures();
+      expect(sorted[0]!.name).toBe("HeroA");
+      expect(sorted[1]!.name).toBe("GoblinB");
+      expect(getCombatState().currentTurnIndex).toBe(0); // HeroA's turn
+
+      // Advance turn to GoblinB
+      handleCommand("turn next");
+      expect(getCombatState().currentTurnIndex).toBe(1); // GoblinB's turn
+
+      // Swap initiatives during combat
+      handleCommand("combat swap HeroA GoblinB");
+
+      sorted = getSortedCreatures();
+      expect(sorted[0]!.name).toBe("GoblinB");
+      expect(sorted[1]!.name).toBe("HeroA");
+      expect(sorted[0]!.initiative).toBe(25);
+      expect(sorted[1]!.initiative).toBe(15);
+
+      // Turn preservation: active turn was GoblinB, GoblinB is now index 0
+      expect(getCombatState().currentTurnIndex).toBe(0);
+      expect(sorted[getCombatState().currentTurnIndex]!.name).toBe("GoblinB");
+    });
+
+    test("breaks ties with decimal offset when creatures have equal initiative", () => {
+      handleCommand("game new");
+      handleCommand("char add pc Alice Bob");
+      handleCommand("init set 15 Alice Bob");
+      handleCommand("combat start");
+
+      let sorted = getSortedCreatures();
+      expect(sorted[0]!.name).toBe("Alice"); // Alphabetical tie-break
+      expect(sorted[1]!.name).toBe("Bob");
+
+      handleCommand("init swap Alice Bob");
+
+      const alice = creatures.find(c => c.name === "Alice")!;
+      const bob = creatures.find(c => c.name === "Bob")!;
+      expect(bob.initiative).toBeGreaterThan(alice.initiative!);
+
+      sorted = getSortedCreatures();
+      expect(sorted[0]!.name).toBe("Bob");
+      expect(sorted[1]!.name).toBe("Alice");
+    });
+
+    test("breaks ties cleanly within a sequence of equal initiatives without jumping preceding creatures", () => {
+      handleCommand("game new");
+      handleCommand("char add pc Gandalf Alice Bob Charlie");
+      handleCommand("init set 20 Gandalf");
+      handleCommand("init set 15 Alice Bob");
+      handleCommand("init set 10 Charlie");
+      handleCommand("combat start");
+
+      let sorted = getSortedCreatures();
+      expect(sorted[0]!.name).toBe("Gandalf");
+      expect(sorted[1]!.name).toBe("Alice");
+      expect(sorted[2]!.name).toBe("Bob");
+      expect(sorted[3]!.name).toBe("Charlie");
+
+      handleCommand("init swap Alice Bob");
+
+      sorted = getSortedCreatures();
+      expect(sorted[0]!.name).toBe("Gandalf");
+      expect(sorted[1]!.name).toBe("Bob");
+      expect(sorted[2]!.name).toBe("Alice");
+      expect(sorted[3]!.name).toBe("Charlie");
+    });
+
+    test("handles swapping when creatures have null initiatives", () => {
+      handleCommand("game new");
+      handleCommand("char add pc HeroA HeroB");
+      expect(creatures.find(c => c.name === "HeroA")?.initiative).toBeNull();
+      expect(creatures.find(c => c.name === "HeroB")?.initiative).toBeNull();
+
+      handleCommand("swap HeroA HeroB");
+
+      const heroA = creatures.find(c => c.name === "HeroA")!;
+      const heroB = creatures.find(c => c.name === "HeroB")!;
+      expect(heroA.initiative).not.toBeNull();
+      expect(heroB.initiative).not.toBeNull();
+      expect(heroB.initiative).toBeGreaterThan(heroA.initiative!);
+    });
+
+    test("supports aliases (combat swap, c swap, turn swap, swap)", () => {
+      handleCommand("game new");
+      handleCommand("char add pc A B");
+      handleCommand("init set 20 A 10 B");
+
+      handleCommand("c swap A B");
+      expect(creatures.find(c => c.name === "A")?.initiative).toBe(10);
+      expect(creatures.find(c => c.name === "B")?.initiative).toBe(20);
+
+      handleCommand("turn swap A B");
+      expect(creatures.find(c => c.name === "A")?.initiative).toBe(20);
+      expect(creatures.find(c => c.name === "B")?.initiative).toBe(10);
+
+      handleCommand("swap A B");
+      expect(creatures.find(c => c.name === "A")?.initiative).toBe(10);
+      expect(creatures.find(c => c.name === "B")?.initiative).toBe(20);
+    });
+
+    test("supports quoted multi-word names", () => {
+      handleCommand("game new");
+      handleCommand("char add pc \"Goblin Archer\" \"Orc Warrior\"");
+      handleCommand("init set 18 \"Goblin Archer\" 12 \"Orc Warrior\"");
+
+      handleCommand("init swap \"Goblin Archer\" \"Orc Warrior\"");
+      expect(creatures.find(c => c.name === "Goblin Archer")?.initiative).toBe(12);
+      expect(creatures.find(c => c.name === "Orc Warrior")?.initiative).toBe(18);
+    });
+
+    test("validates targets and prevents invalid swaps without polluting undo stack", () => {
+      handleCommand("game new");
+      handleCommand("char add pc HeroA");
+      const initialUndoLen = getHistoryStacks().undoLength;
+
+      // No arguments
+      handleCommand("init swap");
+      expect(getHistoryStacks().undoLength).toBe(initialUndoLen);
+
+      // Single argument
+      handleCommand("init swap HeroA");
+      expect(getHistoryStacks().undoLength).toBe(initialUndoLen);
+
+      // Non-existent target
+      handleCommand("init swap HeroA Ghost");
+      expect(getHistoryStacks().undoLength).toBe(initialUndoLen);
+
+      // Self swap
+      handleCommand("init swap HeroA HeroA");
+      expect(getHistoryStacks().undoLength).toBe(initialUndoLen);
+    });
+
+    test("is fully undoable and redoable", () => {
+      handleCommand("game new");
+      handleCommand("char add pc HeroA HeroB");
+      handleCommand("init set 30 HeroA 15 HeroB");
+
+      const initialUndoLen = getHistoryStacks().undoLength;
+      handleCommand("init swap HeroA HeroB");
+      expect(getHistoryStacks().undoLength).toBe(initialUndoLen + 1);
+      expect(creatures.find(c => c.name === "HeroA")?.initiative).toBe(15);
+      expect(creatures.find(c => c.name === "HeroB")?.initiative).toBe(30);
+
+      // Undo
+      handleCommand("undo");
+      expect(getHistoryStacks().undoLength).toBe(initialUndoLen);
+      expect(creatures.find(c => c.name === "HeroA")?.initiative).toBe(30);
+      expect(creatures.find(c => c.name === "HeroB")?.initiative).toBe(15);
+
+      // Redo
+      handleCommand("redo");
+      expect(getHistoryStacks().undoLength).toBe(initialUndoLen + 1);
+      expect(creatures.find(c => c.name === "HeroA")?.initiative).toBe(15);
+      expect(creatures.find(c => c.name === "HeroB")?.initiative).toBe(30);
+    });
+
+    test("undo restores original equal initiatives after decimal tie-break", () => {
+      handleCommand("game new");
+      handleCommand("char add pc HeroA HeroB");
+      handleCommand("init set 15 HeroA HeroB");
+
+      handleCommand("init swap HeroA HeroB");
+      const heroA = creatures.find(c => c.name === "HeroA")!;
+      const heroB = creatures.find(c => c.name === "HeroB")!;
+      expect(heroB.initiative).toBeGreaterThan(heroA.initiative!);
+
+      handleCommand("undo");
+      expect(creatures.find(c => c.name === "HeroA")?.initiative).toBe(15);
+      expect(creatures.find(c => c.name === "HeroB")?.initiative).toBe(15);
+    });
+
+    test("autocompletions suggest init swap, combat swap, and target creatures", () => {
+      handleCommand("game new");
+      handleCommand("char add pc Aragorn Legolas");
+
+      // Templates
+      expect(ALL_COMMAND_TEMPLATES).toContain("init swap");
+      expect(ALL_COMMAND_TEMPLATES).toContain("combat swap");
+      expect(ALL_COMMAND_TEMPLATES).toContain("swap");
+
+      // completer for init
+      const [initMatches] = completer("init ");
+      expect(initMatches).toContain("init swap");
+
+      // completer for combat
+      const [combatMatches] = completer("combat ");
+      expect(combatMatches).toContain("combat swap");
+
+      // completer for init swap targets
+      const [swapTargetMatches] = completer("init swap ");
+      expect(swapTargetMatches).toContain("init swap Aragorn");
+      expect(swapTargetMatches).toContain("init swap Legolas");
     });
   });
 });

@@ -80,6 +80,10 @@ Here is a sampling of useful commands to demonstrate the CLI's capabilities:
   ac clear all
   init clear all
   ```
+- **Swap initiative order:**
+  ```text
+  init swap Ajax Kaelor            # Swap initiative order between Ajax and Kaelor
+  ```
 - **Rename an existing creature:**
   ```text
   char rename Ajax "Ajax the Great"
@@ -134,6 +138,11 @@ Here is a sampling of useful commands to demonstrate the CLI's capabilities:
   ```text
   rxn set Aragorn                  # Mark Aragorn's reaction as used (shows "✓" in "Rxn" column)
   rxn remove Aragorn               # Restore Aragorn's reaction manually (removes checkmark)
+  ```
+- **Swap initiative order during combat (supports ties with automatic decimal tie-breaking and undo):**
+  ```text
+  init swap Aragorn Legolas        # Swaps initiative order (aliases 'combat swap' or 'swap')
+  combat swap Aragorn Legolas      # Combat-specific alias for swapping initiative order
   ```
 
 ### Game State Persistence

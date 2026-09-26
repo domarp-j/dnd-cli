@@ -224,6 +224,9 @@ export function normalizeCommandTokens(parts: string[]): string[] {
 
   // 8. init / initiative ...
   if (first === "init" || first === "initiative") {
+    if (second === "swap") {
+      return ["init", "swap", ...parts.slice(2)];
+    }
     if (second === "set") {
       return ["set", "init", ...parts.slice(2)];
     }
@@ -294,6 +297,9 @@ export function normalizeCommandTokens(parts: string[]): string[] {
 
   // 13. turn ...
   if (first === "turn") {
+    if (second === "swap") {
+      return ["init", "swap", ...parts.slice(2)];
+    }
     if (second === "next" || second === "n") {
       return ["next", ...parts.slice(2)];
     }
@@ -303,7 +309,15 @@ export function normalizeCommandTokens(parts: string[]): string[] {
     return parts;
   }
 
-  // 14. activity ...
+  // 14. combat / c ...
+  if (first === "combat" || first === "c") {
+    if (second === "swap") {
+      return ["init", "swap", ...parts.slice(2)];
+    }
+    return parts;
+  }
+
+  // 15. activity ...
   if (first === "activity") {
     if (!second || second === "show" || second === "list" || second === "log") {
       return ["show", "activity", ...parts.slice(2)];
@@ -311,9 +325,14 @@ export function normalizeCommandTokens(parts: string[]): string[] {
     return parts;
   }
 
-  // 15. kill alias
+  // 16. kill alias
   if (first === "kill") {
     return ["add", "dmg", "max", ...parts.slice(1)];
+  }
+
+  // 17. swap alias
+  if (first === "swap") {
+    return ["init", "swap", ...parts.slice(1)];
   }
 
   return parts;
@@ -1185,6 +1204,7 @@ function handleCommandInternal(input: string): boolean {
         lines: [
           { command: "(combat | c) [start]", desc: "Start combat mode (resorts by initiative)" },
           { command: "(combat | c) end", desc: "End combat mode (clears init & dmg)" },
+          { command: "(combat | c) swap <target1> <target2>", desc: "Swap initiative order during combat" },
           { command: "turn (next | prev) [<count>]", desc: "Advance or rewind 1 or <count> turns" },
           { command: "rxn set <target>...", desc: "Mark creature reaction as used" },
           { command: "rxn remove <target>...", desc: "Restore creature reaction" },
@@ -1199,6 +1219,7 @@ function handleCommandInternal(input: string): boolean {
           { command: "ac clear (all | <target>...)", desc: "Clear AC for target(s) or all" },
           { command: "init set <value> <target>...", desc: "Set initiative (supports multiple targets or pairs)" },
           { command: "init clear (all | <target>...)", desc: "Clear initiative for target(s) or all" },
+          { command: "init swap <target1> <target2>", desc: "Swap initiative order between two creatures" },
           { command: "dmg add (<value> | max) <target>...", desc: "Add damage or set to max HP (kill) for target(s)" },
           { command: "kill <target>...", desc: "Instantly set dmg to max HP (Dead) for target(s)" },
           { command: "dmg remove <value> <target>...", desc: "Heal/subtract damage from target(s)" },
@@ -1370,6 +1391,108 @@ function handleCommandInternal(input: string): boolean {
       logActivity(`Renamed creature "${oldName}" to "${targetCreature.name}"`);
       return true;
     }
+  }
+
+  if (cmd === "init" || cmd === "initiative") {
+    const subCmd = parts[1]?.toLowerCase();
+    if (subCmd === "swap") {
+      const args = parts.slice(2);
+      let creatureA: Creature | null = null;
+      let creatureB: Creature | null = null;
+
+      if (args.length === 2) {
+        const res1 = findCreaturesForIdentifier(args[0]!);
+        if (!res1.ok) {
+          renderTable();
+          console.log(`${RED}${res1.error}${RESET}\n`);
+          return true;
+        }
+        const res2 = findCreaturesForIdentifier(args[1]!);
+        if (!res2.ok) {
+          renderTable();
+          console.log(`${RED}${res2.error}${RESET}\n`);
+          return true;
+        }
+        creatureA = res1.creatures[0]!;
+        creatureB = res2.creatures[0]!;
+      } else if (args.length > 2) {
+        const validSplits: [Creature, Creature][] = [];
+        for (let i = 1; i < args.length; i++) {
+          const id1 = args.slice(0, i).join(" ");
+          const id2 = args.slice(i).join(" ");
+          const r1 = findCreaturesForIdentifier(id1);
+          const r2 = findCreaturesForIdentifier(id2);
+          if (r1.ok && r2.ok && r1.creatures[0] !== r2.creatures[0]) {
+            validSplits.push([r1.creatures[0]!, r2.creatures[0]!]);
+          }
+        }
+        if (validSplits.length === 1) {
+          creatureA = validSplits[0]![0];
+          creatureB = validSplits[0]![1];
+        } else {
+          renderTable();
+          console.log(`${RED}Usage: init swap <target1> <target2>${RESET}\n`);
+          return true;
+        }
+      } else {
+        renderTable();
+        console.log(`${RED}Usage: init swap <target1> <target2>${RESET}\n`);
+        return true;
+      }
+
+      if (creatureA === creatureB) {
+        renderTable();
+        console.log(`${RED}Cannot swap initiative of a creature with itself.${RESET}\n`);
+        return true;
+      }
+
+      const oldInitA = creatureA.initiative;
+      const oldInitB = creatureB.initiative;
+
+      withTurnPreservation(() => {
+        if (oldInitA !== oldInitB) {
+          creatureA.initiative = oldInitB;
+          creatureB.initiative = oldInitA;
+        } else {
+          const sorted = getSortedCreatures();
+          const idxA = sorted.indexOf(creatureA);
+          const idxB = sorted.indexOf(creatureB);
+          const [earlier, later] = idxA < idxB ? [creatureA, creatureB] : [creatureB, creatureA];
+          const earlierIdx = Math.min(idxA, idxB);
+
+          if (oldInitA === null && oldInitB === null) {
+            const nonNullInits = creatures.map(c => c.initiative).filter((v): v is number => v !== null);
+            let baseVal = 10;
+            if (nonNullInits.length > 0) {
+              const minVal = Math.min(...nonNullInits);
+              baseVal = Math.max(0, minVal - 1);
+            }
+            later.initiative = Number((baseVal + 0.1).toFixed(2));
+            earlier.initiative = Number(baseVal.toFixed(2));
+          } else {
+            const val = oldInitA!;
+            let delta = 0.1;
+            if (earlierIdx > 0) {
+              const prevCreature = sorted[earlierIdx - 1]!;
+              if (prevCreature.initiative !== null && prevCreature.initiative > val) {
+                delta = Math.min(0.1, (prevCreature.initiative - val) / 2);
+              }
+            }
+            later.initiative = Number((val + delta).toFixed(3));
+            earlier.initiative = Number(val.toFixed(3));
+          }
+        }
+      });
+
+      renderTable();
+      console.log(`${GREEN}✓ Swapped initiative order: ${creatureA.name} (${fmt(creatureA.initiative)}) ↔ ${creatureB.name} (${fmt(creatureB.initiative)})${RESET}\n`);
+      logActivity(`Swapped initiative order: ${creatureA.name} (${fmt(creatureA.initiative)}) ↔ ${creatureB.name} (${fmt(creatureB.initiative)})`);
+      return true;
+    }
+
+    renderTable();
+    console.log(`${RED}Usage: init (set | clear | swap)...${RESET}\n`);
+    return true;
   }
 
   if (cmd === "save" || cmd === "savegame") {
@@ -3161,7 +3284,7 @@ export const ALL_COMMAND_TEMPLATES: string[] = [
   "neutral add", "neutral remove",
   "hp set", "hp clear",
   "ac set", "ac clear",
-  "init set", "init clear",
+  "init set", "init clear", "init swap",
   "dmg add", "dmg add max", "dmg remove", "dmg clear", "dmg hurt", "dmg heal", "dmg kill", "kill",
   "eff add", "eff remove",
   "cond add", "cond remove",
@@ -3172,7 +3295,7 @@ export const ALL_COMMAND_TEMPLATES: string[] = [
   "type set", "type set pc", "type set enemy", "type set neutral",
   "turn next", "turn prev",
   "activity show",
-  "combat", "combat start", "combat end", "c", "c start", "c end",
+  "combat", "combat start", "combat end", "combat swap", "c", "c start", "c end", "c swap", "swap",
   "undo", "u", "redo", "r",
   "help", "h", "quit", "exit", "q",
   "test", "test simple",
@@ -3250,10 +3373,15 @@ export function completer(line: string): [string[], string] {
     }
   } else if (cmd === "hp" || cmd === "ac" || cmd === "init") {
     if (baseParts.length === 1) {
-      completions = [`${cmd} set`, `${cmd} clear`];
+      completions = cmd === "init" ? [`${cmd} set`, `${cmd} clear`, `${cmd} swap`] : [`${cmd} set`, `${cmd} clear`];
     } else if (subCmd === "clear") {
       completions = ["all", ...creatures.map(c => c.name.includes(" ") ? `"${c.name}"` : c.name)].map(target => {
         return `${cmd} clear ${target}`;
+      });
+    } else if (subCmd === "swap" && cmd === "init") {
+      completions = creatures.map(c => {
+        const formatted = c.name.includes(" ") ? `"${c.name}"` : c.name;
+        return `${baseParts.join(" ")} ${formatted}`;
       });
     } else if (subCmd === "set") {
       if (baseParts.length >= 3) {
@@ -3390,8 +3518,18 @@ export function completer(line: string): [string[], string] {
     }
   } else if (cmd === "combat" || cmd === "c") {
     if (baseParts.length === 1) {
-      completions = [`${cmd} start`, `${cmd} end`];
+      completions = [`${cmd} start`, `${cmd} end`, `${cmd} swap`];
+    } else if (subCmd === "swap") {
+      completions = creatures.map(c => {
+        const formatted = c.name.includes(" ") ? `"${c.name}"` : c.name;
+        return `${baseParts.join(" ")} ${formatted}`;
+      });
     }
+  } else if (cmd === "swap") {
+    completions = creatures.map(c => {
+      const formatted = c.name.includes(" ") ? `"${c.name}"` : c.name;
+      return `${baseParts.join(" ")} ${formatted}`;
+    });
   }
 
   const fullTyped = baseParts.length > 0 ? baseParts.join(" ") + " " : "";
