@@ -28,6 +28,8 @@ import {
   tokenize,
   OLD_DISALLOWED_COMMANDS,
   ALL_COMMAND_TEMPLATES,
+  generateCreatureId,
+  findCreaturesForIdentifier,
 } from "./index";
 
 const SAVES_DIR = path.join(process.cwd(), "saves");
@@ -2583,6 +2585,205 @@ describe("D&D CLI Tracker Test Suite", () => {
       const [swapTargetMatches] = completer("init swap ");
       expect(swapTargetMatches).toContain("init swap Aragorn");
       expect(swapTargetMatches).toContain("init swap Legolas");
+    });
+  });
+
+  describe("Character IDs & ID Target Referencing", () => {
+    test("every creature created is assigned a unique 3-character alphanumeric ID", () => {
+      handleCommand("game new");
+      handleCommand("char add pc HeroA HeroB");
+      handleCommand("char add enemy GoblinA");
+
+      expect(creatures.length).toBe(3);
+      for (const c of creatures) {
+        expect(typeof c.id).toBe("string");
+        expect(c.id).toHaveLength(3);
+        // starts with a letter, followed by 2 alphanumeric chars
+        expect(/^[a-z][a-z0-9]{2}$/i.test(c.id)).toBeTrue();
+      }
+
+      // IDs are unique
+      const ids = creatures.map(c => c.id.toLowerCase());
+      expect(new Set(ids).size).toBe(3);
+    });
+
+    test("creature can be targeted by exact alphanumeric ID", () => {
+      handleCommand("game new");
+      handleCommand("char add pc Aragorn");
+      const aragorn = creatures.find(c => c.name === "Aragorn")!;
+      const id = aragorn.id;
+
+      // Set HP by exact ID
+      handleCommand(`hp set 45 ${id}`);
+      expect(aragorn.hpMax).toBe(45);
+
+      // Set AC by exact ID
+      handleCommand(`ac set 16 ${id}`);
+      expect(aragorn.ac).toBe(16);
+
+      // Set Init by exact ID
+      handleCommand(`init set 18 ${id}`);
+      expect(aragorn.initiative).toBe(18);
+
+      // Add Dmg by exact ID
+      handleCommand(`dmg add 10 ${id}`);
+      expect(aragorn.dmg).toBe(10);
+
+      // Add status effect by exact ID
+      handleCommand(`eff add Poisoned ${id}`);
+      expect(aragorn.statusEffects).toContain("Poisoned");
+
+      // Mark reaction used by exact ID
+      handleCommand(`rxn set ${id}`);
+      expect(aragorn.reactionUsed).toBeTrue();
+
+      // Add resource by exact ID
+      handleCommand(`res add spellslot ${id}`);
+      expect(aragorn.resourceUsage?.["spellslot"]).toBe(1);
+
+      // Change type by exact ID
+      handleCommand(`type set neutral ${id}`);
+      expect(aragorn.type).toBe("neutral");
+    });
+
+    test("creature can be targeted by partial match of alphanumeric ID (prefix or substring)", () => {
+      handleCommand("game new");
+      handleCommand("char add pc Legolas");
+      const legolas = creatures.find(c => c.name === "Legolas")!;
+      const id = legolas.id;
+
+      // Partial prefix (first 2 chars)
+      const prefix = id.slice(0, 2);
+      handleCommand(`hp set 35 ${prefix}`);
+      expect(legolas.hpMax).toBe(35);
+
+      // Substring (last 2 chars)
+      const sub = id.slice(1);
+      handleCommand(`ac set 15 ${sub}`);
+      expect(legolas.ac).toBe(15);
+    });
+
+    test("supports multiple targets combining names and IDs", () => {
+      handleCommand("game new");
+      handleCommand("char add pc HeroA HeroB HeroC");
+      const idB = creatures.find(c => c.name === "HeroB")!.id;
+      const idC = creatures.find(c => c.name === "HeroC")!.id;
+
+      // Target HeroA by name, HeroB by exact ID, HeroC by partial ID prefix
+      handleCommand(`hp set 50 HeroA ${idB} ${idC.slice(0, 2)}`);
+      expect(creatures.find(c => c.name === "HeroA")?.hpMax).toBe(50);
+      expect(creatures.find(c => c.name === "HeroB")?.hpMax).toBe(50);
+      expect(creatures.find(c => c.name === "HeroC")?.hpMax).toBe(50);
+    });
+
+    test("supports alternating pairs syntax with target IDs", () => {
+      handleCommand("game new");
+      handleCommand("char add pc HeroA HeroB");
+      const idA = creatures.find(c => c.name === "HeroA")!.id;
+      const idB = creatures.find(c => c.name === "HeroB")!.id;
+
+      handleCommand(`hp set 40 ${idA} 25 ${idB}`);
+      expect(creatures.find(c => c.name === "HeroA")?.hpMax).toBe(40);
+      expect(creatures.find(c => c.name === "HeroB")?.hpMax).toBe(25);
+    });
+
+    test("supports swapping initiative by creature ID", () => {
+      handleCommand("game new");
+      handleCommand("char add pc HeroA HeroB");
+      handleCommand("init set 25 HeroA 10 HeroB");
+      const idA = creatures.find(c => c.name === "HeroA")!.id;
+      const idB = creatures.find(c => c.name === "HeroB")!.id;
+
+      handleCommand(`init swap ${idA} ${idB}`);
+      expect(creatures.find(c => c.name === "HeroA")?.initiative).toBe(10);
+      expect(creatures.find(c => c.name === "HeroB")?.initiative).toBe(25);
+    });
+
+    test("supports renaming a creature by its ID", () => {
+      handleCommand("game new");
+      handleCommand("char add pc OldName");
+      const creature = creatures.find(c => c.name === "OldName")!;
+      const originalId = creature.id;
+
+      handleCommand(`char rename ${originalId} NewName`);
+      expect(creatures.find(c => c.name === "NewName")).toBeDefined();
+      expect(creatures.find(c => c.name === "NewName")?.id).toBe(originalId);
+    });
+
+    test("supports removing a creature by its ID", () => {
+      handleCommand("game new");
+      handleCommand("char add pc HeroA HeroB");
+      const idA = creatures.find(c => c.name === "HeroA")!.id;
+
+      handleCommand(`char remove ${idA}`);
+      expect(creatures.find(c => c.name === "HeroA")).toBeUndefined();
+      expect(creatures.find(c => c.name === "HeroB")).toBeDefined();
+    });
+
+    test("handles ambiguous partial ID match gracefully", () => {
+      handleCommand("game new");
+      handleCommand("char add pc HeroA HeroB");
+      // Force equal prefixes for testing ambiguity
+      creatures[0]!.id = "x1a";
+      creatures[1]!.id = "x1b";
+
+      const originalLog = console.log;
+      const logs: string[] = [];
+      console.log = (...args: any[]) => { logs.push(args.join(" ")); };
+
+      try {
+        handleCommand("hp set 20 x1");
+        const ambigMsg = logs.find(l => l.includes("Ambiguous match"));
+        expect(ambigMsg).toBeDefined();
+        expect(ambigMsg).toContain("HeroA");
+        expect(ambigMsg).toContain("HeroB");
+      } finally {
+        console.log = originalLog;
+      }
+    });
+
+    test("preserves creature IDs across undo and redo", () => {
+      handleCommand("game new");
+      handleCommand("char add pc HeroA");
+      const id = creatures[0]!.id;
+
+      handleCommand(`hp set 40 ${id}`);
+      expect(creatures[0]!.hpMax).toBe(40);
+      expect(creatures[0]!.id).toBe(id);
+
+      handleCommand("undo");
+      expect(creatures[0]!.hpMax).toBeNull();
+      expect(creatures[0]!.id).toBe(id);
+
+      handleCommand("redo");
+      expect(creatures[0]!.hpMax).toBe(40);
+      expect(creatures[0]!.id).toBe(id);
+    });
+
+    test("persists creature IDs across save and load", () => {
+      handleCommand("game new");
+      handleCommand("char add pc SavedHero");
+      const origId = creatures[0]!.id;
+      const sessionName = getCombatState().currentSessionName;
+      expect(sessionName).toBeDefined();
+
+      resetState();
+      expect(creatures.length).toBe(0);
+
+      handleCommand(`save load ${sessionName}`);
+      expect(creatures.length).toBe(1);
+      expect(creatures[0]!.name).toBe("SavedHero");
+      expect(creatures[0]!.id).toBe(origId);
+    });
+
+    test("autocompletion suggests creature IDs in addition to names", () => {
+      handleCommand("game new");
+      handleCommand("char add pc AutocompleteHero");
+      const hero = creatures[0]!;
+
+      const [matches] = completer("hp set 20 ");
+      expect(matches).toContain("hp set 20 AutocompleteHero");
+      expect(matches).toContain(`hp set 20 ${hero.id}`);
     });
   });
 });

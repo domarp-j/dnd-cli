@@ -61,6 +61,16 @@ Here is a sampling of useful commands to demonstrate the CLI's capabilities:
   pc add Ajax Kaelor
   enemy add "Goblin Warrior" Bugbear
   ```
+- **Target referencing by Name or short alphanumeric ID:**
+  Every creature created is automatically assigned a unique 3-character alphanumeric ID (e.g. `a1b`) displayed in the tracker's `ID` column. All commands support targeting creatures by full name, exact alphanumeric ID, or partial match (prefix or substring of the ID or name):
+  ```text
+  hp set 45 a1b                    # Target by exact 3-character ID
+  hp set 45 a1                     # Target by partial ID prefix match
+  dmg add 10 a1b c2d               # Target multiple creatures by their IDs
+  kill a1                          # Instantly kill target by partial ID
+  init swap a1 c2                  # Swap initiative order by partial IDs
+  char rename a1b "Ajax The Great" # Rename a creature by its ID
+  ```
 - **Set HP, AC, and Initiative (supports multiple targets or alternating pairs):**
   ```text
   hp set 45 Ajax Kaelor            # Sets HP to 45 for both Ajax and Kaelor

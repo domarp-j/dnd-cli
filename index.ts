@@ -9,6 +9,7 @@ import { ALL_STATUS_EFFECTS } from "./statusEffects";
 type CreatureType = "pc" | "enemy" | "neutral";
 
 interface Creature {
+  id: string;
   name: string;
   type: CreatureType;
   hpMax: number | null;
@@ -74,6 +75,20 @@ interface HistoryEntry {
 
 const undoStack: HistoryEntry[] = [];
 const redoStack: HistoryEntry[] = [];
+
+export function generateCreatureId(): string {
+  const letters = "abcdefghijklmnopqrstuvwxyz";
+  const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
+  while (true) {
+    let id = letters[Math.floor(Math.random() * letters.length)]!;
+    for (let i = 0; i < 2; i++) {
+      id += chars[Math.floor(Math.random() * chars.length)]!;
+    }
+    if (!creatures.some((c) => c.id?.toLowerCase() === id.toLowerCase())) {
+      return id;
+    }
+  }
+}
 
 function captureSnapshot(): Snapshot {
   return {
@@ -517,10 +532,11 @@ export function loadState(saveName: string = "current"): { ok: true; name: strin
 
     creatures.length = 0;
     if (Array.isArray(data.creatures)) {
-      const mapped = data.creatures.map((c: any) => {
+      for (const c of data.creatures as any[]) {
         const statusEffects = c.statusEffects ?? c.conditions ?? [];
         const resourceUsage = c.resourceUsage ?? {};
-        return {
+        const creatureObj: Creature = {
+          id: typeof c.id === "string" && c.id ? c.id : generateCreatureId(),
           name: c.name,
           type: c.type,
           hpMax: c.hpMax,
@@ -531,8 +547,8 @@ export function loadState(saveName: string = "current"): { ok: true; name: strin
           reactionUsed: c.reactionUsed ?? false,
           resourceUsage,
         };
-      });
-      creatures.push(...mapped);
+        creatures.push(creatureObj);
+      }
     }
     inCombat = Boolean(data.inCombat);
     currentRound = typeof data.currentRound === "number" ? data.currentRound : 1;
@@ -878,10 +894,10 @@ function renderTable(): void {
   } else {
     // Header
     const hdr = inCombat
-      ? `  ${pad("Name", 22)}${pad("Type", 10)}${pad("HP Max", 8)}${pad("Dmg", 6)}${pad("AC", 6)}${pad("Init", 6)}${pad("Rxn", 6)}${pad("Resource Usage", 18)}${"Status Effects"}`
-      : `  ${pad("Name", 22)}${pad("Type", 10)}${pad("HP Max", 8)}${pad("Dmg", 6)}${pad("AC", 6)}${pad("Init", 6)}${pad("Resource Usage", 18)}${"Status Effects"}`;
+      ? `  ${pad("ID", 5)}${pad("Name", 22)}${pad("Type", 10)}${pad("HP Max", 8)}${pad("Dmg", 6)}${pad("AC", 6)}${pad("Init", 6)}${pad("Rxn", 6)}${pad("Resource Usage", 18)}${"Status Effects"}`
+      : `  ${pad("ID", 5)}${pad("Name", 22)}${pad("Type", 10)}${pad("HP Max", 8)}${pad("Dmg", 6)}${pad("AC", 6)}${pad("Init", 6)}${pad("Resource Usage", 18)}${"Status Effects"}`;
     console.log(`${BOLD}${CYAN}${hdr}${RESET}`);
-    console.log(`${DIM}  ${"─".repeat(inCombat ? 100 : 94)}${RESET}`);
+    console.log(`${DIM}  ${"─".repeat(inCombat ? 105 : 99)}${RESET}`);
 
     sorted.forEach((c, idx) => {
       const isTurn = inCombat && idx === currentTurnIndex;
@@ -889,6 +905,7 @@ function renderTable(): void {
       const displayName = isDead ? `💀 ${c.name}` : c.name;
 
       const color = typeColor(c.type);
+      const id = pad(c.id ?? "—", 5);
       const name = pad(displayName, 22);
       const type = pad(typeLabel(c.type), 10);
       const hpMax = pad(fmt(c.hpMax), 8);
@@ -901,7 +918,7 @@ function renderTable(): void {
         .filter(([_, val]) => val !== 0)
         .map(([rname, val]) => `${rname}=${val}`);
 
-      const prefixWidthBeforeRes = inCombat ? 66 : 60;
+      const prefixWidthBeforeRes = inCombat ? 71 : 65;
       const prefixWidth = prefixWidthBeforeRes + 18;
       const statusWidth = Math.max(15, 100 - prefixWidth);
 
@@ -915,7 +932,8 @@ function renderTable(): void {
         const resPart = pad(resLine, 18);
 
         if (lineIdx === 0) {
-          const rowContent = `${name}${type}${hpMax}${dmg}${ac}${init}${rxn}${resPart}${effectLine}`;
+          const rowContent = `${id}${name}${type}${hpMax}${dmg}${ac}${init}${rxn}${resPart}${effectLine}`;
+          const idPart = `${DIM}${id}${RESET}`;
           if (isDead) {
             if (isTurn) {
               const prefix = `${BOLD}${MAGENTA}▶ ${RESET}`;
@@ -926,9 +944,9 @@ function renderTable(): void {
           } else {
             if (isTurn) {
               const prefix = `${BOLD}${MAGENTA}▶ ${RESET}`;
-              console.log(`${prefix}${BOLD}${CYAN}${name}${RESET}${color}${type}${RESET}${BOLD}${CYAN}${hpMax}${dmg}${ac}${init}${rxn}${resPart}${effectLine}${RESET}`);
+              console.log(`${prefix}${idPart}${BOLD}${CYAN}${name}${RESET}${color}${type}${RESET}${BOLD}${CYAN}${hpMax}${dmg}${ac}${init}${rxn}${resPart}${effectLine}${RESET}`);
             } else {
-              console.log(`  ${BOLD}${name}${RESET}${color}${type}${RESET}${hpMax}${dmg}${ac}${init}${rxn}${resPart}${effectLine}`);
+              console.log(`  ${idPart}${BOLD}${name}${RESET}${color}${type}${RESET}${hpMax}${dmg}${ac}${init}${rxn}${resPart}${effectLine}`);
             }
           }
         } else {
@@ -999,16 +1017,49 @@ type FindManyResult =
   | { ok: true; creatures: Creature[] }
   | { ok: false; error: string };
 
-function findCreaturesForIdentifier(identifier: string): FindManyResult {
-  const lower = identifier.toLowerCase();
-  const exactMatch = creatures.find((c) => c.name.toLowerCase() === lower);
-  if (exactMatch) {
-    return { ok: true, creatures: [exactMatch] };
+export function findCreaturesForIdentifier(identifier: string): FindManyResult {
+  const lower = identifier.toLowerCase().trim();
+
+  // 1. Exact match by ID or Name
+  const exactIdMatches = creatures.filter((c) => c.id?.toLowerCase() === lower);
+  const exactNameMatches = creatures.filter((c) => c.name.toLowerCase() === lower);
+
+  if (exactIdMatches.length === 1 && exactNameMatches.length === 0) {
+    return { ok: true, creatures: [exactIdMatches[0]!] };
+  }
+  if (exactNameMatches.length === 1 && exactIdMatches.length === 0) {
+    return { ok: true, creatures: [exactNameMatches[0]!] };
+  }
+  if (exactIdMatches.length === 1 && exactNameMatches.length === 1) {
+    if (exactIdMatches[0] === exactNameMatches[0]) {
+      return { ok: true, creatures: [exactIdMatches[0]!] };
+    }
+    const names = [exactIdMatches[0]!, exactNameMatches[0]!].map((c) => `${c.name} (${c.id})`).join(", ");
+    return {
+      ok: false,
+      error: `Ambiguous match "${identifier}" — matches: ${names}.`,
+    };
   }
 
+  // 2. Prefix match on ID or Name
+  const prefixMatches = creatures.filter(
+    (c) => c.id?.toLowerCase().startsWith(lower) || c.name.toLowerCase().startsWith(lower)
+  );
+  if (prefixMatches.length === 1) {
+    return { ok: true, creatures: [prefixMatches[0]!] };
+  }
+  if (prefixMatches.length > 1) {
+    const names = prefixMatches.map((c) => `${c.name} (${c.id})`).join(", ");
+    return {
+      ok: false,
+      error: `Ambiguous match "${identifier}" — matches: ${names}.`,
+    };
+  }
+
+  // 3. General substring / regex match across Name and ID
   const escaped = identifier.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const pattern = new RegExp(escaped, "i");
-  const matches = creatures.filter((c) => pattern.test(c.name));
+  const matches = creatures.filter((c) => pattern.test(c.name) || (c.id && pattern.test(c.id)));
 
   if (matches.length === 1) {
     return { ok: true, creatures: [matches[0]!] };
@@ -1016,7 +1067,7 @@ function findCreaturesForIdentifier(identifier: string): FindManyResult {
   if (matches.length === 0) {
     return { ok: false, error: `No creature matching "${identifier}".` };
   }
-  const names = matches.map((c) => c.name).join(", ");
+  const names = matches.map((c) => `${c.name} (${c.id})`).join(", ");
   return {
     ok: false,
     error: `Ambiguous match "${identifier}" — matches: ${names}.`,
@@ -2021,9 +2072,22 @@ function handleCommandInternal(input: string): boolean {
 
     const isFirstPcInBlankSession = type === "pc" && !currentSessionName;
 
+    const addedCreatures: Creature[] = [];
     withTurnPreservation(() => {
       for (const name of targets) {
-        creatures.push({ name, type, hpMax: null, dmg: 0, ac: null, initiative: null, statusEffects: [], resourceUsage: {} });
+        const c: Creature = {
+          id: generateCreatureId(),
+          name,
+          type,
+          hpMax: null,
+          dmg: 0,
+          ac: null,
+          initiative: null,
+          statusEffects: [],
+          resourceUsage: {},
+        };
+        creatures.push(c);
+        addedCreatures.push(c);
       }
     });
     hasAddedCreature = true;
@@ -2040,12 +2104,13 @@ function handleCommandInternal(input: string): boolean {
     }
 
     renderTable();
-    console.log(`${GREEN}+ Added ${typeLabel(type)}: ${targets.join(", ")}${RESET}`);
+    const addedDetails = addedCreatures.map((c) => `${c.name} (${c.id})`).join(", ");
+    console.log(`${GREEN}+ Added ${typeLabel(type)}: ${addedDetails}${RESET}`);
     if (createdSaveMsg) {
       console.log(`${GREEN}${createdSaveMsg}${RESET}`);
     }
     console.log();
-    logActivity(`Added ${typeLabel(type)}: ${targets.join(", ")}`);
+    logActivity(`Added ${typeLabel(type)}: ${addedDetails}`);
     return true;
   }
 
@@ -3119,9 +3184,22 @@ export function processCharTypePrompt(answer: string): boolean {
   return executeWithUndoTracking(() => {
     const isFirstPcInBlankSession = type === "pc" && !currentSessionName;
 
+    const addedCreatures: Creature[] = [];
     withTurnPreservation(() => {
       for (const name of names) {
-        creatures.push({ name, type: type!, hpMax: null, dmg: 0, ac: null, initiative: null, statusEffects: [], resourceUsage: {} });
+        const c: Creature = {
+          id: generateCreatureId(),
+          name,
+          type: type!,
+          hpMax: null,
+          dmg: 0,
+          ac: null,
+          initiative: null,
+          statusEffects: [],
+          resourceUsage: {},
+        };
+        creatures.push(c);
+        addedCreatures.push(c);
       }
     });
     hasAddedCreature = true;
@@ -3138,12 +3216,13 @@ export function processCharTypePrompt(answer: string): boolean {
     }
 
     renderTable();
-    console.log(`${GREEN}+ Added ${typeLabel(type!)}: ${names.join(", ")}${RESET}`);
+    const addedDetails = addedCreatures.map((c) => `${c.name} (${c.id})`).join(", ");
+    console.log(`${GREEN}+ Added ${typeLabel(type!)}: ${addedDetails}${RESET}`);
     if (createdSaveMsg) {
       console.log(`${GREEN}${createdSaveMsg}${RESET}`);
     }
     console.log();
-    logActivity(`Added ${typeLabel(type!)}: ${names.join(", ")}`);
+    logActivity(`Added ${typeLabel(type!)}: ${addedDetails}`);
     return true;
   }, `add ${type} ${names.map(n => n.includes(" ") ? `"${n}"` : n).join(" ")}`);
 }
@@ -3316,6 +3395,17 @@ export function highlightMatch(
   return `${baseColor}${before}${RESET}${matchColor}${match}${RESET}${baseColor}${after}${RESET}`;
 }
 
+export function getCreatureCompletionTokens(): string[] {
+  const tokens: string[] = [];
+  for (const c of creatures) {
+    tokens.push(c.name.includes(" ") ? `"${c.name}"` : c.name);
+    if (c.id) {
+      tokens.push(c.id);
+    }
+  }
+  return tokens;
+}
+
 export function completer(line: string): [string[], string] {
   const lineTrimmed = line.trimStart();
   const endsWithSpace = line.endsWith(" ");
@@ -3335,6 +3425,7 @@ export function completer(line: string): [string[], string] {
   }
   
   let completions: string[] = [];
+  const creatureTokens = getCreatureCompletionTokens();
   
   if (lineTrimmed === "" || (rawParts.length === 1 && !endsWithSpace)) {
     completions = ALL_COMMAND_TEMPLATES;
@@ -3346,85 +3437,57 @@ export function completer(line: string): [string[], string] {
         completions = ["char add pc", "char add enemy", "char add neutral"];
       }
     } else if (subCmd === "rename") {
-      completions = creatures.map(c => {
-        const formatted = c.name.includes(" ") ? `"${c.name}"` : c.name;
-        return `char rename ${formatted}`;
-      });
+      completions = creatureTokens.map(tok => `char rename ${tok}`);
     } else if (subCmd === "remove") {
       if (baseParts.length === 2) {
         const typeSubs = ["pcs", "enemies", "neutrals"];
-        const creatureSubs = creatures.map(c => c.name.includes(" ") ? `"${c.name}"` : c.name);
-        completions = [...typeSubs, ...creatureSubs].map(s => `char remove ${s}`);
+        completions = [...typeSubs, ...creatureTokens].map(s => `char remove ${s}`);
       } else {
-        completions = creatures.map(c => {
-          const formatted = c.name.includes(" ") ? `"${c.name}"` : c.name;
-          return `${baseParts.join(" ")} ${formatted}`;
-        });
+        completions = creatureTokens.map(tok => `${baseParts.join(" ")} ${tok}`);
       }
     }
   } else if (cmd === "pc" || cmd === "enemy" || cmd === "neutral") {
     if (baseParts.length === 1) {
       completions = [`${cmd} add`, `${cmd} remove`];
     } else if (subCmd === "remove") {
-      completions = creatures.map(c => {
-        const formatted = c.name.includes(" ") ? `"${c.name}"` : c.name;
-        return `${baseParts.join(" ")} ${formatted}`;
-      });
+      completions = creatureTokens.map(tok => `${baseParts.join(" ")} ${tok}`);
     }
   } else if (cmd === "hp" || cmd === "ac" || cmd === "init") {
     if (baseParts.length === 1) {
       completions = cmd === "init" ? [`${cmd} set`, `${cmd} clear`, `${cmd} swap`] : [`${cmd} set`, `${cmd} clear`];
     } else if (subCmd === "clear") {
-      completions = ["all", ...creatures.map(c => c.name.includes(" ") ? `"${c.name}"` : c.name)].map(target => {
+      completions = ["all", ...creatureTokens].map(target => {
         return `${cmd} clear ${target}`;
       });
     } else if (subCmd === "swap" && cmd === "init") {
-      completions = creatures.map(c => {
-        const formatted = c.name.includes(" ") ? `"${c.name}"` : c.name;
-        return `${baseParts.join(" ")} ${formatted}`;
-      });
+      completions = creatureTokens.map(tok => `${baseParts.join(" ")} ${tok}`);
     } else if (subCmd === "set") {
       if (baseParts.length >= 3) {
-        completions = creatures.map(c => {
-          const formatted = c.name.includes(" ") ? `"${c.name}"` : c.name;
-          return `${baseParts.join(" ")} ${formatted}`;
-        });
+        completions = creatureTokens.map(tok => `${baseParts.join(" ")} ${tok}`);
       }
     }
   } else if (cmd === "dmg") {
     if (baseParts.length === 1) {
       completions = ["dmg add", "dmg add max", "dmg remove", "dmg clear", "dmg hurt", "dmg heal", "dmg kill"];
     } else if (subCmd === "clear") {
-      completions = ["all", ...creatures.map(c => c.name.includes(" ") ? `"${c.name}"` : c.name)].map(target => {
+      completions = ["all", ...creatureTokens].map(target => {
         return `dmg clear ${target}`;
       });
     } else if (subCmd === "kill" || subCmd === "max") {
-      completions = creatures.map(c => {
-        const formatted = c.name.includes(" ") ? `"${c.name}"` : c.name;
-        return `${baseParts.join(" ")} ${formatted}`;
-      });
+      completions = creatureTokens.map(tok => `${baseParts.join(" ")} ${tok}`);
     } else if (subCmd === "add") {
       if (baseParts.length === 2) {
-        completions = ["dmg add max", ...creatures.map(c => `dmg add ${c.name.includes(" ") ? `"${c.name}"` : c.name}`)];
+        completions = ["dmg add max", ...creatureTokens.map(tok => `dmg add ${tok}`)];
       } else {
-        completions = creatures.map(c => {
-          const formatted = c.name.includes(" ") ? `"${c.name}"` : c.name;
-          return `${baseParts.join(" ")} ${formatted}`;
-        });
+        completions = creatureTokens.map(tok => `${baseParts.join(" ")} ${tok}`);
       }
     } else if (subCmd === "remove" || subCmd === "hurt" || subCmd === "heal") {
       if (baseParts.length >= 3) {
-        completions = creatures.map(c => {
-          const formatted = c.name.includes(" ") ? `"${c.name}"` : c.name;
-          return `${baseParts.join(" ")} ${formatted}`;
-        });
+        completions = creatureTokens.map(tok => `${baseParts.join(" ")} ${tok}`);
       }
     }
   } else if (cmd === "kill") {
-    completions = creatures.map(c => {
-      const formatted = c.name.includes(" ") ? `"${c.name}"` : c.name;
-      return `${baseParts.join(" ")} ${formatted}`;
-    });
+    completions = creatureTokens.map(tok => `${baseParts.join(" ")} ${tok}`);
   } else if (cmd === "eff" || cmd === "cond" || cmd === "stat" || cmd === "status") {
     if (baseParts.length === 1) {
       completions = [`${cmd} add`, `${cmd} remove`];
@@ -3435,17 +3498,14 @@ export function completer(line: string): [string[], string] {
           return `${cmd} ${subCmd} ${formatted}`;
         });
       } else {
-        completions = creatures.map(c => {
-          const formatted = c.name.includes(" ") ? `"${c.name}"` : c.name;
-          return `${baseParts.join(" ")} ${formatted}`;
-        });
+        completions = creatureTokens.map(tok => `${baseParts.join(" ")} ${tok}`);
       }
     }
   } else if (cmd === "res") {
     if (baseParts.length === 1) {
       completions = ["res add", "res use", "res remove", "res clear"];
     } else if (subCmd === "clear") {
-      completions = ["all", ...creatures.map(c => c.name.includes(" ") ? `"${c.name}"` : c.name)].map(target => {
+      completions = ["all", ...creatureTokens].map(target => {
         return `res clear ${target}`;
       });
     } else if (subCmd === "add" || subCmd === "use" || subCmd === "remove") {
@@ -3463,20 +3523,14 @@ export function completer(line: string): [string[], string] {
           return `${baseParts.join(" ")} ${formatted}`;
         });
       } else {
-        completions = creatures.map(c => {
-          const formatted = c.name.includes(" ") ? `"${c.name}"` : c.name;
-          return `${baseParts.join(" ")} ${formatted}`;
-        });
+        completions = creatureTokens.map(tok => `${baseParts.join(" ")} ${tok}`);
       }
     }
   } else if (cmd === "rxn") {
     if (baseParts.length === 1) {
       completions = ["rxn set", "rxn remove"];
     } else if (subCmd === "set" || subCmd === "remove") {
-      completions = creatures.map(c => {
-        const formatted = c.name.includes(" ") ? `"${c.name}"` : c.name;
-        return `${baseParts.join(" ")} ${formatted}`;
-      });
+      completions = creatureTokens.map(tok => `${baseParts.join(" ")} ${tok}`);
     }
   } else if (cmd === "type") {
     if (baseParts.length === 1) {
@@ -3485,10 +3539,7 @@ export function completer(line: string): [string[], string] {
       if (baseParts.length === 2) {
         completions = ["type set pc", "type set enemy", "type set neutral"];
       } else {
-        completions = creatures.map(c => {
-          const formatted = c.name.includes(" ") ? `"${c.name}"` : c.name;
-          return `${baseParts.join(" ")} ${formatted}`;
-        });
+        completions = creatureTokens.map(tok => `${baseParts.join(" ")} ${tok}`);
       }
     }
   } else if (cmd === "turn") {
@@ -3520,16 +3571,10 @@ export function completer(line: string): [string[], string] {
     if (baseParts.length === 1) {
       completions = [`${cmd} start`, `${cmd} end`, `${cmd} swap`];
     } else if (subCmd === "swap") {
-      completions = creatures.map(c => {
-        const formatted = c.name.includes(" ") ? `"${c.name}"` : c.name;
-        return `${baseParts.join(" ")} ${formatted}`;
-      });
+      completions = creatureTokens.map(tok => `${baseParts.join(" ")} ${tok}`);
     }
   } else if (cmd === "swap") {
-    completions = creatures.map(c => {
-      const formatted = c.name.includes(" ") ? `"${c.name}"` : c.name;
-      return `${baseParts.join(" ")} ${formatted}`;
-    });
+    completions = creatureTokens.map(tok => `${baseParts.join(" ")} ${tok}`);
   }
 
   const fullTyped = baseParts.length > 0 ? baseParts.join(" ") + " " : "";
