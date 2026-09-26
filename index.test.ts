@@ -1401,4 +1401,146 @@ describe("D&D CLI Tracker Test Suite", () => {
       expect(creatures[0]?.ac).toBeNull();
     });
   });
+
+  describe("Multi-target commands and Glob * removal", () => {
+    test("does not match creatures using glob * patterns", () => {
+      handleCommand("new game");
+      handleCommand("add pc HeroA HeroB Goblin1");
+
+      const originalLog = console.log;
+      const logs: string[] = [];
+      console.log = (...args: any[]) => { logs.push(args.join(" ")); };
+
+      try {
+        // Passing * or Hero* should fail to match
+        handleCommand("hurt 10 Hero*");
+        expect(logs.some(l => l.includes('No creature matching "Hero*"'))).toBeTrue();
+        expect(creatures.find(c => c.name === "HeroA")?.dmg).toBe(0);
+
+        logs.length = 0;
+        handleCommand("clear ac *");
+        expect(logs.some(l => l.includes('No creature matching "*"'))).toBeTrue();
+      } finally {
+        console.log = originalLog;
+      }
+    });
+
+    test("ambiguous match message does not recommend wildcards", () => {
+      handleCommand("new game");
+      handleCommand("add enemy GoblinA GoblinB");
+
+      const originalLog = console.log;
+      const logs: string[] = [];
+      console.log = (...args: any[]) => { logs.push(args.join(" ")); };
+
+      try {
+        handleCommand("hurt 10 Gob");
+        const ambigMsg = logs.find(l => l.includes("Ambiguous match"));
+        expect(ambigMsg).toBeDefined();
+        expect(ambigMsg).not.toContain("Perhaps you meant");
+        expect(ambigMsg).not.toContain("*");
+      } finally {
+        console.log = originalLog;
+      }
+    });
+
+    test("set hp, ac, and init apply to multiple targets with targets as last args", () => {
+      handleCommand("new game");
+      handleCommand("add pc HeroA HeroB HeroC");
+
+      // Set HP for all 3
+      handleCommand("set hp 45 HeroA HeroB HeroC");
+      expect(creatures.find(c => c.name === "HeroA")?.hpMax).toBe(45);
+      expect(creatures.find(c => c.name === "HeroB")?.hpMax).toBe(45);
+      expect(creatures.find(c => c.name === "HeroC")?.hpMax).toBe(45);
+
+      // Set AC for all 3
+      handleCommand("set ac 18 HeroA HeroB HeroC");
+      expect(creatures.find(c => c.name === "HeroA")?.ac).toBe(18);
+      expect(creatures.find(c => c.name === "HeroB")?.ac).toBe(18);
+      expect(creatures.find(c => c.name === "HeroC")?.ac).toBe(18);
+
+      // Set init for all 3
+      handleCommand("set init 14 HeroA HeroB HeroC");
+      expect(creatures.find(c => c.name === "HeroA")?.initiative).toBe(14);
+      expect(creatures.find(c => c.name === "HeroB")?.initiative).toBe(14);
+      expect(creatures.find(c => c.name === "HeroC")?.initiative).toBe(14);
+
+      // Clear stats with value first, targets last
+      handleCommand("set ac clear HeroA HeroB");
+      expect(creatures.find(c => c.name === "HeroA")?.ac).toBeNull();
+      expect(creatures.find(c => c.name === "HeroB")?.ac).toBeNull();
+      expect(creatures.find(c => c.name === "HeroC")?.ac).toBe(18);
+    });
+
+    test("multi-target set commands are fully undoable and redoable", () => {
+      handleCommand("new game");
+      handleCommand("add pc HeroA HeroB");
+
+      const initUndoLen = getHistoryStacks().undoLength;
+      handleCommand("set hp 50 HeroA HeroB");
+      expect(getHistoryStacks().undoLength).toBe(initUndoLen + 1);
+      expect(creatures.find(c => c.name === "HeroA")?.hpMax).toBe(50);
+      expect(creatures.find(c => c.name === "HeroB")?.hpMax).toBe(50);
+
+      // Undo reverts both
+      handleCommand("undo");
+      expect(getHistoryStacks().undoLength).toBe(initUndoLen);
+      expect(creatures.find(c => c.name === "HeroA")?.hpMax).toBeNull();
+      expect(creatures.find(c => c.name === "HeroB")?.hpMax).toBeNull();
+
+      // Redo restores both
+      handleCommand("redo");
+      expect(creatures.find(c => c.name === "HeroA")?.hpMax).toBe(50);
+      expect(creatures.find(c => c.name === "HeroB")?.hpMax).toBe(50);
+    });
+
+    test("set type and change type support multiple targets as last args and are undoable", () => {
+      handleCommand("new game");
+      handleCommand("add pc HeroA HeroB");
+
+      handleCommand("set type enemy HeroA HeroB");
+      expect(creatures.find(c => c.name === "HeroA")?.type).toBe("enemy");
+      expect(creatures.find(c => c.name === "HeroB")?.type).toBe("enemy");
+
+      handleCommand("change type neutral HeroA HeroB");
+      expect(creatures.find(c => c.name === "HeroA")?.type).toBe("neutral");
+      expect(creatures.find(c => c.name === "HeroB")?.type).toBe("neutral");
+
+      handleCommand("undo");
+      expect(creatures.find(c => c.name === "HeroA")?.type).toBe("enemy");
+      expect(creatures.find(c => c.name === "HeroB")?.type).toBe("enemy");
+    });
+
+    test("remove char removes multiple targets and is undoable", () => {
+      handleCommand("new game");
+      handleCommand("add pc HeroA HeroB HeroC");
+      expect(creatures.length).toBe(3);
+
+      handleCommand("remove char HeroA HeroC");
+      expect(creatures.length).toBe(1);
+      expect(creatures[0]?.name).toBe("HeroB");
+
+      handleCommand("undo");
+      expect(creatures.length).toBe(3);
+      expect(creatures.map(c => c.name)).toEqual(["HeroA", "HeroB", "HeroC"]);
+    });
+
+    test("add and remove status effects support multiple targets as last args and are undoable", () => {
+      handleCommand("new game");
+      handleCommand("add pc HeroA HeroB");
+
+      handleCommand("add eff Blinded HeroA HeroB");
+      expect(creatures.find(c => c.name === "HeroA")?.statusEffects).toContain("Blinded");
+      expect(creatures.find(c => c.name === "HeroB")?.statusEffects).toContain("Blinded");
+
+      handleCommand("remove eff Blinded HeroA HeroB");
+      expect(creatures.find(c => c.name === "HeroA")?.statusEffects).not.toContain("Blinded");
+      expect(creatures.find(c => c.name === "HeroB")?.statusEffects).not.toContain("Blinded");
+
+      handleCommand("undo");
+      expect(creatures.find(c => c.name === "HeroA")?.statusEffects).toContain("Blinded");
+      expect(creatures.find(c => c.name === "HeroB")?.statusEffects).toContain("Blinded");
+    });
+  });
 });

@@ -56,27 +56,29 @@ Here is a sampling of useful commands to demonstrate the CLI's capabilities:
   add pc Ajax Kaelor
   add enemy "Goblin Warrior" Bugbear
   ```
-- **Set HP, AC, and Initiative (supports multiple value and target pairs):**
+- **Set HP, AC, and Initiative (supports multiple targets or alternating pairs):**
   ```text
-  set hp 45 Ajax 38 Kaelor
-  set ac 18 Ajax 15 Kaelor
-  set init 14 Ajax 18 Kaelor
+  set hp 45 Ajax Kaelor      # Sets HP to 45 for both Ajax and Kaelor
+  set ac 18 Ajax Kaelor      # Sets AC to 18 for both Ajax and Kaelor
+  set init 14 Ajax Kaelor    # Sets init to 14 for both Ajax and Kaelor
+  set hp 45 Ajax 38 Kaelor   # Alternating pairs syntax
   ```
-- **Change creature type (supports shorthand `p`, `e`, `n`, multiple targets, or aliases `change type` and `type`):**
+- **Change creature type (supports shorthand `p`, `e`, `n`, multiple targets, or alias `change type`):**
   ```text
-  set type enemy Ajax
+  set type enemy Ajax Kaelor
   set type pc Legolas Gimli
   set type neutral "Goblin Warrior"
-  change type Ajax pc
+  change type pc Ajax Kaelor
   ```
-- **Clear stats (using `null`, `none`, `clear`, `-`, or `—`):**
+- **Clear stats (using `null`, `none`, `clear`, `-`, `—`, or `clear` command):**
   ```text
-  set ac null Ajax
+  set ac null Ajax Kaelor
   clear init all
+  clear ac Ajax Kaelor
   ```
-- **Remove creatures (individually by name or bulk by type, with shorthand aliases `p`, `e`, `n`):**
+- **Remove creatures (individually by name with multiple targets, or bulk by type, with shorthand aliases `p`, `e`, `n`):**
   ```text
-  remove char Ajax
+  remove char Ajax Kaelor
   remove enemies
   remove pcs
   remove neutrals
@@ -86,25 +88,25 @@ Here is a sampling of useful commands to demonstrate the CLI's capabilities:
   ```
 
 ### Damage, Status Conditions & Resource Usage
-- **Apply damage, heal, or clear damage:**
+- **Apply damage, heal, or clear damage (supports multiple targets):**
   ```text
-  add dmg 12 Kaelor
-  hurt 8 Ajax              # Alias for add dmg
-  remove dmg 6 Kaelor      # Subtract damage taken / heal
-  heal 4 Ajax              # Alias for remove dmg
+  add dmg 12 Ajax Kaelor
+  hurt 8 Ajax Kaelor           # Alias for add dmg
+  remove dmg 6 Ajax Kaelor     # Subtract damage taken / heal
+  heal 4 Ajax Kaelor           # Alias for remove dmg
   clear dmg all
   ```
-- **Track status conditions (supports aliases `eff` / `effect` / `cond` / `condition` / `stat` / `status`):**
+- **Track status conditions (supports multiple targets as the last args, with aliases `eff` / `effect` / `cond` / `condition` / `stat` / `status`):**
   ```text
-  add eff Poisoned Kaelor
+  add eff Poisoned Ajax Kaelor
   add stat Blinded Ajax
-  remove status Poisoned Kaelor
+  remove status Poisoned Ajax Kaelor
   remove cond Blinded Ajax
   ```
   *(Standard D&D 5.5e conditions, statuses, defenses, and advantage/disadvantage modifiers are defined in `statusEffects.ts`)*
-- **Track resource usages (supports `res`, `use res` commands, and partial matching):**
+- **Track resource usages (supports `res`, `use res` commands, multiple targets, and partial matching):**
   ```text
-  add res legaction Joe          # Adds legaction=1 under Resource Usage
+  add res legaction Joe Bob      # Adds legaction=1 for Joe and Bob
   use res lega Joe               # Increments legaction to 2 (via partial match)
   remove res leg Joe             # Decrements legaction back to 1 (removes completely when 0)
   clear res Joe                  # Clears all resource usages for Joe

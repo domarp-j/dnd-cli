@@ -771,22 +771,6 @@ type FindManyResult =
   | { ok: false; error: string };
 
 function findCreaturesForIdentifier(identifier: string): FindManyResult {
-  const isWildcard = identifier.includes("*");
-
-  if (isWildcard) {
-    const escaped = identifier
-      .split("*")
-      .map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
-      .join(".*");
-    const pattern = new RegExp(escaped, "i");
-    const matches = creatures.filter((c) => pattern.test(c.name));
-
-    if (matches.length === 0) {
-      return { ok: false, error: `No creature matching "${identifier}".` };
-    }
-    return { ok: true, creatures: matches };
-  }
-
   const lower = identifier.toLowerCase();
   const exactMatch = creatures.find((c) => c.name.toLowerCase() === lower);
   if (exactMatch) {
@@ -804,10 +788,9 @@ function findCreaturesForIdentifier(identifier: string): FindManyResult {
     return { ok: false, error: `No creature matching "${identifier}".` };
   }
   const names = matches.map((c) => c.name).join(", ");
-  const suggestedWildcard = identifier.endsWith("*") ? identifier : `${identifier}*`;
   return {
     ok: false,
-    error: `Ambiguous match "${identifier}" — matches: ${names}. Perhaps you meant ${suggestedWildcard}?`,
+    error: `Ambiguous match "${identifier}" — matches: ${names}.`,
   };
 }
 
@@ -993,11 +976,11 @@ function handleCommandInternal(input: string): boolean {
           { command: "clear res (<all> | <target>...)", desc: "Clear resource usage for target(s) or all" },
           { command: "remove dmg <value> <target>...", desc: "Heal/subtract damage from target(s)" },
           { command: "heal <value> <target>...", desc: "Heal/subtract damage from target(s)" },
-          { command: "remove (eff | cond | stat) <eff> <t>", desc: "Remove status effect from target(s)" },
+          { command: "remove (eff | cond | stat) <eff> <target>...", desc: "Remove status effect from target(s)" },
           { command: "remove res <name> <target>...", desc: "Remove/decrement resource usage from target(s)" },
-          { command: "set ac <val> <target> [<val> <target>...]", desc: "Set AC pairs (e.g. 15 joe 18 jane)" },
-          { command: "set hp <val> <target> [<val> <target>...]", desc: "Set HP max pairs (e.g. 45 joe 50 jane)" },
-          { command: "set init <val> <target> [<val> <target>...]", desc: "Set initiative pairs (e.g. 15 joe 10 jane)" },
+          { command: "set ac <val> <target>...", desc: "Set AC (supports multiple targets or pairs)" },
+          { command: "set hp <val> <target>...", desc: "Set HP max (supports multiple targets or pairs)" },
+          { command: "set init <val> <target>...", desc: "Set initiative (supports multiple targets or pairs)" },
         ]
       },
       {
@@ -1636,7 +1619,7 @@ function handleCommandInternal(input: string): boolean {
         return true;
       }
 
-      if (targets[0] === "all" || targets[0] === "*") {
+      if (targets[0] === "all") {
         withTurnPreservation(() => {
           for (const c of creatures) {
             c.resourceUsage = {};
@@ -1677,7 +1660,7 @@ function handleCommandInternal(input: string): boolean {
         return true;
       }
 
-      if (targets[0] === "all" || targets[0] === "*") {
+      if (targets[0] === "all") {
         withTurnPreservation(() => {
           for (const c of creatures) {
             c.initiative = null;
@@ -1718,7 +1701,7 @@ function handleCommandInternal(input: string): boolean {
         return true;
       }
 
-      if (targets[0] === "all" || targets[0] === "*") {
+      if (targets[0] === "all") {
         withTurnPreservation(() => {
           for (const c of creatures) {
             c.dmg = 0;
@@ -1759,7 +1742,7 @@ function handleCommandInternal(input: string): boolean {
         return true;
       }
 
-      if (targets[0] === "all" || targets[0] === "*") {
+      if (targets[0] === "all") {
         withTurnPreservation(() => {
           for (const c of creatures) {
             c.hpMax = null;
@@ -1800,7 +1783,7 @@ function handleCommandInternal(input: string): boolean {
         return true;
       }
 
-      if (targets[0] === "all" || targets[0] === "*") {
+      if (targets[0] === "all") {
         withTurnPreservation(() => {
           for (const c of creatures) {
             c.ac = null;
@@ -1976,36 +1959,73 @@ function handleCommandInternal(input: string): boolean {
 
     const args = parts.slice(2);
 
-    if (!field || args.length === 0 || args.length % 2 !== 0) {
+    if (!field || args.length < 2) {
       renderTable();
       const msg = fieldInput && !field
         ? `Unknown field "${fieldInput}". Use hp, ac, init, or type.`
-        : `Usage: set <hp|ac|init> <value1> <target1> [<value2> <target2> ...] (e.g. "set hp 13 joe 9 jane")`;
+        : `Usage: set <hp|ac|init> <value> <target>... (e.g. "set hp 40 joe jane")`;
       console.log(`${RED}${msg}${RESET}\n`);
       return true;
     }
 
+    const isNullVal = (str: string) => {
+      const lower = str.toLowerCase();
+      return lower === "null" || lower === "none" || lower === "clear" || lower === "-" || lower === "—";
+    };
+
+    const parseVal = (str: string): number | null | undefined => {
+      if (isNullVal(str)) return null;
+      const n = parseInt(str, 10);
+      return isNaN(n) ? undefined : n;
+    };
+
     const updates: { creatures: Creature[]; val: number | null; rawTarget: string; rawVal: string }[] = [];
-    for (let i = 0; i < args.length; i += 2) {
-      const rawVal = args[i]!;
-      const rawTarget = args[i + 1]!;
-      const lowerVal = rawVal.toLowerCase();
-      const isNullVal = lowerVal === "null" || lowerVal === "none" || lowerVal === "clear" || lowerVal === "-" || lowerVal === "—";
-      const val = isNullVal ? null : parseInt(rawVal, 10);
-      if (!isNullVal && isNaN(val as number)) {
+
+    // Check if alternating pairs: even length >= 4, every even index has a valid number/null value,
+    // and every odd index is NOT a number/null value.
+    let isPairs = args.length >= 4 && args.length % 2 === 0;
+    if (isPairs) {
+      for (let i = 0; i < args.length; i += 2) {
+        if (parseVal(args[i]!) === undefined || parseVal(args[i + 1]!) !== undefined) {
+          isPairs = false;
+          break;
+        }
+      }
+    }
+
+    if (isPairs) {
+      for (let i = 0; i < args.length; i += 2) {
+        const rawVal = args[i]!;
+        const rawTarget = args[i + 1]!;
+        const val = parseVal(rawVal)!;
+
+        const result = findCreatures([rawTarget]);
+        if (!result.ok) {
+          renderTable();
+          console.log(`${RED}${result.error}${RESET}\n`);
+          return true;
+        }
+
+        updates.push({ creatures: result.creatures, val, rawTarget, rawVal });
+      }
+    } else {
+      const rawVal = args[0]!;
+      const val = parseVal(rawVal);
+      if (val === undefined) {
         renderTable();
-        console.log(`${RED}"${rawVal}" is not a valid number for target "${rawTarget}".${RESET}\n`);
+        console.log(`${RED}"${rawVal}" is not a valid number. Usage: set <hp|ac|init> <value> <target>...${RESET}\n`);
         return true;
       }
 
-      const result = findCreatures([rawTarget]);
+      const targetArgs = args.slice(1);
+      const result = findCreatures(targetArgs);
       if (!result.ok) {
         renderTable();
         console.log(`${RED}${result.error}${RESET}\n`);
         return true;
       }
 
-      updates.push({ creatures: result.creatures, val, rawTarget, rawVal });
+      updates.push({ creatures: result.creatures, val, rawTarget: targetArgs.join(" "), rawVal });
     }
 
     const summaryItems: string[] = [];
@@ -2125,7 +2145,7 @@ function handleCommandInternal(input: string): boolean {
         return true;
       }
 
-      if (targets[0] === "all" || targets[0] === "*") {
+      if (targets[0] === "all") {
         withTurnPreservation(() => {
           for (const c of creatures) {
             c.initiative = null;
@@ -2194,7 +2214,7 @@ function handleCommandInternal(input: string): boolean {
           return true;
         }
 
-        if (targets[0] === "all" || targets[0] === "*") {
+        if (targets[0] === "all") {
           withTurnPreservation(() => {
             for (const c of creatures) {
               c.dmg = 0;
@@ -2236,7 +2256,7 @@ function handleCommandInternal(input: string): boolean {
         return true;
       }
 
-      if (targets[0] === "all" || targets[0] === "*") {
+      if (targets[0] === "all") {
         withTurnPreservation(() => {
           for (const c of creatures) {
             c.hpMax = null;
@@ -2275,7 +2295,7 @@ function handleCommandInternal(input: string): boolean {
         return true;
       }
 
-      if (targets[0] === "all" || targets[0] === "*") {
+      if (targets[0] === "all") {
         withTurnPreservation(() => {
           for (const c of creatures) {
             c.ac = null;
@@ -2373,8 +2393,8 @@ function handleCommandInternal(input: string): boolean {
     }
 
     if (category && category !== "char") {
-      // Bulk remove if no targets specified, or targets[0] === "all" / "*"
-      if (targetArgs.length === 0 || targetArgs[0] === "all" || targetArgs[0] === "*") {
+      // Bulk remove if no targets specified, or targets[0] === "all"
+      if (targetArgs.length === 0 || targetArgs[0] === "all") {
         let removedCount = 0;
         withTurnPreservation(() => {
           for (let i = creatures.length - 1; i >= 0; i--) {
@@ -2753,7 +2773,7 @@ export function processSaveDeleteSelection(answer: string): boolean {
   const tokens = choiceStr.split(/[\s,]+/).filter(Boolean);
   let targetNames: string[] = [];
 
-  if (tokens.length === 1 && (tokens[0]!.toLowerCase() === "all" || tokens[0]! === "*")) {
+  if (tokens.length === 1 && tokens[0]!.toLowerCase() === "all") {
     targetNames = saves.map((s) => s.name);
   } else {
     for (const token of tokens) {
@@ -3009,7 +3029,7 @@ export function completer(line: string): [string[], string] {
         const formatted = c.name.includes(" ") ? `"${c.name}"` : c.name;
         return `${baseParts.join(" ")} ${formatted}`;
       });
-    } else if (baseParts.length % 2 === 1) {
+    } else if (baseParts.length >= 2) {
       completions = creatures.map(c => {
         const formatted = c.name.includes(" ") ? `"${c.name}"` : c.name;
         return `${baseParts.join(" ")} ${formatted}`;
