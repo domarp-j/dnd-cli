@@ -22,6 +22,8 @@ import {
   completer,
   wrapStatusEffects,
   highlightMatch,
+  getLatestSave,
+  initializeSession,
 } from "./index";
 
 const SAVES_DIR = path.join(process.cwd(), "saves");
@@ -1283,6 +1285,120 @@ describe("D&D CLI Tracker Test Suite", () => {
       // Running a command should not clear manual Dead on null hpMax creature
       handleCommand("add neutral Skeleton");
       expect(creatures.find(c => c.name === "Ghost")?.statusEffects).toContain("Dead");
+    });
+  });
+
+  describe("Default Session Loading & Startup", () => {
+    test("getLatestSave returns the most recently saved session file", () => {
+      handleCommand("new game");
+      handleCommand("add pc FirstHero");
+      handleCommand("save test_startup_older");
+
+      const olderPath = path.join(SAVES_DIR, "test_startup_older.json");
+      const olderData = JSON.parse(fs.readFileSync(olderPath, "utf-8"));
+      olderData.savedAt = new Date(Date.now() - 100000).toISOString();
+      fs.writeFileSync(olderPath, JSON.stringify(olderData, null, 2), "utf-8");
+
+      handleCommand("new game");
+      handleCommand("add pc NewerHero");
+      handleCommand("save test_startup_newer");
+
+      const newerPath = path.join(SAVES_DIR, "test_startup_newer.json");
+      const newerData = JSON.parse(fs.readFileSync(newerPath, "utf-8"));
+      newerData.savedAt = new Date(Date.now()).toISOString();
+      fs.writeFileSync(newerPath, JSON.stringify(newerData, null, 2), "utf-8");
+
+      const latest = getLatestSave();
+      expect(latest).not.toBeNull();
+      expect(latest?.name).toBe("test_startup_newer");
+    });
+
+    test("initializeSession loads the latest session by default", () => {
+      handleCommand("new game");
+      handleCommand("add pc TargetHero");
+      handleCommand("set hp 50 TargetHero");
+      handleCommand("save test_default_autoload");
+
+      resetState();
+      expect(creatures.length).toBe(0);
+
+      const res = initializeSession();
+      expect(res.loaded).toBeTrue();
+      expect(res.sessionName).toBe("test_default_autoload");
+      expect(creatures.length).toBe(1);
+      expect(creatures[0]?.name).toBe("TargetHero");
+      expect(creatures[0]?.hpMax).toBe(50);
+    });
+
+    test("initializeSession respects fresh flag and starts fresh", () => {
+      handleCommand("new game");
+      handleCommand("add pc SavedHero");
+      handleCommand("save test_fresh_override");
+
+      resetState();
+      const res = initializeSession({ fresh: true });
+      expect(res.loaded).toBeFalse();
+      expect(res.sessionName).toBeNull();
+      expect(creatures.length).toBe(0);
+    });
+
+    test("initializeSession loads specific session when requested", () => {
+      handleCommand("new game");
+      handleCommand("add pc SpecificHero");
+      handleCommand("save test_specific_slot");
+
+      resetState();
+      const res = initializeSession({ saveName: "test_specific_slot" });
+      expect(res.loaded).toBeTrue();
+      expect(res.sessionName).toBe("test_specific_slot");
+      expect(creatures.some(c => c.name === "SpecificHero")).toBeTrue();
+    });
+
+    test("initializeSession falls back cleanly if save not found", () => {
+      resetState();
+      const res = initializeSession({ saveName: "non_existent_save_file_xyz" });
+      expect(res.loaded).toBeFalse();
+      expect(res.error).toBeDefined();
+      expect(creatures.length).toBe(0);
+    });
+
+    test("loaded session correctly supports undo and redo on subsequent commands", () => {
+      handleCommand("new game");
+      handleCommand("add pc UndoLoadedHero");
+      handleCommand("set hp 40 UndoLoadedHero");
+      handleCommand("save test_undo_on_loaded");
+
+      resetState();
+      initializeSession({ saveName: "test_undo_on_loaded" });
+
+      expect(creatures.length).toBe(1);
+      expect(creatures[0]?.name).toBe("UndoLoadedHero");
+      expect(getHistoryStacks().undoLength).toBe(0);
+
+      // Mutate loaded session
+      handleCommand("add dmg 15 UndoLoadedHero");
+      expect(creatures[0]?.dmg).toBe(15);
+      expect(getHistoryStacks().undoLength).toBe(1);
+
+      // Verify Undo restores pre-mutation loaded state
+      handleCommand("undo");
+      expect(creatures[0]?.dmg).toBe(0);
+      expect(getHistoryStacks().undoLength).toBe(0);
+
+      // Verify Redo re-applies mutation
+      handleCommand("redo");
+      expect(creatures[0]?.dmg).toBe(15);
+      expect(getHistoryStacks().undoLength).toBe(1);
+
+      // Verify batch undo on loaded session
+      handleCommand("add dmg 5 UndoLoadedHero");
+      handleCommand("set ac 18 UndoLoadedHero");
+      expect(creatures[0]?.dmg).toBe(20);
+      expect(creatures[0]?.ac).toBe(18);
+
+      handleCommand("undo 2");
+      expect(creatures[0]?.dmg).toBe(15);
+      expect(creatures[0]?.ac).toBeNull();
     });
   });
 });

@@ -352,6 +352,68 @@ export function listSaves(): { name: string; count: number; savedAt: string; fil
   return results;
 }
 
+export function getLatestSave(): { name: string; count: number; savedAt: string; filepath: string } | null {
+  const saves = listSaves();
+  if (saves.length === 0) return null;
+
+  saves.sort((a, b) => {
+    const timeA = a.savedAt !== "Unknown" ? new Date(a.savedAt).getTime() : 0;
+    const timeB = b.savedAt !== "Unknown" ? new Date(b.savedAt).getTime() : 0;
+    if (timeA !== timeB && !isNaN(timeA) && !isNaN(timeB)) {
+      return timeB - timeA;
+    }
+    try {
+      const mtimeA = fs.statSync(a.filepath).mtimeMs;
+      const mtimeB = fs.statSync(b.filepath).mtimeMs;
+      return mtimeB - mtimeA;
+    } catch {
+      return 0;
+    }
+  });
+
+  return saves[0] ?? null;
+}
+
+export interface StartupOptions {
+  fresh?: boolean;
+  saveName?: string;
+}
+
+export function initializeSession(options: StartupOptions = {}): {
+  loaded: boolean;
+  sessionName: string | null;
+  error?: string;
+} {
+  if (options.fresh) {
+    resetState();
+    return { loaded: false, sessionName: null };
+  }
+
+  if (options.saveName) {
+    const res = loadState(options.saveName);
+    if (res.ok) {
+      return { loaded: true, sessionName: res.name };
+    } else {
+      resetState();
+      return { loaded: false, sessionName: null, error: res.error };
+    }
+  }
+
+  const latest = getLatestSave();
+  if (latest) {
+    const res = loadState(latest.name);
+    if (res.ok) {
+      return { loaded: true, sessionName: res.name };
+    } else {
+      resetState();
+      return { loaded: false, sessionName: null, error: res.error };
+    }
+  }
+
+  resetState();
+  return { loaded: false, sessionName: null };
+}
+
 export function deleteSave(saveName: string): { ok: true; name: string; filepath: string } | { ok: false; error: string } {
   ensureSavesDir();
   if (!saveName || !saveName.trim()) {
@@ -3009,14 +3071,46 @@ export function completer(line: string): [string[], string] {
 // --- REPL ---
 
 if (import.meta.main) {
+  const args = process.argv.slice(2);
+
+  if (args.includes("--help") || args.includes("-h")) {
+    console.log(`
+${BOLD}${MAGENTA}⚔  dnd-cli — D&D Combat State Tracker${RESET}
+
+${BOLD}Usage:${RESET}
+  dnd                Start tracker (loads the last session by default)
+  dnd --new, -n      Start a fresh, unsaved game session
+  dnd <session_name> Start tracker loading a specific saved session
+  dnd --help, -h     Show this help message
+`);
+    process.exit(0);
+  }
+
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
     completer,
   });
 
-  resetState();
+  const isFresh = args.includes("--new") || args.includes("-n") || args.includes("--fresh");
+  const specificSave = args.find((arg) => !arg.startsWith("-"));
+
+  const startup = initializeSession({
+    fresh: isFresh,
+    saveName: specificSave,
+  });
+
   renderTable();
+
+  if (startup.loaded && startup.sessionName) {
+    if (specificSave) {
+      console.log(`${GREEN}✓ Loaded session: "${startup.sessionName}" (${creatures.length} creature${creatures.length === 1 ? "" : "s"})${RESET}\n`);
+    } else {
+      console.log(`${GREEN}✓ Loaded last session: "${startup.sessionName}" (${creatures.length} creature${creatures.length === 1 ? "" : "s"})${RESET}\n`);
+    }
+  } else if (startup.error) {
+    console.log(`${YELLOW}⚠ Could not load session: ${startup.error}. Started fresh new game.${RESET}\n`);
+  }
 
   function isAtMainPrompt(): boolean {
     return (

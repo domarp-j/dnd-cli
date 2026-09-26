@@ -19,7 +19,19 @@ bun install
 Start the interactive CLI directly with the `dnd` alias:
 
 ```bash
+# Start tracker (automatically loads your last saved session by default):
 dnd
+
+# Start a fresh, unsaved game session:
+dnd --new
+# or
+dnd -n
+
+# Load a specific session by name directly:
+dnd <session_name>
+
+# View CLI options:
+dnd --help
 ```
 
 Alternatively, run via Bun:
@@ -131,7 +143,9 @@ Here is a sampling of useful commands to demonstrate the CLI's capabilities:
   load save dungeon_room2  # Loads specific save
   saves                   # View all saved game files (alias 'list saves')
   delete save dungeon_room1 # Delete save file (alias 'del save')
+  new game                # Reset to a fresh unsaved game
   ```
+  *(Note: When launched, the tracker automatically loads your most recently saved session by default.)*
 
 ### Undo and Redo History
 - **Revert or re-apply state mutations (supports optional count arguments):**
